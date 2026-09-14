@@ -22,12 +22,15 @@ const source = {
 };
 
 let app = null;
+const params = new URLSearchParams(location.search);
+window.__renderErrors = [];
 window.__embeddedQa = {
   async create() {
     app = createEmbeddedApplication({
       root: document.getElementById('host-root'),
       worldModelSource: source,
       apiBaseUrl: null,
+      cesiumToken: params.get('cesiumToken') || null,
       initialCamera: {
         lon: -122.25,
         lat: 37.62,
@@ -38,6 +41,13 @@ window.__embeddedQa = {
       worldModel: { updateInterval: 5000 },
     });
     await app.start();
+    app
+      .getComponents()
+      .scene.viewer.scene.renderError.addEventListener((_, error) =>
+        window.__renderErrors.push(
+          String(error?.stack || error?.message || error),
+        ),
+      );
     return app.getState().status;
   },
   async enableWorldModel() {

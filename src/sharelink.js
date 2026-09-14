@@ -467,8 +467,14 @@ export class ShareLinkManager {
     if (this._destroyed || this._initialRestorePending) return;
     const params = this._buildHashParams();
     if (!params) return;
-    // Preserve history.state: an embedding host's router keeps its own entry there.
-    history.replaceState(history.state, '', `#${params.toString()}`);
+    // Preserve the path and history.state: a bare '#…' resolves against an
+    // embedding page's <base href>, and its router keeps its entry in state.
+    const { pathname = '', search = '' } = window.location;
+    history.replaceState(
+      history.state,
+      '',
+      `${pathname}${search}#${params.toString()}`,
+    );
   }
 
   /** Build a deterministic snapshot without mutating history. */

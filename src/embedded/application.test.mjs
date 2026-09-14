@@ -99,6 +99,46 @@ test('embedded markup and scoped stylesheet are generated from index.html and st
   assert.match(APPLICATION_MARKUP, /id="cesiumContainer"/);
   assert.match(APPLICATION_MARKUP, /id="loading-screen"/);
   assert.doesNotMatch(APPLICATION_MARKUP, /<script/i);
+  const { APPLICATION_STYLESHEETS } = await import('./markup.js');
+  assert.ok(
+    APPLICATION_STYLESHEETS.some((href) => href.includes('Material+Symbols')),
+  );
+  assert.ok(
+    APPLICATION_STYLESHEETS.every((href) => href.startsWith('https://')),
+  );
+});
+
+test('font stylesheets are added once and only the added links are removed', async () => {
+  const { attachApplicationStylesheets, APPLICATION_STYLESHEETS } =
+    await import('./chrome.js');
+  const links = [];
+  const makeLink = (href) => ({
+    rel: 'stylesheet',
+    href,
+    dataset: {},
+    getAttribute: (name) => (name === 'href' ? href : null),
+    remove() {
+      links.splice(links.indexOf(this), 1);
+    },
+  });
+  links.push(makeLink(APPLICATION_STYLESHEETS[0]));
+  const document = {
+    head: {
+      querySelectorAll: () => [...links],
+      appendChild: (link) => links.push(link),
+    },
+    createElement: () => {
+      const link = makeLink('');
+      Object.defineProperty(link, 'getAttribute', {
+        value: (name) => (name === 'href' ? link.href : null),
+      });
+      return link;
+    },
+  };
+  const detach = attachApplicationStylesheets(document);
+  assert.equal(links.length, APPLICATION_STYLESHEETS.length);
+  detach();
+  assert.equal(links.length, 1, 'the host-owned link stays');
 });
 
 test('stylesheet scoping keeps application state classes on body and targets under the root', () => {

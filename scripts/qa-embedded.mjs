@@ -17,7 +17,8 @@
  *   6. ALL LAYERS — every registered layer (module singletons included) enabled
  *                   with no provider API, then torn down, then a clean restart.
  *
- * Usage: node scripts/qa-embedded.mjs [--port 5188] [--headful] [--verbose]
+ * Usage: node scripts/qa-embedded.mjs [--port 5188] [--headful] [--verbose] [--cesium-token <token>]
+ * (or CESIUM_ION_TOKEN) to start on Google 3D tiles through Cesium ion.
  */
 import { fileURLToPath } from 'node:url';
 import puppeteer from 'puppeteer';
@@ -45,7 +46,10 @@ const server = await createServer({
   logLevel: 'warn',
 });
 await server.listen();
-const url = `http://127.0.0.1:${port}/tools/embedded-qa/index.html`;
+const cesiumToken = argv.includes('--cesium-token')
+  ? argv[argv.indexOf('--cesium-token') + 1]
+  : process.env.CESIUM_ION_TOKEN || '';
+const url = `http://127.0.0.1:${port}/tools/embedded-qa/index.html${cesiumToken ? `?cesiumToken=${encodeURIComponent(cesiumToken)}` : ''}`;
 
 const browser = await puppeteer.launch({
   headless: argv.includes('--headful') ? false : 'new',
@@ -236,6 +240,12 @@ try {
   await cycle(page, cdp, 'second', baseline);
   await cycle(page, cdp, 'all-layers', baseline, { allLayers: true });
   await cycle(page, cdp, 'after-all-layers', baseline);
+  const renderErrors = await page.evaluate(() => window.__renderErrors);
+  check(
+    'no render errors',
+    renderErrors.length === 0,
+    renderErrors.slice(0, 3),
+  );
   check('no page errors', errors.length === 0, errors.slice(0, 10));
 } catch (error) {
   console.error(error);

@@ -16,7 +16,8 @@
  * Lifecycle: the returned handle is the `createApplication` handle
  * (start/destroy/subscribe/getState/getComponents). One application runs per
  * page at a time; after `destroy()` resolves, a new one may start. Destroy
- * removes the chrome, restores <body> classes, endpoint and host settings.
+ * removes the chrome and the font stylesheets it added to <head>, and restores
+ * <body> classes, endpoint and host settings.
  *
  * Nothing here imports server, build or provider modules.
  */
@@ -24,10 +25,15 @@ import { composeApplication } from '../standalone/application.js';
 import { createStandaloneWorldModelLayer } from '../data/worldModel.js';
 import { configureEndpoints } from '../sources/endpoints.js';
 import { configureHostElement } from '../app/host.js';
-import { renderApplicationMarkup, ROOT_CLASS } from './chrome.js';
+import {
+  attachApplicationStylesheets,
+  renderApplicationMarkup,
+  ROOT_CLASS,
+} from './chrome.js';
 
 export {
   APPLICATION_MARKUP,
+  APPLICATION_STYLESHEETS,
   renderApplicationMarkup,
   ROOT_CLASS,
 } from './chrome.js';
@@ -90,6 +96,7 @@ export function createEmbeddedApplication({
       });
       defer(configureEndpoints({ apiBaseUrl, assetBaseUrl }));
       defer(configureHostElement(root));
+      defer(attachApplicationStylesheets(document));
       root.classList.add(ROOT_CLASS);
       root.innerHTML = renderApplicationMarkup(assetBaseUrl);
       queryRoot = root;

@@ -1,7 +1,7 @@
 /** The embedded application's chrome: generated markup plus host asset paths. */
-import { APPLICATION_MARKUP } from './markup.js';
+import { APPLICATION_MARKUP, APPLICATION_STYLESHEETS } from './markup.js';
 
-export { APPLICATION_MARKUP };
+export { APPLICATION_MARKUP, APPLICATION_STYLESHEETS };
 
 /** Class the embedded stylesheet scopes every rule under. */
 export const ROOT_CLASS = 'gods-eye-root';
@@ -20,4 +20,28 @@ export function renderApplicationMarkup(assetBaseUrl) {
     MARKUP_ASSET_ATTRIBUTE,
     (_, attribute, file) => `${attribute}="${base}/${file}"`,
   );
+}
+
+/**
+ * Add the chrome's external stylesheets (web and icon fonts) to `document`'s
+ * <head> unless the host already loads them. Returns a function removing the
+ * links this call added.
+ */
+export function attachApplicationStylesheets(document) {
+  const added = [];
+  for (const href of APPLICATION_STYLESHEETS) {
+    const present = [
+      ...document.head.querySelectorAll('link[rel="stylesheet"]'),
+    ].some((link) => link.getAttribute('href') === href);
+    if (present) continue;
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = href;
+    link.dataset.godsEyeStylesheet = '';
+    document.head.appendChild(link);
+    added.push(link);
+  }
+  return () => {
+    for (const link of added.splice(0)) link.remove();
+  };
 }
