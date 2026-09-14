@@ -1,0 +1,11 @@
+.env*
+.git
+.gev-*
+dist
+node_modules
+pinokio
+screenshots
+qa-shots
+output
+3d-models
+**/*.log

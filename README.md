@@ -364,6 +364,22 @@ src/
 
 See [`docs/CURRENT-STATE.md`](docs/CURRENT-STATE.md) for the authoritative runtime reference.
 
+### Provider server (gods-eye-compat)
+
+This is a temporary service. It hosts the `/api/*` provider plugins without Vite, so that Gods Eye layers not yet moved into the Dataforge world model keep working while the backend is migrated (DWM-34 / DWM-27). `npm run dev` is unchanged.
+
+```bash
+npm run serve:providers          # http://127.0.0.1:8200, GET /healthz lists mounted providers
+docker build -t gods-eye-compat:dev . && docker run -p 8200:8200 gods-eye-compat:dev
+```
+
+- **Environment.** `HOST` (default `127.0.0.1`; the image uses `0.0.0.0`), `PORT` (default `8200`), and `GEV_COMPAT_CACHE_PRUNE_DAYS` (default `7`; TomTom flow tiles older than this are deleted at startup, and `budget.json` is always kept). Provider keys use the same names as in `.env`. A `.env` file is read only when it exists, and it never overrides the real environment. An unset key means the provider is not configured.
+- **Excluded routes.** Provider Settings (`/api/setup/*`) and the `/api/world` dev adapter are never mounted.
+- **Single replica only.** AISStream allows one socket per key. On SIGTERM the host closes provider resources (the AIS socket) first, then HTTP, and forcibly drops any connections still open after 5 s.
+- **Removing a provider.** Mounted plugins come from the two ledgers in [`server/standalone/compat-providers.js`](server/standalone/compat-providers.js). When a connector ticket moves a layer onto the world model, delete that provider's row and flip the matching row on the DWM harness page. `src/tooling/compatProviders.test.mjs` fails if a local provider is on neither ledger. Once both ledgers are empty, delete this host and the `Dockerfile`.
+
+The Kubernetes manifests live in Dataforge-World-Model under `deploy/compat/`.
+
 ---
 
 ## 🔑 API Keys
