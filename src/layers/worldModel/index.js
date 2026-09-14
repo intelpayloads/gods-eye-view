@@ -1,31 +1,50 @@
 import * as Cesium from 'cesium';
 import {
-  aircraftRecordsFromProjection,
+  countByBinding,
+  fieldSampleRecordsFromProjection,
+  pointRecordsFromProjection,
   summarizeProjection,
-  weatherRecordsFromProjection,
 } from './adapter.js';
+import { createWorldViewController } from './controller.js';
+import {
+  FOLLOW_MODES,
+  POLICY_MODES,
+  demandBbox,
+  formatAge,
+  policyModeOf,
+} from './demand.js';
 import { createSelection, WORLD_MODEL_OVERLAY_SOURCE_ID } from './selection.js';
-import { assertProjectionSource } from './source.js';
-import { DEFAULT_VIEW, viewRectangleDegrees } from './view.js';
+import { assertProjectionSource, sourceFeatures } from './source.js';
+import {
+  DEFAULT_DISPLAY_ASSUMPTIONS,
+  DEFAULT_PREDICATES,
+  DEFAULT_VIEW,
+  HEAD,
+  viewRectangleDegrees,
+} from './view.js';
 export * from './adapter.js';
+export * from './controller.js';
+export * from './demand.js';
 export * from './selection.js';
 export * from './source.js';
 export * from './view.js';
 
 export const WORLD_MODEL_LAYER_ID = 'world-model';
 
-const AIRCRAFT_COLOR = Cesium.Color.CYAN;
 const OUTLINE_COLOR = Cesium.Color.BLACK.withAlpha(0.7);
 
 /**
- * The world-model layer: ONE completed renderer-neutral projection drawn as
- * Cesium graphics, with Gods Eye's lifecycle, picking and health presentation.
+ * The world-model layer: camera demand -> ordered, cancellable projections
+ * of ONE revision (live head or a pin) drawn as Cesium graphics, with Gods
+ * Eye's lifecycle, picking, params/chips and health presentation.
  *
- * Responsibility ends at Projection JSON -> geometry. The layer does not
- * fetch providers, interpret OpenSky/GRIB, own the camera, or know how the
- * projection was transported (see `source.js`: any ProjectionSource works).
- * Numbers stay authoritative: positions come straight from `position`, the
- * only additions are display choices listed in `DISPLAY_CHOICES`.
+ * Responsibility ends at demand -> Projection JSON -> geometry. The layer
+ * does not fetch providers, interpret OpenSky/GRIB, own the camera, or know
+ * how the projection was transported (any ProjectionSource works). The
+ * `controller` is an adapter proving the DWM-9 interaction semantics; it is
+ * not a library another consumer must import. Numbers stay authoritative:
+ * positions come straight from `position`; the only additions are display
+ * choices listed in `DISPLAY_CHOICES`.
  */
 export function createWorldModelLayer({
   source,
@@ -37,7 +56,12 @@ export function createWorldModelLayer({
   icon = '🌐',
   sourceLabel = 'Dataforge World Model',
   updateInterval = 30_000,
-  view = DEFAULT_VIEW,
+  debounceMs = 300,
+  head = HEAD,
+  displayAssumptions = DEFAULT_DISPLAY_ASSUMPTIONS,
+  predicates = DEFAULT_PREDICATES,
+  policyThresholdSeconds = 30,
+  now = () => Date.now(),
 } = {}) {
   assertProjectionSource(source);
   if (!services?.context || !services?.picking) {
@@ -52,51 +76,63 @@ export function createWorldModelLayer({
       'World model layer requires a screen-space event handler factory',
     );
   }
+  const features = sourceFeatures(source);
 
   const state = {
     viewer: null,
     dataSource: null,
     enabled: false,
-    request: null,
     revisionId: null,
     summary: null,
+    perBinding: [],
     skipped: [],
     byId: new Map(), // projection item id -> { entity, render, cartesian }
     count: 0,
     lastUpdate: null,
-    error: null,
-    errorCode: null,
-    stale: false,
-    loading: false,
     rendered: false,
     selectedId: null,
     clickHandler: null,
     keyHandler: null,
+    cameraRemovers: [],
+    prevPercentageChanged: null,
+    rowControlsListener: null,
+    policyThresholdSeconds,
   };
+  const controller = createWorldViewController({
+    source,
+    initial: {
+      head,
+      displayAssumptions: { ...displayAssumptions },
+      predicates: predicates ? { ...predicates } : null,
+    },
+    debounceMs,
+    now,
+  });
   const selection = createSelection({
     state,
     services,
     overlayHost,
     screenSpaceEventHandlerFactory,
+    source,
     config: { id, name, sourceLabel },
   });
 
-  function abortInFlight() {
-    state.request?.abort();
-    state.request = null;
+  function notifyRowControls() {
+    try {
+      state.rowControlsListener?.();
+    } catch (error) {
+      console.warn('[Data:WorldModel] row-controls listener failed:', error);
+    }
   }
 
   function resetRendered() {
     state.byId = new Map();
     state.revisionId = null;
     state.summary = null;
+    state.perBinding = [];
     state.skipped = [];
     state.count = 0;
     state.lastUpdate = null;
-    state.error = null;
-    state.errorCode = null;
-    state.stale = false;
-    state.loading = false;
     state.rendered = false;
     state.selectedId = null;
   }
@@ -122,7 +158,7 @@ export function createWorldModelLayer({
         }
       : {
           pixelSize: render.display.pixelSize,
-          color: AIRCRAFT_COLOR,
+          color: new Cesium.Color(...render.colorRgb, render.display.alpha),
           outlineColor: OUTLINE_COLOR,
           outlineWidth: 1,
         };
@@ -133,6 +169,7 @@ export function createWorldModelLayer({
       point,
       properties: {
         kind: render.kind,
+        binding: render.binding,
         revision_id: revisionId,
         display: render.display,
         record: render.record,
@@ -141,11 +178,13 @@ export function createWorldModelLayer({
     return { entity, render, cartesian };
   }
 
+  /** Only the controller's apply callback reaches here: ordering is decided there. */
   function applyProjection(projection) {
-    const aircraft = aircraftRecordsFromProjection(projection);
-    const weather = weatherRecordsFromProjection(projection);
+    if (!state.enabled || !state.dataSource) return;
+    const points = pointRecordsFromProjection(projection);
+    const samples = fieldSampleRecordsFromProjection(projection);
     const byId = new Map();
-    for (const render of [...aircraft.records, ...weather.records]) {
+    for (const render of [...points.records, ...samples.records]) {
       byId.set(render.id, buildEntity(render, projection.revision_id));
     }
     const entities = state.dataSource.entities;
@@ -157,20 +196,110 @@ export function createWorldModelLayer({
     state.byId = byId;
     state.revisionId = projection.revision_id;
     state.summary = summarizeProjection(projection);
-    state.skipped = [...aircraft.skipped, ...weather.skipped];
+    state.perBinding = countByBinding([...points.records, ...samples.records]);
+    state.skipped = [...points.skipped, ...samples.skipped];
     state.count = byId.size;
-    state.lastUpdate = Date.now();
-    state.error = null;
-    state.errorCode = null;
-    state.stale = false;
+    state.lastUpdate = now();
     state.rendered = true;
     selection.refreshContextRegistrations();
     selection.reselect();
     console.log(
       `[Data:WorldModel] Rendered revision ${projection.revision_id.slice(0, 8)}: ` +
-        `${aircraft.records.length} aircraft, ${weather.records.length} field samples` +
+        (state.perBinding
+          .map(
+            (b) =>
+              `${b.binding} ${b.points ? `${b.points} points` : ''}${b.points && b.samples ? ' + ' : ''}${b.samples ? `${b.samples} samples` : ''}`,
+          )
+          .join(', ') || 'nothing') +
+        (state.summary.withheld
+          ? `, ${state.summary.withheld} withheld by policy`
+          : '') +
         (state.skipped.length ? `, ${state.skipped.length} skipped` : ''),
     );
+    notifyRowControls();
+  }
+  controller.onProjection(applyProjection);
+
+  function cameraRectangle() {
+    const camera = state.viewer?.camera;
+    if (!camera || typeof camera.computeViewRectangle !== 'function')
+      return undefined;
+    const rect = camera.computeViewRectangle(
+      state.viewer.scene?.globe?.ellipsoid,
+    );
+    if (!rect) return undefined; // horizon in view: no honest rectangle
+    return {
+      west: Cesium.Math.toDegrees(rect.west),
+      south: Cesium.Math.toDegrees(rect.south),
+      east: Cesium.Math.toDegrees(rect.east),
+      north: Cesium.Math.toDegrees(rect.north),
+    };
+  }
+
+  function onCameraChanged() {
+    if (!state.enabled) return;
+    controller.setViewport(demandBbox(cameraRectangle()));
+  }
+
+  function subscribeCamera(viewer) {
+    const camera = viewer?.camera;
+    if (!camera?.changed?.addEventListener) return;
+    camera.changed.addEventListener(onCameraChanged);
+    state.cameraRemovers.push(() =>
+      camera.changed.removeEventListener(onCameraChanged),
+    );
+    if (camera.moveEnd?.addEventListener) {
+      const remove = camera.moveEnd.addEventListener(onCameraChanged);
+      state.cameraRemovers.push(
+        typeof remove === 'function'
+          ? remove
+          : () => camera.moveEnd.removeEventListener(onCameraChanged),
+      );
+    }
+    // percentageChanged is a shared global on the camera: save it so disable
+    // restores the sensitivity every other camera.changed listener expects.
+    state.prevPercentageChanged = camera.percentageChanged;
+    camera.percentageChanged = 0.05;
+  }
+
+  function unsubscribeCamera(viewer) {
+    for (const remove of state.cameraRemovers) {
+      try {
+        remove();
+      } catch {
+        // already released
+      }
+    }
+    state.cameraRemovers = [];
+    const camera = viewer?.camera;
+    if (camera && state.prevPercentageChanged != null) {
+      camera.percentageChanged = state.prevPercentageChanged;
+    }
+    state.prevPercentageChanged = null;
+  }
+
+  function statusLines(status) {
+    const lines = [];
+    for (const binding of status?.bindings || []) {
+      const valid = binding.valid || {};
+      const known = binding.knowledge || {};
+      const sources = (binding.sources || [])
+        .map(
+          (s) =>
+            `${s.connector_instance_id || '?'} ${s.state || 'unknown'}${s.last_checkpoint_at ? ` · checkpoint ${s.last_checkpoint_at}` : ''} · ${s.receipt_count ?? '?'} receipts`,
+        )
+        .join('; ');
+      const run = (binding.processing || [])[0];
+      lines.push({
+        binding: binding.binding,
+        source: `source: ${sources || 'no retained source reached'}`,
+        processing: run
+          ? `processing: ${run.pipeline || '?'} ${run.status || '?'}${run.error?.message ? ` — ${run.error.message}` : ''}`
+          : 'processing: no interpretation run recorded',
+        productTime: `product time: valid ${valid.kind || '?'} to ${valid.latest || '?'} (${formatAge(valid.offset_seconds)} before now) · known ${formatAge(known.age_seconds)} ago · ${binding.admission || '?'}`,
+      });
+    }
+    return lines;
   }
 
   const layer = {
@@ -179,6 +308,7 @@ export function createWorldModelLayer({
     icon,
     source: sourceLabel,
     updateInterval,
+    controller,
 
     init(viewer) {
       if (state.viewer)
@@ -193,7 +323,7 @@ export function createWorldModelLayer({
       console.log('[Data:WorldModel] Initialized');
     },
 
-    enable() {
+    enable(viewer = state.viewer) {
       state.enabled = true;
       if (state.dataSource) state.dataSource.show = true;
       selection.installClickHandler();
@@ -201,12 +331,14 @@ export function createWorldModelLayer({
         state.byId.has(pickedId),
       );
       overlayHost.setVisible(WORLD_MODEL_OVERLAY_SOURCE_ID, true);
+      subscribeCamera(viewer);
+      onCameraChanged();
     },
 
-    disable() {
-      abortInFlight();
+    disable(viewer = state.viewer) {
+      controller.cancel();
       state.enabled = false;
-      state.loading = false;
+      unsubscribeCamera(viewer);
       if (state.dataSource) state.dataSource.show = false;
       selection.clearSelection();
       selection.removeClickHandler();
@@ -216,63 +348,26 @@ export function createWorldModelLayer({
     },
 
     /**
-     * Poll the head; re-project only when the revision changed. Errors keep
-     * the previous geometry and surface through getStats() (UNAVAILABLE with
-     * no prior data, STALE with it); returning false would reject the
-     * lifecycle instead of presenting the failure.
+     * The host's clock tick: read the chain (+ status), LIVE re-projects the
+     * current demand by the newest revision id, PINNED only refreshes facts.
+     * Errors keep the previous geometry and surface through getStats();
+     * returning false would reject the lifecycle instead of presenting the
+     * failure, so only a disabled layer returns false.
      */
     async update(viewer, { signal } = {}) {
       if (!state.enabled || !state.dataSource) return false;
-      abortInFlight();
-      const controller = new AbortController();
-      state.request = controller;
-      if (signal) {
-        if (signal.aborted) controller.abort();
-        else
-          signal.addEventListener('abort', () => controller.abort(), {
-            once: true,
-          });
-      }
-      const current = () =>
-        !controller.signal.aborted &&
-        state.request === controller &&
-        state.enabled;
-      state.loading = !state.rendered;
-      try {
-        const revisionId = await source.getHeadRevision({
-          signal: controller.signal,
-        });
-        if (!current()) return false;
-        if (state.rendered && revisionId === state.revisionId) {
-          state.lastUpdate = Date.now();
-          state.error = null;
-          state.errorCode = null;
-          state.stale = false;
-          return true;
-        }
-        const projection = await source.getProjection({
-          revisionId,
-          signal: controller.signal,
-        });
-        if (!current()) return false;
-        applyProjection(projection);
-        return true;
-      } catch (error) {
-        if (!current()) return false;
-        state.error = error?.message || 'World model unavailable';
-        state.errorCode = error?.code || null;
-        state.stale = state.rendered;
-        console.warn('[Data:WorldModel] Refresh error:', error);
-        return true;
-      } finally {
-        state.loading = false;
-        if (state.request === controller) state.request = null;
-      }
+      const completed = await controller.tick({ signal });
+      const view = controller.getState();
+      if (completed && view.error && !view.loading)
+        console.warn('[Data:WorldModel] Refresh error:', view.error);
+      notifyRowControls();
+      return state.enabled && completed;
     },
 
     destroy(viewer = state.viewer) {
-      abortInFlight();
+      controller.stop();
       state.enabled = false;
+      unsubscribeCamera(viewer);
       selection.clearSelection();
       selection.removeClickHandler();
       services.picking.unregisterPickOwner(id);
@@ -291,28 +386,172 @@ export function createWorldModelLayer({
       resetRendered();
     },
 
-    getStats() {
+    /**
+     * Runtime params (DataLayerManager.setLayerParams path). Plain data in,
+     * a boolean out; every value is validated before anything changes.
+     * @param {{follow?: 'live'|'pinned', revisionId?: string|null, layers?: string[]|null,
+     *   validAt?: string|null, knownAsOf?: string|null, policy?: 'off'|'mark'|'withhold',
+     *   policyThresholdSeconds?: number, bbox?: number[]|null}} [params]
+     */
+    setParams(params = {}) {
+      if (params.follow !== undefined && !FOLLOW_MODES.includes(params.follow))
+        return false;
+      if (params.policy !== undefined && !POLICY_MODES.includes(params.policy))
+        return false;
+      if (
+        params.policyThresholdSeconds !== undefined &&
+        !(Number(params.policyThresholdSeconds) >= 0)
+      )
+        return false;
+      if (
+        params.layers !== undefined &&
+        params.layers !== null &&
+        !Array.isArray(params.layers)
+      )
+        return false;
+      if (params.policyThresholdSeconds !== undefined)
+        state.policyThresholdSeconds = Number(params.policyThresholdSeconds);
+      if (params.layers !== undefined) controller.setLayers(params.layers);
+      if (params.validAt !== undefined || params.knownAsOf !== undefined) {
+        const demand = controller.getDemand();
+        controller.setQueryTime(
+          params.validAt !== undefined ? params.validAt : demand.validAt,
+          params.knownAsOf !== undefined ? params.knownAsOf : demand.knownAsOf,
+        );
+      }
+      if (params.bbox !== undefined)
+        controller.setViewport(demandBbox(params.bbox));
+      if (
+        params.policy !== undefined ||
+        params.policyThresholdSeconds !== undefined
+      ) {
+        const mode = params.policy ?? policyModeOf(controller.getDemand());
+        controller.setPolicy(mode, state.policyThresholdSeconds);
+      }
+      if (params.follow === 'pinned') {
+        if (!controller.pin(params.revisionId || undefined)) return false;
+      } else if (params.follow === 'live') {
+        controller.followLive();
+      }
+      notifyRowControls();
+      return true;
+    },
+
+    getParams() {
+      const demand = controller.getDemand();
       return {
-        count: state.count,
-        lastUpdate: state.lastUpdate,
-        error: state.error,
-        errorCode: state.errorCode,
-        stale: state.stale,
-        loading: state.loading,
-        source: state.revisionId
-          ? `${sourceLabel} · rev ${state.revisionId.slice(0, 8)}`
-          : sourceLabel,
-        revisionId: state.revisionId,
-        counts: state.summary?.counts ?? null,
-        omissions: state.summary?.omissions.length ?? 0,
-        annotations: state.summary?.annotations ?? [],
-        skipped: state.skipped.length,
+        follow: demand.follow,
+        revisionId: demand.pinnedRevisionId,
+        layers: demand.layers ? [...demand.layers] : null,
+        validAt: demand.validAt,
+        knownAsOf: demand.knownAsOf,
+        policy: policyModeOf(demand),
+        policyThresholdSeconds: state.policyThresholdSeconds,
       };
     },
 
-    /** Degrees rectangle of the requested view; the caller owns the camera. */
+    /**
+     * Row chips (DataLayerManager row-controls contract): LIVE/PINNED, go
+     * live when the head moved past the pin, the temporal-age policy. Each
+     * chip declares the params to apply; the manager owns the write.
+     */
+    getRowControls() {
+      const view = controller.getState();
+      const pinned = view.follow === 'pinned';
+      const policy = policyModeOf(view.demand);
+      const nextPolicy =
+        POLICY_MODES[(POLICY_MODES.indexOf(policy) + 1) % POLICY_MODES.length];
+      const chips = [
+        {
+          id: 'follow',
+          label: pinned
+            ? `PINNED ${(view.demand.pinnedRevisionId || '').slice(0, 8)}`
+            : 'LIVE',
+          active: pinned,
+          state: pinned ? 'active' : 'idle',
+          title: pinned
+            ? 'Pinned to one revision, query time and policy — click to follow the head live'
+            : 'Following the head live (wall-clock query time) — click to pin the revision on screen',
+          params: pinned
+            ? { follow: 'live' }
+            : {
+                follow: 'pinned',
+                revisionId: view.displayedRevisionId || view.headRevisionId,
+              },
+        },
+      ];
+      if (pinned && view.headAdvanced) {
+        chips.push({
+          id: 'go-live',
+          label: 'HEAD MOVED',
+          active: false,
+          state: 'idle',
+          title: `A newer revision ${(view.headRevisionId || '').slice(0, 8)} exists — click to follow it`,
+          params: { follow: 'live' },
+        });
+      }
+      chips.push({
+        id: 'policy',
+        label:
+          policy === 'off'
+            ? 'AGE OFF'
+            : policy === 'mark'
+              ? 'AGE MARK'
+              : 'AGE HIDE',
+        active: policy !== 'off',
+        state: policy !== 'off' ? 'active' : 'idle',
+        title: `temporal_age policy (${state.policyThresholdSeconds} s): ${policy} — click for ${nextPolicy}. Applies only where the product declares the capability.`,
+        params: { policy: nextPolicy },
+      });
+      return { chips, legend: [] };
+    },
+
+    setRowControlsListener(listener) {
+      state.rowControlsListener =
+        typeof listener === 'function' ? listener : null;
+    },
+
+    getStats() {
+      const view = controller.getState();
+      const request = view.request;
+      return {
+        count: state.count,
+        lastUpdate: state.lastUpdate,
+        error: view.error || view.chainError,
+        errorCode: view.errorCode || view.chainErrorCode,
+        stale: view.stale,
+        loading: view.loading || view.pending,
+        source: state.revisionId
+          ? `${sourceLabel} · rev ${state.revisionId.slice(0, 8)}`
+          : sourceLabel,
+        mode: view.follow === 'pinned' ? 'PINNED' : 'LIVE',
+        revisionId: state.revisionId,
+        headRevisionId: view.headRevisionId,
+        headAdvanced: view.headAdvanced,
+        headAgeSeconds: view.headAgeSeconds,
+        spatialScope: request?.query?.spatial_scope ? 'viewport' : 'all',
+        bbox: request?.query?.spatial_scope?.bbox ?? null,
+        validAt: request?.query?.valid_at ?? null,
+        policy: policyModeOf(view.demand),
+        counts: state.summary?.counts ?? null,
+        perBinding: state.perBinding,
+        omissions: state.summary?.omissions.length ?? 0,
+        withheld: state.summary?.withheld ?? 0,
+        marked: state.summary?.marked ?? 0,
+        policies: state.summary?.policies ?? [],
+        annotations: state.summary?.annotations ?? [],
+        skipped: state.skipped.length,
+        // Three separate facts per binding; never combined into a verdict.
+        status: features.status ? statusLines(view.status) : null,
+        statusError: view.statusError,
+        features,
+        requests: view.counters,
+      };
+    },
+
+    /** Degrees rectangle of the retained Experiment 002 view; the caller owns the camera. */
     getViewRectangle() {
-      return viewRectangleDegrees(view);
+      return viewRectangleDegrees(DEFAULT_VIEW);
     },
 
     getProjectionSummary() {
@@ -359,6 +598,7 @@ export function createWorldModelLayer({
         result.push({
           id: render.id,
           kind: render.kind,
+          binding: render.binding,
           lat: render.latitude,
           lon: render.longitude,
           height_m: render.height,
@@ -367,6 +607,7 @@ export function createWorldModelLayer({
           value: render.kind === 'field-sample' ? render.value : null,
           units: render.kind === 'field-sample' ? render.units : null,
           valid_at: item.time?.valid_at ?? null,
+          stale: item.time?.stale ?? null,
         });
       }
       return result;

@@ -25,7 +25,17 @@ export * from '../layers/worldModel/index.js';
 
 export const STANDALONE_WORLD_MODEL_BASE_URL = '/api/world';
 
-/** Wire the standalone source and the application's shared service owners. */
+function envNumber(value, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? number : fallback;
+}
+
+/**
+ * Wire the standalone source and the application's shared service owners.
+ * `VITE_WORLD_MODEL_FOLLOW_MS` (head follow / re-project interval) and
+ * `VITE_WORLD_MODEL_DEBOUNCE_MS` (camera demand quiet period) tune the
+ * standalone shell only; no new DOM panel (DWM-12 owns product UI).
+ */
 export function createStandaloneWorldModelLayer({
   source = createHttpProjectionSource({
     baseUrl: STANDALONE_WORLD_MODEL_BASE_URL,
@@ -35,6 +45,11 @@ export function createStandaloneWorldModelLayer({
     setVisible: setOverlaySourceVisible,
     clearSource: clearOverlaySource,
   },
+  updateInterval = envNumber(
+    import.meta.env?.VITE_WORLD_MODEL_FOLLOW_MS,
+    30_000,
+  ),
+  debounceMs = envNumber(import.meta.env?.VITE_WORLD_MODEL_DEBOUNCE_MS, 300),
 } = {}) {
   return createWorldModelLayer({
     source,
@@ -42,6 +57,8 @@ export function createStandaloneWorldModelLayer({
     overlayHost,
     screenSpaceEventHandlerFactory: (viewer) =>
       new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas),
+    updateInterval,
+    debounceMs,
   });
 }
 export default createStandaloneWorldModelLayer();

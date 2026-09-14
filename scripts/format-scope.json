@@ -464,6 +464,12 @@
   "src/layers/worldModel/adapter.test.mjs",
   "src/layers/worldModel/source.test.mjs",
   "src/layers/worldModel/ownership.test.mjs",
+  "src/layers/worldModel/demand.js",
+  "src/layers/worldModel/controller.js",
+  "src/layers/worldModel/demand.test.mjs",
+  "src/layers/worldModel/controller.test.mjs",
   "src/data/worldModel.js",
-  "server/providers/world.js"
+  "server/providers/world.js",
+  "scripts/qa-world-model.mjs",
+  "scripts/world-model-stub.mjs"
 ]

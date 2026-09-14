@@ -6,6 +6,10 @@
  * survive into picking and inspection. The adapter adds DISPLAY choices
  * (a colour, a pixel size, clamp-to-ground) next to the numbers; it never
  * rewrites a numeric field, smooths a position, or invents a height.
+ *
+ * Nothing here knows a provider: a point is a point whatever binding it
+ * came from, colour is keyed by the binding name, and the card reads the
+ * item's own `semantic_identity`, `properties` and grants.
  */
 
 /**
@@ -14,12 +18,24 @@
  * model said". Numeric truth lives in `record`; these never overwrite it.
  */
 export const DISPLAY_CHOICES = Object.freeze({
-  aircraft: Object.freeze({
-    kind: 'aircraft',
+  point: Object.freeze({
+    kind: 'point',
     pixelSize: 7,
+    alpha: 1,
     positionSmoothing: 'none',
     heightOffsetM: 0,
-    colour: 'fixed-cyan',
+    colour: 'by-binding',
+  }),
+  // A point the backplane MARKED stale under the view's temporal_age policy
+  // (`time.stale === true`): drawn smaller and dimmer, never moved or hidden.
+  'point-stale': Object.freeze({
+    kind: 'point',
+    pixelSize: 5,
+    alpha: 0.35,
+    positionSmoothing: 'none',
+    heightOffsetM: 0,
+    colour: 'by-binding-dimmed',
+    keyedBy: 'time.stale',
   }),
   'field-sample': Object.freeze({
     kind: 'field-sample',
@@ -40,8 +56,29 @@ const RAMP_STOPS = Object.freeze([
   Object.freeze([1.0, 0.24, 0.12]), // warm: red
 ]);
 
+/** Small palette for point bindings; a binding's colour is stable across sessions (hash), never a provider rule. */
+export const BINDING_PALETTE = Object.freeze([
+  Object.freeze([0.0, 1.0, 1.0]), // cyan
+  Object.freeze([1.0, 0.6, 0.0]), // orange
+  Object.freeze([0.6, 1.0, 0.4]), // lime
+  Object.freeze([1.0, 0.4, 0.8]), // pink
+  Object.freeze([0.7, 0.7, 1.0]), // periwinkle
+  Object.freeze([1.0, 1.0, 0.4]), // yellow
+]);
+
 function isFinite3(...values) {
   return values.every((value) => Number.isFinite(value));
+}
+
+/** FNV-1a over the binding name -> palette index. Deterministic, order-free. */
+export function bindingColor(binding, palette = BINDING_PALETTE) {
+  const text = String(binding || '');
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return palette[hash % palette.length];
 }
 
 /**
@@ -78,11 +115,12 @@ function positionOf(item) {
 }
 
 /**
- * Aircraft points -> render records.
+ * Points -> render records (any binding: aircraft, vessels, a synthetic
+ * third product; the adapter does not care).
  * @param {object} projection neutral-v1 projection
  * @returns {{records: Array<object>, skipped: Array<{id: string, reason: string}>}}
  */
-export function aircraftRecordsFromProjection(projection) {
+export function pointRecordsFromProjection(projection) {
   const records = [];
   const skipped = [];
   for (const point of projection?.points || []) {
@@ -96,13 +134,17 @@ export function aircraftRecordsFromProjection(projection) {
       skipped.push({ id, reason: 'non-finite-position' });
       continue;
     }
+    const stale = point?.time?.stale === true;
     records.push({
       id,
-      kind: 'aircraft',
+      kind: 'point',
+      binding: typeof point.binding === 'string' ? point.binding : '',
       longitude,
       latitude,
       height,
-      display: DISPLAY_CHOICES.aircraft,
+      stale,
+      colorRgb: bindingColor(point.binding),
+      display: stale ? DISPLAY_CHOICES['point-stale'] : DISPLAY_CHOICES.point,
       record: point,
     });
   }
@@ -115,7 +157,7 @@ export function aircraftRecordsFromProjection(projection) {
  * @param {object} projection neutral-v1 projection
  * @returns {{records: Array<object>, skipped: Array<{id: string, reason: string}>}}
  */
-export function weatherRecordsFromProjection(projection) {
+export function fieldSampleRecordsFromProjection(projection) {
   const records = [];
   const skipped = [];
   for (const sample of projection?.field_samples || []) {
@@ -137,6 +179,7 @@ export function weatherRecordsFromProjection(projection) {
     records.push({
       id,
       kind: 'field-sample',
+      binding: typeof sample.binding === 'string' ? sample.binding : '',
       longitude,
       latitude,
       height,
@@ -150,9 +193,26 @@ export function weatherRecordsFromProjection(projection) {
   return { records, skipped };
 }
 
+/** Items per binding, per kind: what the log line and the stats row say. */
+export function countByBinding(records) {
+  const counts = new Map();
+  for (const record of records) {
+    const key = record.binding || '?';
+    const entry = counts.get(key) || { points: 0, samples: 0 };
+    if (record.kind === 'field-sample') entry.samples++;
+    else entry.points++;
+    counts.set(key, entry);
+  }
+  return [...counts.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([binding, entry]) => ({ binding, ...entry }));
+}
+
 /** Counts and the explanatory lists a status row or inspector shows. */
 export function summarizeProjection(projection) {
   const counts = projection?.counts || {};
+  const assumptions = [...(projection?.assumptions || [])];
+  const omissions = [...(projection?.omissions || [])];
   return {
     revisionId: projection?.revision_id || null,
     counts: {
@@ -163,16 +223,24 @@ export function summarizeProjection(projection) {
       annotations: Number(
         counts.annotations ?? projection?.annotations?.length ?? 0,
       ),
-      assumptions: Number(
-        counts.assumptions ?? projection?.assumptions?.length ?? 0,
-      ),
-      omissions: Number(counts.omissions ?? projection?.omissions?.length ?? 0),
+      assumptions: Number(counts.assumptions ?? assumptions.length),
+      omissions: Number(counts.omissions ?? omissions.length),
     },
     annotations: (projection?.annotations || []).map((a) =>
       String(a?.text || ''),
     ),
-    assumptions: [...(projection?.assumptions || [])],
-    omissions: [...(projection?.omissions || [])],
+    assumptions,
+    omissions,
+    // What the backplane did with the view's policies: applied (with counts) or dropped (with a reason).
+    policies: assumptions.filter(
+      (a) =>
+        a?.kind === 'projection-policy' || a?.kind === 'policy-not-applicable',
+    ),
+    withheld: omissions
+      .filter((o) => o?.reason === 'temporal-age-withheld')
+      .reduce((sum, o) => sum + Number(o.count || 0), 0),
+    marked: (projection?.points || []).filter((p) => p?.time?.stale === true)
+      .length,
   };
 }
 
@@ -189,9 +257,24 @@ function formatNumber(value, digits = 0) {
   return Number.isFinite(value) ? value.toFixed(digits) : '?';
 }
 
+function shortId(value) {
+  return typeof value === 'string' ? value.slice(0, 8) : '?';
+}
+
+function propertyText(value) {
+  if (value === null || value === undefined) return '—';
+  if (typeof value === 'string') return value.trim() || '—';
+  if (typeof value === 'number')
+    return Number.isInteger(value) ? String(value) : value.toFixed(2);
+  if (typeof value === 'boolean') return value ? 'true' : 'false';
+  return JSON.stringify(value);
+}
+
 /**
  * Lines for the selected card: [title, ...details]. Every line quotes the
- * projection's own numbers and grants; nothing is recomputed.
+ * projection's own numbers and grants; nothing is recomputed. "age" is the
+ * product's own (age at product time T); "age at query" is what the view's
+ * temporal_age policy computed against the query's valid time.
  * @param {object} renderRecord A record from the functions above.
  * @returns {string[]}
  */
@@ -210,21 +293,167 @@ export function selectionCardLines(renderRecord) {
   }
   const time = item.time || {};
   const height = item.height || {};
-  const props = item.properties || {};
-  const callsign =
-    typeof props.callsign === 'string' ? props.callsign.trim() : '';
+  const props =
+    item.properties && typeof item.properties === 'object'
+      ? item.properties
+      : {};
   const identity =
-    item.semantic_ref?.semantic_identity || renderRecord?.id || 'aircraft';
-  return [
-    callsign ? `${callsign} · ${identity}` : identity,
-    `height ${formatNumber(Number(height.value_m))} m from ${height.source_field || '?'} (${height.assumption || 'no grant'})` +
+    item.semantic_ref?.semantic_identity || renderRecord?.id || 'item';
+  // Opportunistic: a callsign-like property leads the title when present;
+  // otherwise the first two properties are shown generically.
+  const keys = Object.keys(props);
+  const lead = keys.includes('callsign') ? 'callsign' : null;
+  const leadText = lead ? propertyText(props[lead]) : '';
+  const shown = (lead ? [lead, ...keys.filter((k) => k !== lead)] : keys).slice(
+    0,
+    lead ? 3 : 2,
+  );
+  const lines = [
+    leadText && leadText !== '—' ? `${leadText} · ${identity}` : identity,
+    `${item.binding || '?'} · height ${formatNumber(Number(height.value_m))} m from ${height.source_field || '?'} (${height.assumption || 'no grant'})` +
       (Number.isFinite(Number(height.barometric_height_m))
         ? ` · baro ${formatNumber(Number(height.barometric_height_m))} m`
         : ''),
-    `valid ${time.valid_at || '?'} · ${time.temporal_status || '?'} · age ${formatNumber(Number(time.age_seconds))} s`,
-    `known ${time.known_as_of || '?'}`,
-    `product ${shortRef(item.semantic_ref?.product_ref)} · source ${shortRef(item.source_ref?.source)} row ${item.source_ref?.row_index ?? '?'}`,
+    `valid ${time.valid_at || '?'} · ${time.temporal_status || '?'} · age at product time ${formatNumber(Number(time.age_seconds))} s`,
   ];
+  if (time.age_at_query_seconds !== undefined) {
+    lines.push(
+      `age at query ${formatNumber(Number(time.age_at_query_seconds))} s` +
+        (time.stale === true
+          ? ' · STALE (view policy)'
+          : time.stale === false
+            ? ' · within policy'
+            : ''),
+    );
+  }
+  lines.push(`known ${time.known_as_of || '?'}`);
+  if (shown.length) {
+    lines.push(
+      shown
+        .filter((k) => k !== lead)
+        .map((k) => `${k} ${propertyText(props[k])}`)
+        .join(' · '),
+    );
+  }
+  lines.push(
+    `product ${shortRef(item.semantic_ref?.product_ref)} · source ${shortRef(item.source_ref?.source)} row ${item.source_ref?.row_index ?? '?'}`,
+  );
+  return lines.filter((line) => line !== '');
+}
+
+function domainText(domain) {
+  if (!domain || typeof domain !== 'object') return '—';
+  if (domain.kind === 'instant') return `instant ${domain.at}`;
+  if (domain.kind === 'instants') {
+    const ats = Array.isArray(domain.at) ? domain.at : [];
+    return `${ats.length} instants ${ats[0] ?? '?'}..${ats.at(-1) ?? '?'}`;
+  }
+  if (domain.kind === 'interval')
+    return `interval ${domain.start}..${domain.end}`;
+  if (domain.frame) {
+    const box = domain.bbox || domain.bbox_native;
+    return `${domain.frame}${Array.isArray(box) ? ` bbox ${box.map((v) => formatNumber(Number(v), 2)).join(',')}` : ''}`;
+  }
+  return JSON.stringify(domain);
+}
+
+/**
+ * The ADMITTED descriptor, as served in a provenance report, as card lines:
+ * semantic type + domains, access kind + dimensions, representations with
+ * capabilities and requirements, admission status.
+ * @param {object|null|undefined} descriptor `report.descriptors[i]`
+ * @returns {string[]}
+ */
+export function descriptorCardLines(descriptor) {
+  if (!descriptor || typeof descriptor !== 'object') return [];
+  const sem = descriptor.semantic || {};
+  const acc = descriptor.access || {};
+  const lines = [
+    `descriptor ${shortId(descriptor.id)} · ${descriptor.status || '?'} · ${sem.type_id || '?'}`,
+    `valid ${domainText(sem.valid_domain)} · known ${domainText(sem.knowledge_domain)}`,
+    `spatial ${domainText(sem.spatial_domain)}`,
+    `access ${acc.access_kind || '?'} @ ${acc.access_target || '?'} · dimensions ${(acc.supported_query_dimensions || []).join(',') || '—'}`,
+  ];
+  for (const rep of descriptor.representations || []) {
+    const req = rep.requirements || {};
+    const reqText = Object.keys(req)
+      .map((key) => {
+        const value = req[key];
+        return value && typeof value === 'object' && !Array.isArray(value)
+          ? `${key}{${Object.keys(value).join(',')}}`
+          : key;
+      })
+      .join(' ');
+    lines.push(
+      `representation ${rep.kind || '?'} · capabilities ${(rep.capabilities || []).join(',') || '—'} · requires ${reqText || '—'}`,
+    );
+  }
+  const failed = (descriptor.admission || []).filter(
+    (f) => f && f.ok === false,
+  );
+  lines.push(
+    failed.length
+      ? `admission failed: ${failed.map((f) => f.check).join(', ')}`
+      : `admission ${(descriptor.admission || []).length} checks passed`,
+  );
+  return lines;
+}
+
+/**
+ * Lineage from a provenance report: the producing run, the revisions the
+ * product is bound in, and the retained source evidence (with the derived
+ * chain walked to reach it).
+ * @param {object|null|undefined} report `GET /provenance/{ref}`
+ * @returns {string[]}
+ */
+export function lineageCardLines(report) {
+  if (!report || typeof report !== 'object') return [];
+  const lines = [];
+  const run = report.transform_run;
+  if (run) {
+    lines.push(
+      `produced by ${run.transformation || '?'} · ${run.status || '?'} · ${(run.inputs || []).length} inputs`,
+    );
+  }
+  const bound = report.bound_in || [];
+  if (bound.length) {
+    lines.push(
+      `bound in ${bound.map((b) => `${b.binding}@${shortId(b.revision_id)}`).join(', ')}`,
+    );
+  }
+  for (const source of (report.sources || []).slice(0, 4)) {
+    const via = (source.via || []).map((r) => shortRef(r)).join(' <- ');
+    lines.push(
+      `source ${shortRef(source.ref)} (${source.source_type || '?'}) · connector ${source.connector_instance_id || '?'} · publication ${shortId(source.publication_id)} · received ${source.received_at || '?'}` +
+        (via ? ` · via ${via}` : ''),
+    );
+  }
+  if ((report.sources || []).length > 4) {
+    lines.push(`… ${report.sources.length - 4} more retained sources`);
+  }
+  if (report.truncated) lines.push('source walk truncated (depth limit)');
+  return lines;
+}
+
+/**
+ * The inspection block for a selected item: ITS admitted descriptor
+ * (`semantic_ref.descriptor_id` looked up in the report) then the lineage.
+ * @param {object} item projected item (`record`)
+ * @param {object} report provenance report for `item.semantic_ref.product_ref`
+ * @returns {string[]}
+ */
+export function inspectionLines(item, report) {
+  const wanted = item?.semantic_ref?.descriptor_id;
+  const descriptors = report?.descriptors || [];
+  const descriptor =
+    descriptors.find((d) => d?.id === wanted) ||
+    (wanted ? null : descriptors.at(-1));
+  const lines = descriptor
+    ? descriptorCardLines(descriptor)
+    : wanted
+      ? [`descriptor ${shortId(wanted)} not in the provenance report`]
+      : [];
+  return [...lines, ...lineageCardLines(report)];
 }
 
 /**

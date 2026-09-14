@@ -1,10 +1,19 @@
 /**
  * ProjectionSource: the transport seam of the world-model layer.
  *
- * The layer depends only on this contract:
+ * The layer depends only on this contract. Required:
  *
- *   getHeadRevision({ signal }) -> Promise<string>       the revision a head points at
- *   getProjection({ revisionId, signal }) -> Promise<Projection>   neutral-v1 JSON, pinned
+ *   getRevisions({ head, limit, signal }) -> Promise<{ head, revisions: Revision[] }>
+ *       the head's completed revision chain, newest first, exactly as served
+ *   getProjection({ revisionId | head, query, projectionSpec, signal }) -> Promise<Projection>
+ *       neutral-v1 JSON for ONE demand; the query and spec travel with every call
+ *
+ * Optional, feature-detected by the layer (an absent method hides the
+ * feature; it never fails the layer):
+ *
+ *   getHeads({ signal })                          -> Promise<{ [head]: revisionId }>
+ *   getProvenance({ ref, follow, depth, signal })  -> Promise<ProvenanceReport>
+ *   getStatus({ head, signal })                    -> Promise<Status>   (facts, never a verdict)
  *
  * How the request reaches the world model is the host's business: the
  * standalone Gods Eye shell wires an HTTP source at a local development
@@ -14,7 +23,7 @@
  * implementation over the world-model REST shape; an in-memory fixture source
  * that satisfies `assertProjectionSource` is just as valid.
  */
-import { DEFAULT_VIEW, HEAD } from './view.js';
+import { HEAD } from './view.js';
 
 export const PROJECTION_SOURCE_ERROR_CODES = Object.freeze([
   'unreachable',
@@ -41,14 +50,35 @@ export class ProjectionSourceError extends Error {
 /** Require the ProjectionSource shape before a layer accepts a source. */
 export function assertProjectionSource(source) {
   if (
-    typeof source?.getHeadRevision !== 'function' ||
+    typeof source?.getRevisions !== 'function' ||
     typeof source?.getProjection !== 'function'
   ) {
     throw new TypeError(
-      'World model layer requires a ProjectionSource with getHeadRevision() and getProjection()',
+      'World model layer requires a ProjectionSource with getRevisions() and getProjection()',
     );
   }
   return source;
+}
+
+/** Which optional methods a source offers; the layer hides what is absent. */
+export function sourceFeatures(source) {
+  return Object.freeze({
+    heads: typeof source?.getHeads === 'function',
+    provenance: typeof source?.getProvenance === 'function',
+    status: typeof source?.getStatus === 'function',
+  });
+}
+
+/**
+ * `type_id@sha256:<hex>` for a projected item's `semantic_ref.product_ref`
+ * (the path segment `GET /provenance/{ref}` takes). Empty when the ref is
+ * incomplete: nothing is guessed.
+ * @param {{type_id?: string, content_id?: string}|null|undefined} ref
+ */
+export function refString(ref) {
+  const typeId = typeof ref?.type_id === 'string' ? ref.type_id : '';
+  const contentId = typeof ref?.content_id === 'string' ? ref.content_id : '';
+  return typeId && contentId ? `${typeId}@${contentId}` : '';
 }
 
 const PROJECTION_ARRAYS = Object.freeze([
@@ -86,6 +116,32 @@ export function validateProjection(payload) {
   return payload;
 }
 
+/** Validate `GET /revisions` structurally: `{ head, revisions: [{ id, parent_id, created_at, bindings }] }`. */
+export function validateRevisions(payload, head) {
+  if (
+    !payload ||
+    typeof payload !== 'object' ||
+    !Array.isArray(payload.revisions)
+  ) {
+    throw new ProjectionSourceError(
+      'malformed',
+      'Revisions response is missing the revisions array',
+    );
+  }
+  for (const revision of payload.revisions) {
+    if (typeof revision?.id !== 'string' || !revision.id) {
+      throw new ProjectionSourceError(
+        'malformed',
+        'A revision in the chain has no id',
+      );
+    }
+  }
+  return {
+    head: typeof payload.head === 'string' ? payload.head : head,
+    revisions: payload.revisions,
+  };
+}
+
 function messageFromBody(payload, fallback) {
   if (payload && typeof payload === 'object') {
     if (typeof payload.message === 'string' && payload.message)
@@ -96,9 +152,20 @@ function messageFromBody(payload, fallback) {
   return fallback;
 }
 
+function searchOf(params) {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== '')
+      search.set(key, String(value));
+  }
+  const text = search.toString();
+  return text ? `?${text}` : '';
+}
+
 /**
  * HTTP implementation over the world-model REST shape
- * (`GET {baseUrl}/heads`, `POST {baseUrl}/project`).
+ * (`GET {baseUrl}/revisions`, `POST {baseUrl}/project`, and the optional
+ * `GET /heads`, `GET /provenance/{ref}`, `GET /status`).
  *
  * @param {object} options
  * @param {string} options.baseUrl Origin and/or prefix the host chose:
@@ -107,14 +174,12 @@ function messageFromBody(payload, fallback) {
  * @param {typeof fetch} [options.fetchImpl]
  * @param {() => (object|Promise<object>)} [options.headers] Awaited per
  *   request so a host can attach `Authorization` / caller context.
- * @param {object} [options.view] Query + projection_spec (DEFAULT_VIEW).
- * @param {string} [options.head] Head name (world/main).
+ * @param {string} [options.head] Default head name (world/main).
  */
 export function createHttpProjectionSource({
   baseUrl,
   fetchImpl = (...args) => globalThis.fetch(...args),
   headers = async () => ({}),
-  view = DEFAULT_VIEW,
   head = HEAD,
 } = {}) {
   if (typeof baseUrl !== 'string' || !baseUrl.trim()) {
@@ -185,8 +250,13 @@ export function createHttpProjectionSource({
       );
     }
     if (!response.ok) {
+      // The backplane answers 404 for an unset head on the head-scoped reads.
+      const code =
+        response.status === 404 && /^\/(revisions|heads|status)/.test(path)
+          ? 'head-missing'
+          : 'http';
       throw new ProjectionSourceError(
-        'http',
+        code,
         messageFromBody(
           payload,
           `World model HTTP ${response.status} for ${path}`,
@@ -198,44 +268,69 @@ export function createHttpProjectionSource({
   }
 
   return Object.freeze({
-    async getHeadRevision({ signal } = {}) {
-      const heads = await request('/heads', { signal });
-      if (!heads || typeof heads !== 'object') {
-        throw new ProjectionSourceError(
-          'malformed',
-          'Heads response is not an object',
-        );
-      }
-      const revisionId = heads[head];
-      if (typeof revisionId !== 'string' || !revisionId) {
+    async getRevisions({ head: name = head, limit = 20, signal } = {}) {
+      const payload = await request(
+        `/revisions${searchOf({ head: name, limit })}`,
+        { signal },
+      );
+      const chain = validateRevisions(payload, name);
+      if (!chain.revisions.length) {
         throw new ProjectionSourceError(
           'head-missing',
-          `Head ${head} is not set; run \`worldmodel noaa replay\` and \`worldmodel opensky replay\``,
+          `Head ${name} is not set; run \`worldmodel noaa replay\` and \`worldmodel opensky replay\``,
         );
       }
-      return revisionId;
+      return chain;
     },
-    async getProjection({ revisionId, signal } = {}) {
-      if (typeof revisionId !== 'string' || !revisionId) {
-        throw new TypeError('getProjection requires a revisionId');
+    async getProjection({
+      revisionId,
+      head: name,
+      query = {},
+      projectionSpec = {},
+      signal,
+    } = {}) {
+      const byId = typeof revisionId === 'string' && revisionId;
+      if (!byId && (typeof name !== 'string' || !name)) {
+        throw new TypeError('getProjection requires a revisionId or a head');
       }
       const payload = await request('/project', {
         method: 'POST',
         body: {
-          revision_id: revisionId,
-          query: view.query,
-          projection_spec: view.projection_spec,
+          ...(byId ? { revision_id: revisionId } : { head: name }),
+          query,
+          projection_spec: projectionSpec,
         },
         signal,
       });
       const projection = validateProjection(payload);
-      if (projection.revision_id !== revisionId) {
+      if (byId && projection.revision_id !== revisionId) {
         throw new ProjectionSourceError(
           'malformed',
           `Projection revision ${projection.revision_id} does not match the requested ${revisionId}`,
         );
       }
       return projection;
+    },
+    async getHeads({ signal } = {}) {
+      const heads = await request('/heads', { signal });
+      if (!heads || typeof heads !== 'object' || Array.isArray(heads)) {
+        throw new ProjectionSourceError(
+          'malformed',
+          'Heads response is not an object',
+        );
+      }
+      return heads;
+    },
+    async getProvenance({ ref, follow = 'source', depth = 8, signal } = {}) {
+      const text = typeof ref === 'string' ? ref : refString(ref);
+      if (!text) throw new TypeError('getProvenance requires a product ref');
+      return request(
+        `/provenance/${encodeURIComponent(text)}${searchOf({ follow, depth })}`,
+        { signal },
+      );
+    },
+    async getStatus({ head: name = head, signal } = {}) {
+      return request(`/status${searchOf({ head: name })}`, { signal });
     },
     describe() {
       return { transport: 'http', baseUrl: root, head };

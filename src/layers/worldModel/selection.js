@@ -1,5 +1,10 @@
 import * as Cesium from 'cesium';
-import { contextRecordFor, selectionCardLines } from './adapter.js';
+import {
+  contextRecordFor,
+  inspectionLines,
+  selectionCardLines,
+} from './adapter.js';
+import { refString, sourceFeatures } from './source.js';
 
 export const WORLD_MODEL_OVERLAY_SOURCE_ID = 'world-model';
 
@@ -10,17 +15,22 @@ export const WORLD_MODEL_SELECTED_OVERLAY_OPTIONS = Object.freeze({
   moving: false,
 });
 
-const AIRCRAFT_ACCENT = '#00ffff';
+/** Provenance reports kept per content-addressed ref (immutable, so cacheable). */
+export const PROVENANCE_CACHE_LIMIT = 32;
+
+const FALLBACK_ACCENT = '#00ffff';
 
 function cssColor(rgb) {
-  if (!Array.isArray(rgb) || rgb.length < 3) return AIRCRAFT_ACCENT;
+  if (!Array.isArray(rgb) || rgb.length < 3) return FALLBACK_ACCENT;
   const channel = (v) => Math.round(Math.min(1, Math.max(0, v)) * 255);
   return `rgb(${channel(rgb[0])}, ${channel(rgb[1])}, ${channel(rgb[2])})`;
 }
 
 /**
  * Selection for the world-model layer: click -> selected card + shared
- * context record. The card quotes the projection's numbers and grants; the
+ * context record. The card quotes the projection's numbers and grants; then,
+ * when the source offers `getProvenance`, the item's ADMITTED descriptor and
+ * its lineage are fetched by the item's own product ref and appended. The
  * context record carries semantic/source refs verbatim for inspection.
  */
 export function createSelection({
@@ -28,6 +38,7 @@ export function createSelection({
   services,
   overlayHost,
   screenSpaceEventHandlerFactory,
+  source,
   config: { id, name, sourceLabel },
 }) {
   const { resolvePickId, isOwnedByOtherLayer } = services.picking;
@@ -37,6 +48,9 @@ export function createSelection({
     clearSelectedEntityContextForLayer,
     removeEntityContextsForLayer,
   } = services.context;
+  const features = sourceFeatures(source);
+  const provenance = new Map(); // ref -> report | Promise<report>
+  let inspection = null; // { itemId, controller }
 
   function contextFor(entry) {
     return contextRecordFor(entry.render, {
@@ -48,7 +62,7 @@ export function createSelection({
     });
   }
 
-  function cardEntry(entry) {
+  function cardEntry(entry, extraDetails = []) {
     const [title, ...details] = selectionCardLines(entry.render);
     return {
       id: entry.render.id,
@@ -60,11 +74,8 @@ export function createSelection({
       collisionGroup: 'ambient-card',
       priority: Number.MAX_SAFE_INTEGER,
       title,
-      details,
-      accent:
-        entry.render.kind === 'field-sample'
-          ? cssColor(entry.render.colorRgb)
-          : AIRCRAFT_ACCENT,
+      details: [...details, ...extraDetails],
+      accent: cssColor(entry.render.colorRgb),
       interactive: false,
       anchorRadiusPx: 8,
       minAnchorGapPx: 10,
@@ -74,6 +85,14 @@ export function createSelection({
       horizonCull: true,
       terrainOcclusion: false,
     };
+  }
+
+  function publishCard(entry, extraDetails = []) {
+    overlayHost.setEntries(
+      WORLD_MODEL_OVERLAY_SOURCE_ID,
+      [cardEntry(entry, extraDetails)],
+      WORLD_MODEL_SELECTED_OVERLAY_OPTIONS,
+    );
   }
 
   function pickedOwnId(picked) {
@@ -120,26 +139,88 @@ export function createSelection({
     state.keyHandler = null;
   }
 
+  function cancelInspection() {
+    inspection?.controller.abort();
+    inspection = null;
+  }
+
+  function remember(ref, value) {
+    provenance.delete(ref);
+    provenance.set(ref, value);
+    while (provenance.size > PROVENANCE_CACHE_LIMIT) {
+      provenance.delete(provenance.keys().next().value);
+    }
+  }
+
+  /** Fetch (or reuse) the provenance report behind an item's product ref. */
+  function loadProvenance(ref, signal) {
+    const cached = provenance.get(ref);
+    if (cached) return Promise.resolve(cached);
+    const pending = source
+      .getProvenance({ ref, follow: 'source', signal })
+      .then((report) => {
+        remember(ref, report);
+        return report;
+      })
+      .catch((error) => {
+        if (provenance.get(ref) === pending) provenance.delete(ref);
+        throw error;
+      });
+    remember(ref, pending);
+    return pending;
+  }
+
+  /**
+   * Append the admitted descriptor + lineage to the card once the report
+   * arrives, unless the selection moved on. A failed fetch leaves the card
+   * as it was and says so in one line; it never hides the served item.
+   */
+  function inspect(entry) {
+    cancelInspection();
+    if (!features.provenance) return;
+    const ref = refString(entry.render.record?.semantic_ref?.product_ref);
+    if (!ref) return;
+    const controller = new AbortController();
+    const itemId = entry.render.id;
+    inspection = { itemId, controller };
+    loadProvenance(ref, controller.signal).then(
+      (report) => {
+        if (controller.signal.aborted || state.selectedId !== itemId) return;
+        const current = state.byId.get(itemId);
+        if (!current) return;
+        publishCard(current, inspectionLines(current.render.record, report));
+        if (inspection?.controller === controller) inspection = null;
+      },
+      (error) => {
+        if (controller.signal.aborted || state.selectedId !== itemId) return;
+        const current = state.byId.get(itemId);
+        if (!current) return;
+        publishCard(current, [
+          `provenance unavailable: ${error?.message || error}`,
+        ]);
+        if (inspection?.controller === controller) inspection = null;
+      },
+    );
+  }
+
   /** Select one rendered item by its projection id. */
   function selectById(itemId) {
     const entry = state.byId.get(itemId);
     if (!entry) return false;
     state.selectedId = itemId;
-    overlayHost.setEntries(
-      WORLD_MODEL_OVERLAY_SOURCE_ID,
-      [cardEntry(entry)],
-      WORLD_MODEL_SELECTED_OVERLAY_OPTIONS,
-    );
+    publishCard(entry);
     try {
       registerEntityContext(entry.entity, contextFor(entry));
       selectEntityContext(entry.entity);
     } catch {
       // context store unavailable — the card still shows
     }
+    inspect(entry);
     return true;
   }
 
   function clearSelection() {
+    cancelInspection();
     if (!state.selectedId) return;
     state.selectedId = null;
     overlayHost.clearSource(WORLD_MODEL_OVERLAY_SOURCE_ID);
@@ -168,6 +249,7 @@ export function createSelection({
     if (state.byId.has(state.selectedId)) {
       selectById(state.selectedId);
     } else {
+      cancelInspection();
       state.selectedId = null;
       overlayHost.clearSource(WORLD_MODEL_OVERLAY_SOURCE_ID);
     }
@@ -181,5 +263,7 @@ export function createSelection({
     refreshContextRegistrations,
     reselect,
     cardEntry,
+    /** Test/QA seam: whether the report for a ref is cached. */
+    hasProvenance: (ref) => provenance.has(ref),
   };
 }

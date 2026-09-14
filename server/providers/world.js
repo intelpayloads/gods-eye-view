@@ -13,7 +13,7 @@ import { readRequestBodyCapped } from './common/request.js';
  *
  * Routes (world operations only, no provider endpoints):
  *   GET  /api/world/healthz | /capabilities | /heads | /heads/<name>
- *        /revisions[?head=&limit=] | /revisions/<id> | /provenance/<ref>
+ *        /revisions[?head=&limit=] | /revisions/<id> | /provenance/<ref> | /status[?head=]
  *   POST /api/world/select | /project      (JSON bodies, capped)
  * Anything else → 404; wrong method → 405; upstream down → 502.
  *
@@ -26,6 +26,7 @@ const ROUTES = Object.freeze([
   { method: 'GET', pattern: /^\/heads(\/.+)?$/ },
   { method: 'GET', pattern: /^\/revisions(\/[^/]+)?$/ },
   { method: 'GET', pattern: /^\/provenance\/.+$/ },
+  { method: 'GET', pattern: /^\/status$/ },
   { method: 'POST', pattern: /^\/select$/ },
   { method: 'POST', pattern: /^\/project$/ },
 ]);

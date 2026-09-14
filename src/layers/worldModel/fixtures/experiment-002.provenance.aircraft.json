@@ -1,0 +1,447 @@
+{
+    "ref": {
+        "type_id": "aircraft.track_state_set.v1",
+        "content_id": "sha256:7b84ecd0559a5013fb0de5f79aea505a07b3f6c69e10715465ba6b9c80068d36"
+    },
+    "descriptors": [
+        {
+            "id": "571f13a148c94db5aec02c3067bdb948",
+            "status": "admitted",
+            "descriptor_schema": "world.product-descriptor/v1",
+            "ref": {
+                "type_id": "aircraft.track_state_set.v1",
+                "content_id": "sha256:7b84ecd0559a5013fb0de5f79aea505a07b3f6c69e10715465ba6b9c80068d36"
+            },
+            "semantic": {
+                "type_id": "aircraft.track_state_set.v1",
+                "semantic_identity": null,
+                "valid_domain": {
+                    "at": "2026-09-10T22:57:25+00:00",
+                    "kind": "instant"
+                },
+                "knowledge_domain": {
+                    "at": "2026-09-13T22:40:10.918557+00:00",
+                    "kind": "instant"
+                },
+                "spatial_domain": {
+                    "bbox": [
+                        -123.0,
+                        37.0,
+                        -121.0,
+                        39.0
+                    ],
+                    "frame": "WGS84",
+                    "scope": "acquisition-bbox"
+                },
+                "provenance_ref": "source.opensky.state_vectors.v1@sha256:452fc448d2967033c9aecee10c10b16069b414df4f50baa321ab132150336993",
+                "metadata": {
+                    "key": "icao24",
+                    "scope": "provider",
+                    "policy": "flight-state/v1",
+                    "provider": "opensky",
+                    "state_count": 153,
+                    "height_datum": "geometric-datum-unspecified-by-REST",
+                    "withheld_count": 21,
+                    "physical_aircraft": "unresolved"
+                }
+            },
+            "access": {
+                "access_kind": "entity_set/v1",
+                "access_target": "world-entity-index",
+                "locator": {
+                    "resource": "track_states",
+                    "product_content_id": "sha256:7b84ecd0559a5013fb0de5f79aea505a07b3f6c69e10715465ba6b9c80068d36"
+                },
+                "supported_query_dimensions": [
+                    "space",
+                    "valid_time",
+                    "identity"
+                ],
+                "resolution_characteristics": {
+                    "entity_granularity": "aircraft"
+                },
+                "metadata": {}
+            },
+            "representations": [
+                {
+                    "kind": "positioned_entities/v1",
+                    "capabilities": [
+                        "point",
+                        "height",
+                        "freshness"
+                    ],
+                    "requirements": {
+                        "time": {
+                            "valid": "valid_time",
+                            "sampled": "sample_at"
+                        },
+                        "height": {
+                            "field": "geometric_height_m",
+                            "assumption": "aircraft_height:adsb-geometric-as-wgs84-ellipsoid",
+                            "eligible_when": {
+                                "position_source": 0
+                            },
+                            "unresolved_reason": "geometric-datum-unspecified-by-REST"
+                        },
+                        "position": {
+                            "lat": "lat",
+                            "lon": "lon",
+                            "frame": "WGS84"
+                        }
+                    }
+                }
+            ],
+            "provenance": {
+                "producer": "aircraft.materialize-track-state@1",
+                "transform_run_id": "4598683f31894f2a850765d26c05ad4e",
+                "inputs": [
+                    {
+                        "type_id": "aircraft.observation_set.v1",
+                        "content_id": "sha256:c8b50f9cbf89a4e66adef43a19ddade5bf58bdc5bcfc2e1a630a4c3df4579b84"
+                    },
+                    {
+                        "type_id": "aircraft.identity_assertion_set.v1",
+                        "content_id": "sha256:f4629883d9f9e1aead4fb40d526e53d641ec7fc5bf361fb4bb6688f2dfdb6a0a"
+                    }
+                ]
+            },
+            "admission": [
+                {
+                    "ok": true,
+                    "check": "descriptor_schema",
+                    "detail": "'world.product-descriptor/v1'; runtime interprets 'world.product-descriptor/v1'"
+                },
+                {
+                    "ok": true,
+                    "check": "ref_consistent",
+                    "detail": "descriptor aircraft.track_state_set.v1@sha256:7b84ecd0559a5013fb0de5f79aea505a07b3f6c69e10715465ba6b9c80068d36 vs semantic aircraft.track_state_set.v1@sha256:7b84ecd0559a5013fb0de5f79aea505a07b3f6c69e10715465ba6b9c80068d36 (aircraft.track_state_set.v1)"
+                },
+                {
+                    "ok": true,
+                    "check": "semantic_type_registered",
+                    "detail": "aircraft.track_state_set.v1"
+                },
+                {
+                    "ok": true,
+                    "check": "semantic_required_fields",
+                    "detail": "requires ['knowledge_domain', 'spatial_domain', 'valid_domain']"
+                },
+                {
+                    "ok": true,
+                    "check": "valid_domain_valid",
+                    "detail": "instant"
+                },
+                {
+                    "ok": true,
+                    "check": "knowledge_domain_valid",
+                    "detail": "instant"
+                },
+                {
+                    "ok": true,
+                    "check": "spatial_frame_declared",
+                    "detail": "WGS84"
+                },
+                {
+                    "ok": true,
+                    "check": "access_kind_registered",
+                    "detail": "entity_set/v1"
+                },
+                {
+                    "ok": true,
+                    "check": "access_target_registered",
+                    "detail": "world-entity-index"
+                },
+                {
+                    "ok": true,
+                    "check": "access_locator_complete",
+                    "detail": "keys ['product_content_id', 'resource']"
+                },
+                {
+                    "ok": true,
+                    "check": "access_capabilities_coherent",
+                    "detail": "['identity', 'space', 'valid_time']"
+                },
+                {
+                    "ok": true,
+                    "check": "representation_registered",
+                    "detail": "positioned_entities/v1"
+                },
+                {
+                    "ok": true,
+                    "check": "representation_requirements_declared",
+                    "detail": "positioned_entities/v1: ['height', 'position', 'time']"
+                },
+                {
+                    "ok": true,
+                    "check": "provenance_complete",
+                    "detail": "aircraft.materialize-track-state@1 run 4598683f31894f2a850765d26c05ad4e inputs 2"
+                }
+            ]
+        },
+        {
+            "id": "e3c37a47d7764bb6b6965f840dd6a807",
+            "status": "admitted",
+            "descriptor_schema": "world.product-descriptor/v1",
+            "ref": {
+                "type_id": "aircraft.track_state_set.v1",
+                "content_id": "sha256:7b84ecd0559a5013fb0de5f79aea505a07b3f6c69e10715465ba6b9c80068d36"
+            },
+            "semantic": {
+                "type_id": "aircraft.track_state_set.v1",
+                "semantic_identity": null,
+                "valid_domain": {
+                    "at": "2026-09-10T22:57:25+00:00",
+                    "kind": "instant"
+                },
+                "knowledge_domain": {
+                    "at": "2026-09-13T22:40:10.918557+00:00",
+                    "kind": "instant"
+                },
+                "spatial_domain": {
+                    "bbox": [
+                        -123.0,
+                        37.0,
+                        -121.0,
+                        39.0
+                    ],
+                    "frame": "WGS84",
+                    "scope": "acquisition-bbox"
+                },
+                "provenance_ref": "source.opensky.state_vectors.v1@sha256:452fc448d2967033c9aecee10c10b16069b414df4f50baa321ab132150336993",
+                "metadata": {
+                    "key": "icao24",
+                    "scope": "provider",
+                    "policy": "flight-state/v1",
+                    "provider": "opensky",
+                    "state_count": 153,
+                    "height_datum": "geometric-datum-unspecified-by-REST",
+                    "withheld_count": 21,
+                    "physical_aircraft": "unresolved"
+                }
+            },
+            "access": {
+                "access_kind": "entity_set/v1",
+                "access_target": "world-entity-index",
+                "locator": {
+                    "resource": "track_states",
+                    "product_content_id": "sha256:7b84ecd0559a5013fb0de5f79aea505a07b3f6c69e10715465ba6b9c80068d36"
+                },
+                "supported_query_dimensions": [
+                    "space",
+                    "valid_time",
+                    "identity"
+                ],
+                "resolution_characteristics": {
+                    "entity_granularity": "aircraft"
+                },
+                "metadata": {}
+            },
+            "representations": [
+                {
+                    "kind": "positioned_entities/v1",
+                    "capabilities": [
+                        "point",
+                        "height",
+                        "temporal_age"
+                    ],
+                    "requirements": {
+                        "time": {
+                            "valid": "valid_time",
+                            "sampled": "sample_at",
+                            "age_basis": "sample_at"
+                        },
+                        "height": {
+                            "field": "geometric_height_m",
+                            "assumption": "aircraft_height:adsb-geometric-as-wgs84-ellipsoid",
+                            "eligible_when": {
+                                "position_source": 0
+                            },
+                            "unresolved_reason": "geometric-datum-unspecified-by-REST"
+                        },
+                        "position": {
+                            "lat": "lat",
+                            "lon": "lon",
+                            "frame": "WGS84"
+                        }
+                    }
+                }
+            ],
+            "provenance": {
+                "producer": "aircraft.materialize-track-state@1",
+                "transform_run_id": "ea5b5ff0f8164af99f5043da9eaece33",
+                "inputs": [
+                    {
+                        "type_id": "aircraft.observation_set.v1",
+                        "content_id": "sha256:c8b50f9cbf89a4e66adef43a19ddade5bf58bdc5bcfc2e1a630a4c3df4579b84"
+                    },
+                    {
+                        "type_id": "aircraft.identity_assertion_set.v1",
+                        "content_id": "sha256:f4629883d9f9e1aead4fb40d526e53d641ec7fc5bf361fb4bb6688f2dfdb6a0a"
+                    }
+                ]
+            },
+            "admission": [
+                {
+                    "ok": true,
+                    "check": "descriptor_schema",
+                    "detail": "'world.product-descriptor/v1'; runtime interprets 'world.product-descriptor/v1'"
+                },
+                {
+                    "ok": true,
+                    "check": "ref_consistent",
+                    "detail": "descriptor aircraft.track_state_set.v1@sha256:7b84ecd0559a5013fb0de5f79aea505a07b3f6c69e10715465ba6b9c80068d36 vs semantic aircraft.track_state_set.v1@sha256:7b84ecd0559a5013fb0de5f79aea505a07b3f6c69e10715465ba6b9c80068d36 (aircraft.track_state_set.v1)"
+                },
+                {
+                    "ok": true,
+                    "check": "semantic_type_registered",
+                    "detail": "aircraft.track_state_set.v1"
+                },
+                {
+                    "ok": true,
+                    "check": "semantic_required_fields",
+                    "detail": "requires ['knowledge_domain', 'spatial_domain', 'valid_domain']"
+                },
+                {
+                    "ok": true,
+                    "check": "valid_domain_valid",
+                    "detail": "instant"
+                },
+                {
+                    "ok": true,
+                    "check": "knowledge_domain_valid",
+                    "detail": "instant"
+                },
+                {
+                    "ok": true,
+                    "check": "spatial_frame_declared",
+                    "detail": "WGS84"
+                },
+                {
+                    "ok": true,
+                    "check": "access_kind_registered",
+                    "detail": "entity_set/v1"
+                },
+                {
+                    "ok": true,
+                    "check": "access_target_registered",
+                    "detail": "world-entity-index"
+                },
+                {
+                    "ok": true,
+                    "check": "access_locator_complete",
+                    "detail": "keys ['product_content_id', 'resource']"
+                },
+                {
+                    "ok": true,
+                    "check": "access_capabilities_coherent",
+                    "detail": "['identity', 'space', 'valid_time']"
+                },
+                {
+                    "ok": true,
+                    "check": "representation_registered",
+                    "detail": "positioned_entities/v1"
+                },
+                {
+                    "ok": true,
+                    "check": "representation_requirements_declared",
+                    "detail": "positioned_entities/v1: ['height', 'position', 'time']"
+                },
+                {
+                    "ok": true,
+                    "check": "representation_capability_requirements_declared",
+                    "detail": "positioned_entities/v1: capabilities ['temporal_age'] complete"
+                },
+                {
+                    "ok": true,
+                    "check": "provenance_complete",
+                    "detail": "aircraft.materialize-track-state@1 run ea5b5ff0f8164af99f5043da9eaece33 inputs 2"
+                }
+            ]
+        }
+    ],
+    "admitted": true,
+    "bound_in": [
+        {
+            "revision_id": "4dbdebc661b94deb914320ea81756881",
+            "binding": "world.aircraft"
+        }
+    ],
+    "transform_run": {
+        "id": "4598683f31894f2a850765d26c05ad4e",
+        "transformation": "aircraft.materialize-track-state@1",
+        "params": {},
+        "status": "succeeded",
+        "error": null,
+        "inputs": [
+            {
+                "type_id": "aircraft.observation_set.v1",
+                "content_id": "sha256:c8b50f9cbf89a4e66adef43a19ddade5bf58bdc5bcfc2e1a630a4c3df4579b84"
+            },
+            {
+                "type_id": "aircraft.identity_assertion_set.v1",
+                "content_id": "sha256:f4629883d9f9e1aead4fb40d526e53d641ec7fc5bf361fb4bb6688f2dfdb6a0a"
+            }
+        ],
+        "output": {
+            "type_id": "aircraft.track_state_set.v1",
+            "content_id": "sha256:7b84ecd0559a5013fb0de5f79aea505a07b3f6c69e10715465ba6b9c80068d36"
+        }
+    },
+    "inputs": [
+        {
+            "type_id": "aircraft.observation_set.v1",
+            "content_id": "sha256:c8b50f9cbf89a4e66adef43a19ddade5bf58bdc5bcfc2e1a630a4c3df4579b84"
+        },
+        {
+            "type_id": "aircraft.identity_assertion_set.v1",
+            "content_id": "sha256:f4629883d9f9e1aead4fb40d526e53d641ec7fc5bf361fb4bb6688f2dfdb6a0a"
+        }
+    ],
+    "sources": [
+        {
+            "ref": {
+                "type_id": "source.opensky.state_vectors.v1",
+                "content_id": "sha256:452fc448d2967033c9aecee10c10b16069b414df4f50baa321ab132150336993"
+            },
+            "source": "opensky",
+            "source_type": "source.opensky.state_vectors.v1",
+            "connector_instance_id": "opensky-replay",
+            "publication_id": "8e67d6d9b9f34987bebf7880406b2315",
+            "received_at": "2026-09-13T22:40:10.918557+00:00",
+            "source_times": {
+                "recorded_at": "2026-09-10T22:57:26.310648+00:00",
+                "requested_at": "2026-09-10T22:57:25.773740+00:00",
+                "response_time": 1789081045
+            },
+            "acquisition_metadata": {
+                "url": "https://opensky-network.org/api/states/all?lamin=37&lomin=-123&lamax=39&lomax=-121&extended=1",
+                "auth": "anonymous",
+                "bbox": {
+                    "lamax": 39.0,
+                    "lamin": 37.0,
+                    "lomax": -121.0,
+                    "lomin": -123.0
+                },
+                "bytes": 23260,
+                "method": "GET",
+                "replay": true,
+                "status": 200,
+                "fixture": "experiment-002",
+                "extended": true,
+                "replayed_at": "2026-09-13T22:40:10.918290+00:00",
+                "state_count": 174,
+                "capture_kind": "live bounded anonymous capture",
+                "capture_recorded_at": "2026-09-10T22:57:26.310648+00:00",
+                "capture_requested_at": "2026-09-10T22:57:25.773740+00:00"
+            },
+            "via": [
+                {
+                    "type_id": "aircraft.observation_set.v1",
+                    "content_id": "sha256:c8b50f9cbf89a4e66adef43a19ddade5bf58bdc5bcfc2e1a630a4c3df4579b84"
+                }
+            ]
+        }
+    ],
+    "truncated": false,
+    "notes": []
+}

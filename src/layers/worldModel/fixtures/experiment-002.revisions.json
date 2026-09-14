@@ -1,0 +1,68 @@
+{
+    "head": "world/main",
+    "revisions": [
+        {
+            "id": "4dbdebc661b94deb914320ea81756881",
+            "parent_id": "4237b10858564c00932ba9f59800927e",
+            "created_at": "2026-09-13T22:40:11.088468+00:00",
+            "metadata": {
+                "head": "world/main",
+                "outputs": [
+                    "aircraft.track_state_set.v1@sha256:7b84ecd0559a5013fb0de5f79aea505a07b3f6c69e10715465ba6b9c80068d36"
+                ],
+                "pipeline": "opensky.aircraft@1",
+                "replaced": [
+                    "world.aircraft"
+                ],
+                "preserved": [
+                    "world.weather"
+                ],
+                "publication_id": "8e67d6d9b9f34987bebf7880406b2315",
+                "pipeline_run_id": "49fc53a59e4945d39391f8e5a0ce4d63"
+            },
+            "bindings": [
+                {
+                    "name": "world.aircraft",
+                    "ref": {
+                        "type_id": "aircraft.track_state_set.v1",
+                        "content_id": "sha256:7b84ecd0559a5013fb0de5f79aea505a07b3f6c69e10715465ba6b9c80068d36"
+                    }
+                },
+                {
+                    "name": "world.weather",
+                    "ref": {
+                        "type_id": "weather.temperature_field.v1",
+                        "content_id": "sha256:099531ec5b865b8bc9b32567f971260344acbdc1dd6dd05f52e7eb835ffb5724"
+                    }
+                }
+            ]
+        },
+        {
+            "id": "4237b10858564c00932ba9f59800927e",
+            "parent_id": null,
+            "created_at": "2026-09-13T22:40:10.678203+00:00",
+            "metadata": {
+                "head": "world/main",
+                "outputs": [
+                    "weather.temperature_field.v1@sha256:099531ec5b865b8bc9b32567f971260344acbdc1dd6dd05f52e7eb835ffb5724"
+                ],
+                "pipeline": "gfs.temperature-field@1",
+                "replaced": [
+                    "world.weather"
+                ],
+                "preserved": [],
+                "publication_id": "e84595cbb0094506842eb762446cf829",
+                "pipeline_run_id": "b4b8cc2076fc41f6a12d56d55b583687"
+            },
+            "bindings": [
+                {
+                    "name": "world.weather",
+                    "ref": {
+                        "type_id": "weather.temperature_field.v1",
+                        "content_id": "sha256:099531ec5b865b8bc9b32567f971260344acbdc1dd6dd05f52e7eb835ffb5724"
+                    }
+                }
+            ]
+        }
+    ]
+}

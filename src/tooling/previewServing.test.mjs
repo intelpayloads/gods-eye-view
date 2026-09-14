@@ -45,6 +45,7 @@ test('real dev and built-preview servers serve provider JSON and terminate unkno
     OPENSKY_CLIENT_ID: '',
     OPENSKY_CLIENT_SECRET: '',
     CCTV_FORCE_AUSTIN: '0',
+    WORLD_API_URL: 'http://127.0.0.1:9',
     CCTV_SOURCES_FILE: path.join(root, 'absent.json'),
     CCTV_SOURCES_JSON: JSON.stringify([
       { id: 'fixture', lat: 30.27, lon: -97.74 },
@@ -101,6 +102,7 @@ test('real dev and built-preview servers serve provider JSON and terminate unkno
         ['/api/overpass', 405],
         ['/api/world/nope', 404],
         ['/api/world/project', 405],
+        ['/api/world/status', 502],
         ['/api/cctv/sources', 200],
         ['/api/gbfs/', 400],
         ['/api/tomtom/status', 200],

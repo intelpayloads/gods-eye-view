@@ -1,0 +1,769 @@
+{
+    "ref": {
+        "type_id": "weather.temperature_field.v1",
+        "content_id": "sha256:099531ec5b865b8bc9b32567f971260344acbdc1dd6dd05f52e7eb835ffb5724"
+    },
+    "descriptors": [
+        {
+            "id": "050e401771814a65bc7766080f1a5e72",
+            "status": "admitted",
+            "descriptor_schema": "world.product-descriptor/v1",
+            "ref": {
+                "type_id": "weather.temperature_field.v1",
+                "content_id": "sha256:099531ec5b865b8bc9b32567f971260344acbdc1dd6dd05f52e7eb835ffb5724"
+            },
+            "semantic": {
+                "type_id": "weather.temperature_field.v1",
+                "semantic_identity": "field:noaa-gfs:air_temperature:isobaric",
+                "valid_domain": {
+                    "at": [
+                        "2026-09-10T22:00:00+00:00",
+                        "2026-09-10T23:00:00+00:00"
+                    ],
+                    "end": "2026-09-10T23:00:00+00:00",
+                    "kind": "instants",
+                    "start": "2026-09-10T22:00:00+00:00"
+                },
+                "knowledge_domain": {
+                    "at": "2026-09-13T22:40:09.556071+00:00",
+                    "kind": "instant"
+                },
+                "spatial_domain": {
+                    "note": "native sphere grid; mapping onto WGS84 is a projection assumption",
+                    "frame": "native-grid",
+                    "scope": "global",
+                    "bbox_native": [
+                        0.0,
+                        -90.0,
+                        359.75,
+                        90.0
+                    ],
+                    "frame_detail": {
+                        "declared_by": "GRIB2 section 3",
+                        "shape_of_earth": 6,
+                        "sphere_radius_m": 6371229
+                    },
+                    "lon_convention": "0..360"
+                },
+                "provenance_ref": null,
+                "metadata": {
+                    "shape": [
+                        2,
+                        2,
+                        721,
+                        1440
+                    ],
+                    "units": "K",
+                    "variable": "air_temperature",
+                    "vertical": "pressure-hPa",
+                    "block_refs": [
+                        {
+                            "type_id": "weather.field_block.v1",
+                            "content_id": "sha256:e062f407f5f02f20ad9f0d7d5dacc60b6040f02a406e4b18b7ccfed8a3f5bd26"
+                        },
+                        {
+                            "type_id": "weather.field_block.v1",
+                            "content_id": "sha256:b9187e4a8afbbf2ffa4c448987e0d555243f32395afb1f2a2f72e40b314f7ad5"
+                        },
+                        {
+                            "type_id": "weather.field_block.v1",
+                            "content_id": "sha256:4274c7fe86c8ea96ed9e9e95c60d5315cc35701ab2718a5d84342358a81c546c"
+                        },
+                        {
+                            "type_id": "weather.field_block.v1",
+                            "content_id": "sha256:e1ec891e4f05a51450952b51b0f21f728dfe4718dd149b88a662b28a5dfb8fa4"
+                        }
+                    ],
+                    "plane_count": 4,
+                    "source_refs": [
+                        {
+                            "type_id": "source.gfs.grib2.v1",
+                            "content_id": "sha256:a74819530bd7918a1b9945b03763c49162e72e47292be96bf772ac01b44705d6"
+                        },
+                        {
+                            "type_id": "source.gfs.grib2.v1",
+                            "content_id": "sha256:1ccaef8623552efea09052dc99b3d94ea27e6b03f010ce3d8e6f8fa64ebdae49"
+                        },
+                        {
+                            "type_id": "source.gfs.grib2.v1",
+                            "content_id": "sha256:7551730684eb64b21bb7897283de71f43912a5071e0e9bb3c8469cd837cb4474"
+                        },
+                        {
+                            "type_id": "source.gfs.grib2.v1",
+                            "content_id": "sha256:ee498c648d08079b6655d665c527dd1f32ab255bab47cf9c3329d0ff494e78f3"
+                        }
+                    ],
+                    "valid_times": [
+                        "2026-09-10T22:00:00+00:00",
+                        "2026-09-10T23:00:00+00:00"
+                    ],
+                    "value_count": 4152960,
+                    "pressure_hpa": [
+                        500.0,
+                        850.0
+                    ],
+                    "forecast_cycles": [
+                        "2026-09-10T18:00:00+00:00"
+                    ]
+                }
+            },
+            "access": {
+                "access_kind": "chunked_field/v1",
+                "access_target": "world-field-store",
+                "locator": {
+                    "layout": "blocks-per-plane",
+                    "resource": "fields",
+                    "product_content_id": "sha256:099531ec5b865b8bc9b32567f971260344acbdc1dd6dd05f52e7eb835ffb5724"
+                },
+                "supported_query_dimensions": [
+                    "space",
+                    "valid_time",
+                    "pressure",
+                    "variable"
+                ],
+                "resolution_characteristics": {
+                    "shape": [
+                        2,
+                        2,
+                        721,
+                        1440
+                    ],
+                    "grid_degrees": [
+                        0.25,
+                        0.25
+                    ]
+                },
+                "metadata": {}
+            },
+            "representations": [
+                {
+                    "kind": "field_samples/v1",
+                    "capabilities": [
+                        "sample",
+                        "annotation"
+                    ],
+                    "requirements": {
+                        "value": {
+                            "vertical": "pressure-hPa-not-altitude",
+                            "units_from": "lattice"
+                        },
+                        "assumptions": [
+                            "field_frame:sphere-grid-labeled-on-wgs84",
+                            "field_height:pressure-level-at-display-height-zero"
+                        ]
+                    }
+                }
+            ],
+            "provenance": {
+                "producer": "field.assemble-compatible-blocks@1",
+                "transform_run_id": "212e30a9a43c443f9a7916e5eedcc7a7",
+                "inputs": [
+                    {
+                        "type_id": "weather.field_block.v1",
+                        "content_id": "sha256:e062f407f5f02f20ad9f0d7d5dacc60b6040f02a406e4b18b7ccfed8a3f5bd26"
+                    },
+                    {
+                        "type_id": "weather.field_block.v1",
+                        "content_id": "sha256:b9187e4a8afbbf2ffa4c448987e0d555243f32395afb1f2a2f72e40b314f7ad5"
+                    },
+                    {
+                        "type_id": "weather.field_block.v1",
+                        "content_id": "sha256:4274c7fe86c8ea96ed9e9e95c60d5315cc35701ab2718a5d84342358a81c546c"
+                    },
+                    {
+                        "type_id": "weather.field_block.v1",
+                        "content_id": "sha256:e1ec891e4f05a51450952b51b0f21f728dfe4718dd149b88a662b28a5dfb8fa4"
+                    }
+                ]
+            },
+            "admission": [
+                {
+                    "ok": true,
+                    "check": "descriptor_schema",
+                    "detail": "'world.product-descriptor/v1'; runtime interprets 'world.product-descriptor/v1'"
+                },
+                {
+                    "ok": true,
+                    "check": "ref_consistent",
+                    "detail": "descriptor weather.temperature_field.v1@sha256:099531ec5b865b8bc9b32567f971260344acbdc1dd6dd05f52e7eb835ffb5724 vs semantic weather.temperature_field.v1@sha256:099531ec5b865b8bc9b32567f971260344acbdc1dd6dd05f52e7eb835ffb5724 (weather.temperature_field.v1)"
+                },
+                {
+                    "ok": true,
+                    "check": "semantic_type_registered",
+                    "detail": "weather.temperature_field.v1"
+                },
+                {
+                    "ok": true,
+                    "check": "semantic_required_fields",
+                    "detail": "requires ['knowledge_domain', 'spatial_domain', 'units', 'valid_domain']"
+                },
+                {
+                    "ok": true,
+                    "check": "valid_domain_valid",
+                    "detail": "instants"
+                },
+                {
+                    "ok": true,
+                    "check": "knowledge_domain_valid",
+                    "detail": "instant"
+                },
+                {
+                    "ok": true,
+                    "check": "spatial_frame_declared",
+                    "detail": "native-grid"
+                },
+                {
+                    "ok": true,
+                    "check": "access_kind_registered",
+                    "detail": "chunked_field/v1"
+                },
+                {
+                    "ok": true,
+                    "check": "access_target_registered",
+                    "detail": "world-field-store"
+                },
+                {
+                    "ok": true,
+                    "check": "access_locator_complete",
+                    "detail": "keys ['layout', 'product_content_id', 'resource']"
+                },
+                {
+                    "ok": true,
+                    "check": "access_capabilities_coherent",
+                    "detail": "['pressure', 'space', 'valid_time', 'variable']"
+                },
+                {
+                    "ok": true,
+                    "check": "representation_registered",
+                    "detail": "field_samples/v1"
+                },
+                {
+                    "ok": true,
+                    "check": "representation_requirements_declared",
+                    "detail": "field_samples/v1: ['assumptions', 'value']"
+                },
+                {
+                    "ok": true,
+                    "check": "provenance_complete",
+                    "detail": "field.assemble-compatible-blocks@1 run 212e30a9a43c443f9a7916e5eedcc7a7 inputs 4"
+                }
+            ]
+        },
+        {
+            "id": "a30fbc8f332c46aa9208491a43a7ced6",
+            "status": "admitted",
+            "descriptor_schema": "world.product-descriptor/v1",
+            "ref": {
+                "type_id": "weather.temperature_field.v1",
+                "content_id": "sha256:099531ec5b865b8bc9b32567f971260344acbdc1dd6dd05f52e7eb835ffb5724"
+            },
+            "semantic": {
+                "type_id": "weather.temperature_field.v1",
+                "semantic_identity": "field:noaa-gfs:air_temperature:isobaric",
+                "valid_domain": {
+                    "at": [
+                        "2026-09-10T22:00:00+00:00",
+                        "2026-09-10T23:00:00+00:00"
+                    ],
+                    "end": "2026-09-10T23:00:00+00:00",
+                    "kind": "instants",
+                    "start": "2026-09-10T22:00:00+00:00"
+                },
+                "knowledge_domain": {
+                    "at": "2026-09-13T22:40:09.556071+00:00",
+                    "kind": "instant"
+                },
+                "spatial_domain": {
+                    "note": "native sphere grid; mapping onto WGS84 is a projection assumption",
+                    "frame": "native-grid",
+                    "scope": "global",
+                    "bbox_native": [
+                        0.0,
+                        -90.0,
+                        359.75,
+                        90.0
+                    ],
+                    "frame_detail": {
+                        "declared_by": "GRIB2 section 3",
+                        "shape_of_earth": 6,
+                        "sphere_radius_m": 6371229
+                    },
+                    "lon_convention": "0..360"
+                },
+                "provenance_ref": null,
+                "metadata": {
+                    "shape": [
+                        2,
+                        2,
+                        721,
+                        1440
+                    ],
+                    "units": "K",
+                    "variable": "air_temperature",
+                    "vertical": "pressure-hPa",
+                    "block_refs": [
+                        {
+                            "type_id": "weather.field_block.v1",
+                            "content_id": "sha256:e062f407f5f02f20ad9f0d7d5dacc60b6040f02a406e4b18b7ccfed8a3f5bd26"
+                        },
+                        {
+                            "type_id": "weather.field_block.v1",
+                            "content_id": "sha256:b9187e4a8afbbf2ffa4c448987e0d555243f32395afb1f2a2f72e40b314f7ad5"
+                        },
+                        {
+                            "type_id": "weather.field_block.v1",
+                            "content_id": "sha256:4274c7fe86c8ea96ed9e9e95c60d5315cc35701ab2718a5d84342358a81c546c"
+                        },
+                        {
+                            "type_id": "weather.field_block.v1",
+                            "content_id": "sha256:e1ec891e4f05a51450952b51b0f21f728dfe4718dd149b88a662b28a5dfb8fa4"
+                        }
+                    ],
+                    "plane_count": 4,
+                    "source_refs": [
+                        {
+                            "type_id": "source.gfs.grib2.v1",
+                            "content_id": "sha256:a74819530bd7918a1b9945b03763c49162e72e47292be96bf772ac01b44705d6"
+                        },
+                        {
+                            "type_id": "source.gfs.grib2.v1",
+                            "content_id": "sha256:1ccaef8623552efea09052dc99b3d94ea27e6b03f010ce3d8e6f8fa64ebdae49"
+                        },
+                        {
+                            "type_id": "source.gfs.grib2.v1",
+                            "content_id": "sha256:7551730684eb64b21bb7897283de71f43912a5071e0e9bb3c8469cd837cb4474"
+                        },
+                        {
+                            "type_id": "source.gfs.grib2.v1",
+                            "content_id": "sha256:ee498c648d08079b6655d665c527dd1f32ab255bab47cf9c3329d0ff494e78f3"
+                        }
+                    ],
+                    "valid_times": [
+                        "2026-09-10T22:00:00+00:00",
+                        "2026-09-10T23:00:00+00:00"
+                    ],
+                    "value_count": 4152960,
+                    "pressure_hpa": [
+                        500.0,
+                        850.0
+                    ],
+                    "forecast_cycles": [
+                        "2026-09-10T18:00:00+00:00"
+                    ]
+                }
+            },
+            "access": {
+                "access_kind": "chunked_field/v1",
+                "access_target": "world-field-store",
+                "locator": {
+                    "layout": "blocks-per-plane",
+                    "resource": "fields",
+                    "product_content_id": "sha256:099531ec5b865b8bc9b32567f971260344acbdc1dd6dd05f52e7eb835ffb5724"
+                },
+                "supported_query_dimensions": [
+                    "space",
+                    "valid_time",
+                    "pressure",
+                    "variable"
+                ],
+                "resolution_characteristics": {
+                    "shape": [
+                        2,
+                        2,
+                        721,
+                        1440
+                    ],
+                    "grid_degrees": [
+                        0.25,
+                        0.25
+                    ]
+                },
+                "metadata": {}
+            },
+            "representations": [
+                {
+                    "kind": "field_samples/v1",
+                    "capabilities": [
+                        "sample",
+                        "annotation"
+                    ],
+                    "requirements": {
+                        "value": {
+                            "vertical": "pressure-hPa-not-altitude",
+                            "units_from": "lattice"
+                        },
+                        "assumptions": [
+                            "field_frame:sphere-grid-labeled-on-wgs84",
+                            "field_height:pressure-level-at-display-height-zero"
+                        ]
+                    }
+                }
+            ],
+            "provenance": {
+                "producer": "field.assemble-compatible-blocks@1",
+                "transform_run_id": "3091b24a210545dba0ff1ede6046ce36",
+                "inputs": [
+                    {
+                        "type_id": "weather.field_block.v1",
+                        "content_id": "sha256:e062f407f5f02f20ad9f0d7d5dacc60b6040f02a406e4b18b7ccfed8a3f5bd26"
+                    },
+                    {
+                        "type_id": "weather.field_block.v1",
+                        "content_id": "sha256:b9187e4a8afbbf2ffa4c448987e0d555243f32395afb1f2a2f72e40b314f7ad5"
+                    },
+                    {
+                        "type_id": "weather.field_block.v1",
+                        "content_id": "sha256:4274c7fe86c8ea96ed9e9e95c60d5315cc35701ab2718a5d84342358a81c546c"
+                    },
+                    {
+                        "type_id": "weather.field_block.v1",
+                        "content_id": "sha256:e1ec891e4f05a51450952b51b0f21f728dfe4718dd149b88a662b28a5dfb8fa4"
+                    }
+                ]
+            },
+            "admission": [
+                {
+                    "ok": true,
+                    "check": "descriptor_schema",
+                    "detail": "'world.product-descriptor/v1'; runtime interprets 'world.product-descriptor/v1'"
+                },
+                {
+                    "ok": true,
+                    "check": "ref_consistent",
+                    "detail": "descriptor weather.temperature_field.v1@sha256:099531ec5b865b8bc9b32567f971260344acbdc1dd6dd05f52e7eb835ffb5724 vs semantic weather.temperature_field.v1@sha256:099531ec5b865b8bc9b32567f971260344acbdc1dd6dd05f52e7eb835ffb5724 (weather.temperature_field.v1)"
+                },
+                {
+                    "ok": true,
+                    "check": "semantic_type_registered",
+                    "detail": "weather.temperature_field.v1"
+                },
+                {
+                    "ok": true,
+                    "check": "semantic_required_fields",
+                    "detail": "requires ['knowledge_domain', 'spatial_domain', 'units', 'valid_domain']"
+                },
+                {
+                    "ok": true,
+                    "check": "valid_domain_valid",
+                    "detail": "instants"
+                },
+                {
+                    "ok": true,
+                    "check": "knowledge_domain_valid",
+                    "detail": "instant"
+                },
+                {
+                    "ok": true,
+                    "check": "spatial_frame_declared",
+                    "detail": "native-grid"
+                },
+                {
+                    "ok": true,
+                    "check": "access_kind_registered",
+                    "detail": "chunked_field/v1"
+                },
+                {
+                    "ok": true,
+                    "check": "access_target_registered",
+                    "detail": "world-field-store"
+                },
+                {
+                    "ok": true,
+                    "check": "access_locator_complete",
+                    "detail": "keys ['layout', 'product_content_id', 'resource']"
+                },
+                {
+                    "ok": true,
+                    "check": "access_capabilities_coherent",
+                    "detail": "['pressure', 'space', 'valid_time', 'variable']"
+                },
+                {
+                    "ok": true,
+                    "check": "representation_registered",
+                    "detail": "field_samples/v1"
+                },
+                {
+                    "ok": true,
+                    "check": "representation_requirements_declared",
+                    "detail": "field_samples/v1: ['assumptions', 'value']"
+                },
+                {
+                    "ok": true,
+                    "check": "representation_capability_requirements_declared",
+                    "detail": "field_samples/v1: capabilities [] complete"
+                },
+                {
+                    "ok": true,
+                    "check": "provenance_complete",
+                    "detail": "field.assemble-compatible-blocks@1 run 3091b24a210545dba0ff1ede6046ce36 inputs 4"
+                }
+            ]
+        }
+    ],
+    "admitted": true,
+    "bound_in": [
+        {
+            "revision_id": "4237b10858564c00932ba9f59800927e",
+            "binding": "world.weather"
+        },
+        {
+            "revision_id": "4dbdebc661b94deb914320ea81756881",
+            "binding": "world.weather"
+        }
+    ],
+    "transform_run": {
+        "id": "212e30a9a43c443f9a7916e5eedcc7a7",
+        "transformation": "field.assemble-compatible-blocks@1",
+        "params": {},
+        "status": "succeeded",
+        "error": null,
+        "inputs": [
+            {
+                "type_id": "weather.field_block.v1",
+                "content_id": "sha256:e062f407f5f02f20ad9f0d7d5dacc60b6040f02a406e4b18b7ccfed8a3f5bd26"
+            },
+            {
+                "type_id": "weather.field_block.v1",
+                "content_id": "sha256:b9187e4a8afbbf2ffa4c448987e0d555243f32395afb1f2a2f72e40b314f7ad5"
+            },
+            {
+                "type_id": "weather.field_block.v1",
+                "content_id": "sha256:4274c7fe86c8ea96ed9e9e95c60d5315cc35701ab2718a5d84342358a81c546c"
+            },
+            {
+                "type_id": "weather.field_block.v1",
+                "content_id": "sha256:e1ec891e4f05a51450952b51b0f21f728dfe4718dd149b88a662b28a5dfb8fa4"
+            }
+        ],
+        "output": {
+            "type_id": "weather.temperature_field.v1",
+            "content_id": "sha256:099531ec5b865b8bc9b32567f971260344acbdc1dd6dd05f52e7eb835ffb5724"
+        }
+    },
+    "inputs": [
+        {
+            "type_id": "weather.field_block.v1",
+            "content_id": "sha256:e062f407f5f02f20ad9f0d7d5dacc60b6040f02a406e4b18b7ccfed8a3f5bd26"
+        },
+        {
+            "type_id": "weather.field_block.v1",
+            "content_id": "sha256:b9187e4a8afbbf2ffa4c448987e0d555243f32395afb1f2a2f72e40b314f7ad5"
+        },
+        {
+            "type_id": "weather.field_block.v1",
+            "content_id": "sha256:4274c7fe86c8ea96ed9e9e95c60d5315cc35701ab2718a5d84342358a81c546c"
+        },
+        {
+            "type_id": "weather.field_block.v1",
+            "content_id": "sha256:e1ec891e4f05a51450952b51b0f21f728dfe4718dd149b88a662b28a5dfb8fa4"
+        }
+    ],
+    "sources": [
+        {
+            "ref": {
+                "type_id": "source.gfs.grib2.v1",
+                "content_id": "sha256:a74819530bd7918a1b9945b03763c49162e72e47292be96bf772ac01b44705d6"
+            },
+            "source": "noaa-gfs",
+            "source_type": "source.gfs.grib2.v1",
+            "connector_instance_id": "noaa-replay",
+            "publication_id": "e84595cbb0094506842eb762446cf829",
+            "received_at": "2026-09-13T22:40:09.556071+00:00",
+            "source_times": {
+                "cycle": "2026-09-10T18:00:00+00:00",
+                "lead_hours": 4,
+                "recorded_at": "2026-09-11T21:05:15.126352+00:00",
+                "requested_at": "2026-09-11T21:05:14.813764+00:00",
+                "object_last_modified": "Thu, 10 Sep 2026 21:38:12 GMT"
+            },
+            "acquisition_metadata": {
+                "url": "https://noaa-gfs-bdp-pds.s3.amazonaws.com/gfs.20260910/18/atmos/gfs.t18z.pgrb2.0p25.f004",
+                "auth": "anonymous",
+                "etag": "\"5b167ee6d3cd1eee524ca1ac87b5696c\"",
+                "bytes": 733505,
+                "cycle": "2026091018",
+                "level": "500 mb",
+                "range": "bytes=263263064-263996568",
+                "method": "GET",
+                "replay": true,
+                "sha256": "sha256:a74819530bd7918a1b9945b03763c49162e72e47292be96bf772ac01b44705d6",
+                "status": 206,
+                "fixture": "experiment-002",
+                "variable": "TMP",
+                "index_ref": {
+                    "type_id": "source.gfs.index.v1",
+                    "content_id": "sha256:9c97783295984b063ea8f9ab3d69e44b85cc79894e699d0a6707f6649d46c68a"
+                },
+                "selection": "one whole native GRIB2 message, not the whole GFS file",
+                "index_line": "350:263263064:d=2026091018:TMP:500 mb:4 hour fcst:",
+                "lead_hours": 4,
+                "replayed_at": "2026-09-13T22:40:09.551528+00:00",
+                "content_range": "bytes 263263064-263996568/542689253",
+                "last_modified": "Thu, 10 Sep 2026 21:38:12 GMT",
+                "capture_recorded_at": "2026-09-11T21:05:15.126352+00:00",
+                "capture_requested_at": "2026-09-11T21:05:14.813764+00:00"
+            },
+            "via": [
+                {
+                    "type_id": "weather.field_block.v1",
+                    "content_id": "sha256:e062f407f5f02f20ad9f0d7d5dacc60b6040f02a406e4b18b7ccfed8a3f5bd26"
+                }
+            ]
+        },
+        {
+            "ref": {
+                "type_id": "source.gfs.grib2.v1",
+                "content_id": "sha256:1ccaef8623552efea09052dc99b3d94ea27e6b03f010ce3d8e6f8fa64ebdae49"
+            },
+            "source": "noaa-gfs",
+            "source_type": "source.gfs.grib2.v1",
+            "connector_instance_id": "noaa-replay",
+            "publication_id": "e84595cbb0094506842eb762446cf829",
+            "received_at": "2026-09-13T22:40:09.556071+00:00",
+            "source_times": {
+                "cycle": "2026-09-10T18:00:00+00:00",
+                "lead_hours": 4,
+                "recorded_at": "2026-09-11T21:05:15.436921+00:00",
+                "requested_at": "2026-09-11T21:05:15.127033+00:00",
+                "object_last_modified": "Thu, 10 Sep 2026 21:38:12 GMT"
+            },
+            "acquisition_metadata": {
+                "url": "https://noaa-gfs-bdp-pds.s3.amazonaws.com/gfs.20260910/18/atmos/gfs.t18z.pgrb2.0p25.f004",
+                "auth": "anonymous",
+                "etag": "\"5b167ee6d3cd1eee524ca1ac87b5696c\"",
+                "bytes": 848576,
+                "cycle": "2026091018",
+                "level": "850 mb",
+                "range": "bytes=341891517-342740092",
+                "method": "GET",
+                "replay": true,
+                "sha256": "sha256:1ccaef8623552efea09052dc99b3d94ea27e6b03f010ce3d8e6f8fa64ebdae49",
+                "status": 206,
+                "fixture": "experiment-002",
+                "variable": "TMP",
+                "index_ref": {
+                    "type_id": "source.gfs.index.v1",
+                    "content_id": "sha256:9c97783295984b063ea8f9ab3d69e44b85cc79894e699d0a6707f6649d46c68a"
+                },
+                "selection": "one whole native GRIB2 message, not the whole GFS file",
+                "index_line": "462:341891517:d=2026091018:TMP:850 mb:4 hour fcst:",
+                "lead_hours": 4,
+                "replayed_at": "2026-09-13T22:40:09.551528+00:00",
+                "content_range": "bytes 341891517-342740092/542689253",
+                "last_modified": "Thu, 10 Sep 2026 21:38:12 GMT",
+                "capture_recorded_at": "2026-09-11T21:05:15.436921+00:00",
+                "capture_requested_at": "2026-09-11T21:05:15.127033+00:00"
+            },
+            "via": [
+                {
+                    "type_id": "weather.field_block.v1",
+                    "content_id": "sha256:b9187e4a8afbbf2ffa4c448987e0d555243f32395afb1f2a2f72e40b314f7ad5"
+                }
+            ]
+        },
+        {
+            "ref": {
+                "type_id": "source.gfs.grib2.v1",
+                "content_id": "sha256:7551730684eb64b21bb7897283de71f43912a5071e0e9bb3c8469cd837cb4474"
+            },
+            "source": "noaa-gfs",
+            "source_type": "source.gfs.grib2.v1",
+            "connector_instance_id": "noaa-replay",
+            "publication_id": "e84595cbb0094506842eb762446cf829",
+            "received_at": "2026-09-13T22:40:09.556071+00:00",
+            "source_times": {
+                "cycle": "2026-09-10T18:00:00+00:00",
+                "lead_hours": 5,
+                "recorded_at": "2026-09-11T21:05:15.920743+00:00",
+                "requested_at": "2026-09-11T21:05:15.583491+00:00",
+                "object_last_modified": "Thu, 10 Sep 2026 21:37:59 GMT"
+            },
+            "acquisition_metadata": {
+                "url": "https://noaa-gfs-bdp-pds.s3.amazonaws.com/gfs.20260910/18/atmos/gfs.t18z.pgrb2.0p25.f005",
+                "auth": "anonymous",
+                "etag": "\"3e213e337c29eeebf4eba7574ee9ef2d\"",
+                "bytes": 729931,
+                "cycle": "2026091018",
+                "level": "500 mb",
+                "range": "bytes=263580945-264310875",
+                "method": "GET",
+                "replay": true,
+                "sha256": "sha256:7551730684eb64b21bb7897283de71f43912a5071e0e9bb3c8469cd837cb4474",
+                "status": 206,
+                "fixture": "experiment-002",
+                "variable": "TMP",
+                "index_ref": {
+                    "type_id": "source.gfs.index.v1",
+                    "content_id": "sha256:3a14b629038a11439b29954f205129dfa7ead0a689ec53ba31d0fc45dcc2272c"
+                },
+                "selection": "one whole native GRIB2 message, not the whole GFS file",
+                "index_line": "350:263580945:d=2026091018:TMP:500 mb:5 hour fcst:",
+                "lead_hours": 5,
+                "replayed_at": "2026-09-13T22:40:09.551528+00:00",
+                "content_range": "bytes 263580945-264310875/542635076",
+                "last_modified": "Thu, 10 Sep 2026 21:37:59 GMT",
+                "capture_recorded_at": "2026-09-11T21:05:15.920743+00:00",
+                "capture_requested_at": "2026-09-11T21:05:15.583491+00:00"
+            },
+            "via": [
+                {
+                    "type_id": "weather.field_block.v1",
+                    "content_id": "sha256:4274c7fe86c8ea96ed9e9e95c60d5315cc35701ab2718a5d84342358a81c546c"
+                }
+            ]
+        },
+        {
+            "ref": {
+                "type_id": "source.gfs.grib2.v1",
+                "content_id": "sha256:ee498c648d08079b6655d665c527dd1f32ab255bab47cf9c3329d0ff494e78f3"
+            },
+            "source": "noaa-gfs",
+            "source_type": "source.gfs.grib2.v1",
+            "connector_instance_id": "noaa-replay",
+            "publication_id": "e84595cbb0094506842eb762446cf829",
+            "received_at": "2026-09-13T22:40:09.556071+00:00",
+            "source_times": {
+                "cycle": "2026-09-10T18:00:00+00:00",
+                "lead_hours": 5,
+                "recorded_at": "2026-09-11T21:05:16.264382+00:00",
+                "requested_at": "2026-09-11T21:05:15.921769+00:00",
+                "object_last_modified": "Thu, 10 Sep 2026 21:37:59 GMT"
+            },
+            "acquisition_metadata": {
+                "url": "https://noaa-gfs-bdp-pds.s3.amazonaws.com/gfs.20260910/18/atmos/gfs.t18z.pgrb2.0p25.f005",
+                "auth": "anonymous",
+                "etag": "\"3e213e337c29eeebf4eba7574ee9ef2d\"",
+                "bytes": 847993,
+                "cycle": "2026091018",
+                "level": "850 mb",
+                "range": "bytes=342117368-342965360",
+                "method": "GET",
+                "replay": true,
+                "sha256": "sha256:ee498c648d08079b6655d665c527dd1f32ab255bab47cf9c3329d0ff494e78f3",
+                "status": 206,
+                "fixture": "experiment-002",
+                "variable": "TMP",
+                "index_ref": {
+                    "type_id": "source.gfs.index.v1",
+                    "content_id": "sha256:3a14b629038a11439b29954f205129dfa7ead0a689ec53ba31d0fc45dcc2272c"
+                },
+                "selection": "one whole native GRIB2 message, not the whole GFS file",
+                "index_line": "462:342117368:d=2026091018:TMP:850 mb:5 hour fcst:",
+                "lead_hours": 5,
+                "replayed_at": "2026-09-13T22:40:09.551528+00:00",
+                "content_range": "bytes 342117368-342965360/542635076",
+                "last_modified": "Thu, 10 Sep 2026 21:37:59 GMT",
+                "capture_recorded_at": "2026-09-11T21:05:16.264382+00:00",
+                "capture_requested_at": "2026-09-11T21:05:15.921769+00:00"
+            },
+            "via": [
+                {
+                    "type_id": "weather.field_block.v1",
+                    "content_id": "sha256:e1ec891e4f05a51450952b51b0f21f728dfe4718dd149b88a662b28a5dfb8fa4"
+                }
+            ]
+        }
+    ],
+    "truncated": false,
+    "notes": []
+}
