@@ -4,6 +4,7 @@ import {
   AWARENESS_RADIUS_M,
 } from '../../data/militaryAwarenessEngine.js';
 import { AWARENESS_PAGE_SIZE, AWARENESS_PAGE_ROTATE_MS } from './policy.js';
+import { hostElement } from '../../app/host.js';
 
 export function createPanel({ state: layerState, services, parts, source }) {
   function ensurePanel() {
@@ -39,7 +40,7 @@ export function createPanel({ state: layerState, services, parts, source }) {
       );
     };
     panel.addEventListener('click', layerState.panelClickListener);
-    if (!existing) document.body.appendChild(panel);
+    if (!existing) hostElement().appendChild(panel);
     layerState.panel = panel;
     return panel;
   }

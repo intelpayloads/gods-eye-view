@@ -45,6 +45,8 @@
     "test:track": "node scripts/track-regression.mjs",
     "qa:map-source-tray": "node scripts/qa-map-source-tray.mjs",
     "qa:world-model": "node scripts/qa-world-model.mjs",
+    "qa:embedded": "node scripts/qa-embedded.mjs",
+    "generate:embedded": "node scripts/generate-embedded-assets.mjs",
     "check:boundaries": "node scripts/check-package-boundaries.mjs"
   },
   "dependencies": {
@@ -70,6 +72,7 @@
     "./infrastructure/lod": "./src/data/localGeojsonLod.js",
     "./application": "./src/app/application.js",
     "./application/viewer": "./src/app/viewer.js",
+    "./application/embedded": "./src/embedded/application.js",
     "./build/vite": {
       "node": "./build/vite.js"
     },

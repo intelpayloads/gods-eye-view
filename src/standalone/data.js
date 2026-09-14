@@ -12,7 +12,6 @@ import aisLiveVesselsLayer from '../data/aisLiveVessels.js';
 import militaryInstallationsLayer from '../data/militaryInstallations.js';
 import militaryAwarenessLayer from '../data/militaryAwareness.js';
 import localDataLayers from '../data/localLayers.js';
-import worldModelLayer from '../data/worldModel.js';
 import { LAYER_STATE_REGISTRY } from '../data/layerState.js';
 
 /** Register the standalone layer catalog before allowing state restoration. */
@@ -20,8 +19,10 @@ export function createStandaloneData({
   scene: { viewer },
   controls: { styleManager },
   allowQaRegistration,
+  worldModelLayer,
   defer,
 }) {
+  if (!worldModelLayer) throw new TypeError('A world-model layer is required');
   // Initialize data layer manager
   const dataManager = new DataLayerManager(viewer, {
     allowQaRegistration,

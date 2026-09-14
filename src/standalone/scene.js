@@ -7,6 +7,7 @@ import { loadPhotorealisticTileset } from '../mapStartup.js';
 import { initLogoGaze } from '../logoGaze.js';
 import { uninstallRenderGovernor } from '../renderGovernor.js';
 import { describeError } from './errors.js';
+import { hostElement } from '../app/host.js';
 
 /** Construct the standalone globe using the caller's local configuration. */
 export async function createStandaloneScene({
@@ -30,7 +31,7 @@ export async function createStandaloneScene({
   // Provider attribution stays visible, including clean-view and recording.
   const creditContainer = document.createElement('div');
   creditContainer.id = 'cesium-credits';
-  document.body.appendChild(creditContainer);
+  hostElement().appendChild(creditContainer);
   defer(() => creditContainer.remove());
   const viewer = createApplicationViewer({
     container: 'cesiumContainer',

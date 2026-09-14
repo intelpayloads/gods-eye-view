@@ -467,7 +467,8 @@ export class ShareLinkManager {
     if (this._destroyed || this._initialRestorePending) return;
     const params = this._buildHashParams();
     if (!params) return;
-    history.replaceState(null, '', `#${params.toString()}`);
+    // Preserve history.state: an embedding host's router keeps its own entry there.
+    history.replaceState(history.state, '', `#${params.toString()}`);
   }
 
   /** Build a deterministic snapshot without mutating history. */

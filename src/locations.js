@@ -1,6 +1,7 @@
 import * as Cesium from 'cesium';
 import { viewportBias, placesNearViewRecovery } from './annotations/annotationResolver.js';
 import { unavailablePlaceSearch } from './search/placeSearch.js';
+import { apiUrl } from './sources/endpoints.js';
 
 /**
  * Points of Interest per city.
@@ -854,7 +855,7 @@ async function resolveBuildingBounds(lat, lon, query) {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), 6000);
   try {
-    const response = await fetch('/api/overpass', {
+    const response = await fetch(apiUrl('/api/overpass'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: `data=${encodeURIComponent(overpassQuery)}`,

@@ -61,4 +61,3 @@ export function createStandaloneWorldModelLayer({
     debounceMs,
   });
 }
-export default createStandaloneWorldModelLayer();

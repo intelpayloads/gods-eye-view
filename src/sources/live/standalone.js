@@ -12,6 +12,7 @@ import {
   readsbIdentities,
 } from './aircraft.js';
 import { normalizeVesselTrack, vesselSnapshot } from './vessels.js';
+import { apiUrl as resolveApiUrl } from '../endpoints.js';
 
 const defaultFetch = (...args) => globalThis.fetch(...args);
 const header = (response, name) => response.headers?.get?.(name);
@@ -64,7 +65,7 @@ export function createOpenSkySource({
       }
       const { response, payload } = await readResponse(
         fetchImpl,
-        `/api/opensky${params.size ? '?' + params : ''}`,
+        resolveApiUrl(`/api/opensky${params.size ? '?' + params : ''}`),
         { signal },
         'OpenSky',
       );
@@ -83,7 +84,9 @@ export function createOpenSkySource({
     async getTrack(reference, { signal } = {}) {
       const { response, payload } = await readResponse(
         fetchImpl,
-        '/api/opensky-track?icao24=' + encodeURIComponent(reference),
+        resolveApiUrl(
+          '/api/opensky-track?icao24=' + encodeURIComponent(reference),
+        ),
         { signal },
         'OpenSky',
       );
@@ -98,7 +101,9 @@ export function createOpenSkySource({
         throw new LiveSourceError('unsupported', 'Enrichment unavailable');
       const { response, payload } = await readResponse(
         fetchImpl,
-        `/api/adsbdb/${query.kind}/${encodeURIComponent(query.id)}`,
+        resolveApiUrl(
+          `/api/adsbdb/${query.kind}/${encodeURIComponent(query.id)}`,
+        ),
         { signal },
         'adsbdb',
       );
@@ -117,7 +122,7 @@ export function createAdsbLolSource({
     async getIdentities(_query = {}, { signal } = {}) {
       const { response, payload } = await readResponse(
         fetchImpl,
-        '/api/adsblol/mil',
+        resolveApiUrl('/api/adsblol/mil'),
         { signal },
         'adsb.lol',
       );
@@ -127,7 +132,7 @@ export function createAdsbLolSource({
     async getSnapshot(_query = {}, { signal } = {}) {
       const { response, payload } = await readResponse(
         fetchImpl,
-        '/api/adsblol/mil',
+        resolveApiUrl('/api/adsblol/mil'),
         { signal },
         'adsb.lol',
       );
@@ -145,7 +150,9 @@ export function createAdsbLolSource({
     async getTrack(reference, { signal } = {}) {
       const { response, payload } = await readResponse(
         fetchImpl,
-        '/api/adsblol/trace?hex=' + encodeURIComponent(reference),
+        resolveApiUrl(
+          '/api/adsblol/trace?hex=' + encodeURIComponent(reference),
+        ),
         { signal },
         'adsb.lol',
       );
@@ -167,13 +174,13 @@ export function createAdsbLolSource({
 
 export function createAisStreamSource({
   fetchImpl = defaultFetch,
-  apiUrl = '/api/ais-live',
+  apiUrl: aisApiUrl = '/api/ais-live',
   origin = () => globalThis.location?.origin || 'http://localhost',
 } = {}) {
   return {
     label: 'AISStream',
     async getSnapshot({ maxRows = 12000 } = {}, { signal } = {}) {
-      const url = new URL(apiUrl, origin());
+      const url = new URL(resolveApiUrl(aisApiUrl), origin());
       url.searchParams.set('maxRows', String(maxRows));
       const { response, payload } = await readResponse(
         fetchImpl,
@@ -198,7 +205,9 @@ export function createAisStreamSource({
     async getTrack(reference, { signal } = {}) {
       const { response, payload } = await readResponse(
         fetchImpl,
-        '/api/ais-live/track?mmsi=' + encodeURIComponent(reference),
+        resolveApiUrl(
+          '/api/ais-live/track?mmsi=' + encodeURIComponent(reference),
+        ),
         { signal },
         'AIS live',
       );

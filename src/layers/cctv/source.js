@@ -3,6 +3,7 @@ import {
   FRAME_ENDPOINT,
   MEDIA_ENDPOINT,
 } from './policy.js';
+import { apiUrl } from '../../sources/endpoints.js';
 function safeNumber(value, fallback = NaN) {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
@@ -23,10 +24,10 @@ function frameUrlFor(camera, refreshMs = ACTIVE_FRAME_REFRESH_MS) {
     pitch: String(Math.round(camera.pitchDeg || -10)),
     ts: String(tick),
   });
-  return `${FRAME_ENDPOINT}/${encodeURIComponent(camera.id)}?${params.toString()}`;
+  return `${apiUrl(FRAME_ENDPOINT)}/${encodeURIComponent(camera.id)}?${params.toString()}`;
 }
 function mediaUrlFor(camera) {
-  return `${MEDIA_ENDPOINT}/${encodeURIComponent(camera.id)}?ts=${Math.floor(Date.now() / 15000)}`;
+  return `${apiUrl(MEDIA_ENDPOINT)}/${encodeURIComponent(camera.id)}?ts=${Math.floor(Date.now() / 15000)}`;
 }
 /** Supply catalog/health records and the existing registered camera URL families. */
 export function createCctvSource({
@@ -44,10 +45,10 @@ export function createCctvSource({
   }
   return {
     getCatalog(options) {
-      return read('/api/cctv/sources', 'sources', options);
+      return read(apiUrl('/api/cctv/sources'), 'sources', options);
     },
     getHealth(options) {
-      return read('/api/cctv/health', 'cameras', options);
+      return read(apiUrl('/api/cctv/health'), 'cameras', options);
     },
     getFrameUrl: frameUrlFor,
     getMediaUrl: mediaUrlFor,

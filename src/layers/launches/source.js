@@ -1,3 +1,4 @@
+import { apiUrl } from '../../sources/endpoints.js';
 /** Read launch records and their optional active-orbit catalog with explicit cancellation. */
 export function createLaunchSource({
   fetchImpl = (...args) => globalThis.fetch(...args),
@@ -5,7 +6,7 @@ export function createLaunchSource({
   return {
     async getLaunches({ signal } = {}) {
       signal?.throwIfAborted();
-      const response = await fetchImpl('/api/launches', { signal });
+      const response = await fetchImpl(apiUrl('/api/launches'), { signal });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const payload = await response.json();
       signal?.throwIfAborted();
@@ -15,7 +16,9 @@ export function createLaunchSource({
     },
     async getActiveTle({ signal } = {}) {
       signal?.throwIfAborted();
-      const response = await fetchImpl('/api/celestrak/active', { signal });
+      const response = await fetchImpl(apiUrl('/api/celestrak/active'), {
+        signal,
+      });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const text = await response.text();
       signal?.throwIfAborted();

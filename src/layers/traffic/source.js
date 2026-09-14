@@ -1,4 +1,5 @@
 import { createFlowTileSource } from './flowSource.js';
+import { apiUrl } from '../../sources/endpoints.js';
 function buildOverpassQuery(
   south,
   west,
@@ -44,7 +45,7 @@ export function createTrafficSource({
         majorOnly,
         timeoutSec,
       });
-      const response = await fetchImpl('/api/overpass', {
+      const response = await fetchImpl(apiUrl('/api/overpass'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: 'data=' + encodeURIComponent(query),
@@ -64,7 +65,9 @@ export function createTrafficSource({
     },
     async getStatus({ signal } = {}) {
       signal?.throwIfAborted();
-      const response = await fetchImpl('/api/tomtom/status', { signal });
+      const response = await fetchImpl(apiUrl('/api/tomtom/status'), {
+        signal,
+      });
       if (!response.ok) throw new Error('HTTP ' + response.status);
       const status = await response.json();
       signal?.throwIfAborted();

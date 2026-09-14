@@ -1,4 +1,5 @@
 import { CITY_BY_ID } from './registry.js';
+import { apiUrl } from '../../sources/endpoints.js';
 
 export function createIngestion({
   state: layerState,
@@ -14,7 +15,7 @@ export function createIngestion({
    */
 
   function toProxyUrl(upstreamUrl) {
-    return `/api/gbfs/${encodeURIComponent(upstreamUrl)}`;
+    return apiUrl(`/api/gbfs/${encodeURIComponent(upstreamUrl)}`);
   }
 
   /** Increment the loading reference count and mark loading state active. */

@@ -471,5 +471,14 @@
   "src/data/worldModel.js",
   "server/providers/world.js",
   "scripts/qa-world-model.mjs",
-  "scripts/world-model-stub.mjs"
+  "scripts/world-model-stub.mjs",
+  "scripts/generate-embedded-assets.mjs",
+  "scripts/qa-embedded.mjs",
+  "src/app/host.js",
+  "src/embedded/application.js",
+  "src/embedded/application.test.mjs",
+  "src/embedded/chrome.js",
+  "src/sources/endpoints.js",
+  "src/standalone/ownership.js",
+  "tools/embedded-qa/main.js"
 ]

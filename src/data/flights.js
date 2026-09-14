@@ -16,11 +16,11 @@ import * as context from './contextStore.js';
 import * as render from '../renderGovernor.js';
 import * as groundSnap from './groundSnap.js';
 import * as recession from './aircraftRecession.js';
+import { assetUrl } from '../sources/endpoints.js';
 
 const flightsLayer = createCivilFlightLayer({
   source: createOpenSkySource(),
-  resolveAsset: (url) =>
-    `${import.meta.env?.BASE_URL || '/'}${url.replace(/^\//, '')}`,
+  resolveAsset: assetUrl,
   services: {
     picking,
     sprites,

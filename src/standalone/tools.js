@@ -11,6 +11,19 @@ import {
 } from '../renderGovernor.js';
 import { startStandaloneChrome } from './startupChrome.js';
 
+/**
+ * Optional page-owning features. The standalone shell enables all of them; an
+ * embedding host opts in explicitly.
+ *  - voice: the realtime voice command dock (needs the provider token API)
+ *  - keySetup: the provider key setup dialog (needs the provider setup API)
+ *  - firstRun: the welcome tour revealed after the loading screen
+ */
+export const STANDALONE_FEATURES = Object.freeze({
+  voice: true,
+  keySetup: true,
+  firstRun: true,
+});
+
 /** Attach scene tools, rendering listeners and the standalone debug handle. */
 export function createStandaloneTools({
   scene,
@@ -18,9 +31,11 @@ export function createStandaloneTools({
   data,
   loadingScreen,
   placeSearch,
+  features = STANDALONE_FEATURES,
   signal,
   defer,
 }) {
+  const enabled = { ...STANDALONE_FEATURES, ...features };
   const { viewer, tileset, mapStackController } = scene;
   const { styleManager, weatherEffects, cockpitCloudEffects } = controls;
   const { dataManager } = data;
@@ -32,7 +47,14 @@ export function createStandaloneTools({
     annotations.destroy();
   });
   defer(
-    startStandaloneChrome({ loadingScreen, styleManager, dataManager, signal }),
+    startStandaloneChrome({
+      loadingScreen,
+      styleManager,
+      dataManager,
+      signal,
+      keySetup: enabled.keySetup,
+      firstRun: enabled.firstRun,
+    }),
   );
   // Idle render governor: flips the scene into requestRenderMode whenever
   // nothing animates per frame. Installed AFTER every module above has had
@@ -99,19 +121,22 @@ export function createStandaloneTools({
   defer(() => {
     if (window.__godsEyeView === debug) delete window.__godsEyeView;
   });
-  const voiceCommands = initGevVoiceCommands({
-    placeSearch,
-    viewer,
-    styleManager,
-    dataManager,
-    sceneDirector,
-    annotations,
-  });
-  defer(() => {
-    voiceCommands.stop({ removeUi: true });
-    if (window.__gevVoiceCommands === voiceCommands)
-      delete window.__gevVoiceCommands;
-  });
+  let voiceCommands = null;
+  if (enabled.voice) {
+    voiceCommands = initGevVoiceCommands({
+      placeSearch,
+      viewer,
+      styleManager,
+      dataManager,
+      sceneDirector,
+      annotations,
+    });
+    defer(() => {
+      voiceCommands.stop({ removeUi: true });
+      if (window.__gevVoiceCommands === voiceCommands)
+        delete window.__gevVoiceCommands;
+    });
+  }
   debug.voiceCommands = voiceCommands;
   return { sceneDirector, annotations, voiceCommands };
 }

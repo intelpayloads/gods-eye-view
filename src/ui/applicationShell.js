@@ -5373,7 +5373,13 @@ export class StyleManager {
     this._navigationOwnerChangedRemover = null;
     this._removeNavigationAuthorityListener?.();
     this._removeNavigationAuthorityListener = null;
-    await this._contextControls.restoreForDisposal();
+    try {
+      await this._contextControls.restoreForDisposal();
+    } catch (error) {
+      // Restoring the pre-Context layers is courtesy to a surviving manager;
+      // a layer that cannot come back (provider down) must not abort teardown.
+      console.warn('[Context] restore during disposal failed:', error);
+    }
     // IR boost teardown BEFORE detaching the data manager: restore fog and
     // un-boost both aircraft layers so a surviving viewer or replacement
     // manager doesn't inherit sensor state (review P2, 2026-08-16).

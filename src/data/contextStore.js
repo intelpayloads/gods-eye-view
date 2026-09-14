@@ -8,6 +8,14 @@ function createStore() {
   };
 }
 
+/**
+ * Drop the page's context store (records hold entities of a destroyed viewer).
+ * The next reader creates a fresh one.
+ */
+export function resetContextStore() {
+  if (hasContextHost()) delete window[STORE_KEY];
+}
+
 export function getContextStore() {
   if (!window[STORE_KEY]) {
     window[STORE_KEY] = createStore();

@@ -16,6 +16,7 @@ import {
   placementVariants,
 } from './worldOverlayDraw.js';
 import { WORLD_OVERLAY_STYLE } from './worldOverlayTokens.js';
+import { hostElement } from '../app/host.js';
 
 /**
  * @module worldOverlay
@@ -1060,7 +1061,7 @@ function ensureOverlayDom() {
     _accessibilityRoot.className = 'world-overlay-accessibility';
     _accessibilityRoot.setAttribute('role', 'region');
     _accessibilityRoot.setAttribute('aria-label', 'Visible map targets');
-    document.body.appendChild(_accessibilityRoot);
+    hostElement().appendChild(_accessibilityRoot);
   }
   _accessibilityList = document.getElementById(ACCESSIBILITY_LIST_ID);
   if (!_accessibilityList) {

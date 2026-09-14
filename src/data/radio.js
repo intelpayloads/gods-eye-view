@@ -33,6 +33,7 @@ import {
   projectEarthDiscToViewport,
 } from '../celestialRing.js';
 import { governorRequestRender } from '../renderGovernor.js';
+import { apiUrl, isApiAvailable } from '../sources/endpoints.js';
 
 const RADIO_PREFIX = 'radio:';
 const DIRECTORY_ENDPOINT = '/api/radio/stations';
@@ -1674,7 +1675,8 @@ function tryRadioFallback(
 }
 
 function recordDirectoryClick(id) {
-  fetch(`/api/radio/click/${encodeURIComponent(id)}`, { method: 'POST' }).catch(() => {});
+  if (!isApiAvailable()) return;
+  fetch(apiUrl(`/api/radio/click/${encodeURIComponent(id)}`), { method: 'POST' }).catch(() => {});
 }
 
 /** Play the selected broadcaster stream after an explicit user action. */
@@ -2580,7 +2582,7 @@ export const radioLayer = {
     _error = null;
     emitState();
     try {
-      const response = await fetch(DIRECTORY_ENDPOINT, { signal: _abortController.signal });
+      const response = await fetch(apiUrl(DIRECTORY_ENDPOINT), { signal: _abortController.signal });
       if (!response.ok) throw new Error(`Radio directory returned ${response.status}`);
       const body = await response.json();
       if (!radioRequestIsCurrent(

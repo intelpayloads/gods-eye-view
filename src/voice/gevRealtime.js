@@ -9,6 +9,7 @@ import {
   resolveVoiceModel,
   serializeCostLimits,
 } from './voiceCost.js';
+import { apiUrl } from '../sources/endpoints.js';
 
 const TOKEN_URL = '/api/realtime/token';
 const REALTIME_CALLS_URL = 'https://api.openai.com/v1/realtime/calls';
@@ -1783,7 +1784,7 @@ export class GevRealtimeController {
       connection: this.connectionDiagnostics(),
       recentErrors: this.errors.slice(),
       debugLog: {
-        endpoint: DEBUG_LOG_URL,
+        endpoint: apiUrl(DEBUG_LOG_URL),
         file: '.gev-logs/realtime-conversations.jsonl',
         sessionId: this.sessionId,
       },
@@ -2192,9 +2193,9 @@ function postDebugLog(record) {
     const body = JSON.stringify(record);
     if (navigator.sendBeacon) {
       const blob = new Blob([body], { type: 'application/json' });
-      if (navigator.sendBeacon(DEBUG_LOG_URL, blob)) return;
+      if (navigator.sendBeacon(apiUrl(DEBUG_LOG_URL), blob)) return;
     }
-    fetch(DEBUG_LOG_URL, {
+    fetch(apiUrl(DEBUG_LOG_URL), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body,
@@ -2377,7 +2378,7 @@ function isNearlyBlackFrame(ctx, width, height) {
  * against its own tier assumption.
  */
 async function fetchRealtimeToken(tier = DEFAULT_VOICE_TIER) {
-  const url = `${TOKEN_URL}?tier=${encodeURIComponent(resolveVoiceModel(tier).tier)}`;
+  const url = `${apiUrl(TOKEN_URL)}?tier=${encodeURIComponent(resolveVoiceModel(tier).tier)}`;
   const response = await fetch(url, { cache: 'no-store' });
   const data = await response.json().catch(() => null);
   // Server echo first (authoritative, always present); the minted session

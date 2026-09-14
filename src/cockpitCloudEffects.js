@@ -1,5 +1,7 @@
 import * as Cesium from 'cesium';
 import { deriveWeatherEffectProfile, weatherAltitudeFactors } from './weatherEffectsMath.js';
+import { apiUrl } from './sources/endpoints.js';
+import { hostElement } from './app/host.js';
 
 const WEATHER_REFRESH_MS = 5 * 60_000;
 const CLOUD_FRAME_MS = 1000 / 12;
@@ -170,7 +172,7 @@ export class CockpitCloudEffectsController {
     this.canvas = document.createElement('canvas');
     this.canvas.id = 'cockpit-cloud-effects';
     this.canvas.setAttribute('aria-hidden', 'true');
-    document.body.appendChild(this.canvas);
+    hostElement().appendChild(this.canvas);
 
     this.gl = null;
     this.program = null;
@@ -372,7 +374,10 @@ export class CockpitCloudEffectsController {
       latitude: point.latitude.toFixed(5),
       longitude: point.longitude.toFixed(5),
     });
-    this.pending = fetch(`/api/weather-effects?${params}`, { signal: this.abort.signal })
+    const { signal } = this.abort;
+    // Resolve inside the chain: an unconfigured provider API rejects like a failed fetch.
+    this.pending = Promise.resolve()
+      .then(() => fetch(apiUrl(`/api/weather-effects?${params}`), { signal }))
       .then(async (response) => {
         if (!response.ok) throw new Error(`Cloud weather unavailable (${response.status})`);
         const payload = await response.json();

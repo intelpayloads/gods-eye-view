@@ -149,6 +149,10 @@ export function createIngestion({
     if (!snapshot || !layerState._dataManager) return;
     layerState._satelliteStateBeforeMission = null;
     layerState._satelliteActivationPromise = null;
+    // Application teardown destroys layers in order; a satellites layer that
+    // is already gone has nothing to restore.
+    const manager = layerState._dataManager;
+    if (manager.getLayerLifecycleState?.('satellites') === null) return;
     layerState._dataManager.setLayerParams(
       'satellites',
       parts.policyHelpers.satelliteParamsAfterSpaceMissions(snapshot.params),

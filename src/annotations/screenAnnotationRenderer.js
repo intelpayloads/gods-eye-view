@@ -4,6 +4,7 @@ import {
   getActiveTrackedReadoutId,
   TRACKED_OVERLAY_SOURCE_ID,
 } from '../data/trackedReadout.js';
+import { hostElement } from '../app/host.js';
 
 /**
  * Screen-space annotation renderer (Direction B — the "whiteboard" aesthetic).
@@ -57,7 +58,7 @@ export function createScreenAnnotationRenderer(viewer, {
 } = {}) {
   injectStyles();
   const { layer, svg, defs } = buildOverlay();
-  document.body.appendChild(layer);
+  hostElement().appendChild(layer);
 
   const scene = viewer.scene;
   const occluder = new Cesium.EllipsoidalOccluder(Cesium.Ellipsoid.WGS84, scene.camera.positionWC);

@@ -7,6 +7,8 @@ export function startStandaloneChrome({
   styleManager,
   dataManager,
   signal,
+  keySetup: enableKeySetup = true,
+  firstRun: enableFirstRun = true,
 }) {
   let disposed = false;
   let firstRun;
@@ -17,7 +19,7 @@ export function startStandaloneChrome({
   });
   const delayTimer = setTimeout(resolveDelay, 1000);
   const revealFirstRun = () => {
-    if (disposed || signal.aborted || firstRun) return;
+    if (disposed || signal.aborted || firstRun || !enableFirstRun) return;
     firstRun = initFirstRunExperience({ styleManager, dataManager });
     clearTimeout(revealTimer);
     loadingScreen.removeEventListener('transitionend', revealFirstRun);
@@ -34,7 +36,9 @@ export function startStandaloneChrome({
       });
       revealTimer = setTimeout(revealFirstRun, 900);
     });
-  const keySetup = initKeySetup({ signal });
+  const keySetup = enableKeySetup
+    ? initKeySetup({ signal })
+    : Promise.resolve(null);
   // Own the pending initializer too; it must not reveal a dialog after abort.
   void keySetup.catch(() =>
     console.error('Provider settings initialization failed'),
