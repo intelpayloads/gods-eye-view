@@ -1,12 +1,14 @@
-import { apiUrl } from '../../sources/endpoints.js';
 /** Construct the existing live-fire endpoint without making a request. */
 export function createFirmsSource({
   fetchImpl = (...args) => globalThis.fetch(...args),
+  api,
 } = {}) {
+  if (typeof api !== 'function')
+    throw new TypeError('createFirmsSource requires an api(path) resolver');
   return {
     async getSnapshot({ signal } = {}) {
       signal?.throwIfAborted();
-      const response = await fetchImpl(apiUrl('/api/firms'), {
+      const response = await fetchImpl(api('/api/firms'), {
         signal,
         cache: 'no-store',
       });

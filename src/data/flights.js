@@ -16,10 +16,11 @@ import * as context from './contextStore.js';
 import * as render from '../renderGovernor.js';
 import * as groundSnap from './groundSnap.js';
 import * as recession from './aircraftRecession.js';
-import { assetUrl } from '../sources/endpoints.js';
+import { apiUrl, assetUrl } from '../sources/endpoints.js';
+import { createLayerSource } from '../sources/layerSources.js';
 
 const flightsLayer = createCivilFlightLayer({
-  source: createOpenSkySource(),
+  source: createLayerSource('flights', createOpenSkySource({ api: apiUrl })),
   resolveAsset: assetUrl,
   services: {
     picking,

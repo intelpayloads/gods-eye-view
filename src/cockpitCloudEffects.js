@@ -1,8 +1,11 @@
 import * as Cesium from 'cesium';
 import { deriveWeatherEffectProfile, weatherAltitudeFactors } from './weatherEffectsMath.js';
 import { apiUrl } from './sources/endpoints.js';
+import { createLayerSource } from './sources/layerSources.js';
+import { createWeatherEffectsSource } from './layers/weather/source.js';
 import { hostElement } from './app/host.js';
 
+const weatherSource = createLayerSource('weather-effects', createWeatherEffectsSource({ api: apiUrl }));
 const WEATHER_REFRESH_MS = 5 * 60_000;
 const CLOUD_FRAME_MS = 1000 / 12;
 const MAX_RENDER_WIDTH = 520;
@@ -370,18 +373,11 @@ export class CockpitCloudEffectsController {
 
     this.abort?.abort();
     this.abort = new AbortController();
-    const params = new URLSearchParams({
-      latitude: point.latitude.toFixed(5),
-      longitude: point.longitude.toFixed(5),
-    });
     const { signal } = this.abort;
-    // Resolve inside the chain: an unconfigured provider API rejects like a failed fetch.
+    // Resolve inside the chain: a source that cannot serve rejects like a failed fetch.
     this.pending = Promise.resolve()
-      .then(() => fetch(apiUrl(`/api/weather-effects?${params}`), { signal }))
-      .then(async (response) => {
-        if (!response.ok) throw new Error(`Cloud weather unavailable (${response.status})`);
-        const payload = await response.json();
-        if (!payload?.weather) throw new Error('Cloud weather observation unavailable');
+      .then(() => weatherSource.getObservation(point, { signal }))
+      .then((payload) => {
         this.weather = payload.weather;
         this.fetchedAt = Date.now();
         this.anchor = point;

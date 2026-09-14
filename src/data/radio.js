@@ -34,9 +34,10 @@ import {
 } from '../celestialRing.js';
 import { governorRequestRender } from '../renderGovernor.js';
 import { apiUrl, isApiAvailable } from '../sources/endpoints.js';
+import { createLayerSource } from '../sources/layerSources.js';
+import { createRadioSource } from '../layers/radio/source.js';
 
 const RADIO_PREFIX = 'radio:';
-const DIRECTORY_ENDPOINT = '/api/radio/stations';
 const HORIZON_TICK_MS = 250;
 const HORIZON_CAMERA_MOVE_EPSILON_M = 1;
 const MARKER_LIFT_M = 2.5;
@@ -48,6 +49,7 @@ const RADIO_TUNER_STATIC_MAX_GAIN = 0.018;
 const RADIO_VOICE_PLAYBACK_TIMEOUT_MS = 12_000;
 const RADIO_DIRECTORY_STALE_MS = 7 * 24 * 60 * 60 * 1000;
 const RADIO_DIRECTORY_FUTURE_SKEW_MS = 5 * 60 * 1000;
+const radioSource = createLayerSource('radio', createRadioSource({ api: apiUrl }));
 const RADIO_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const RADIO_OVERLAY_SOURCE_ID = 'radio';
 export const RADIO_OVERLAY_COHORT_LIMIT = 64;
@@ -2582,9 +2584,7 @@ export const radioLayer = {
     _error = null;
     emitState();
     try {
-      const response = await fetch(apiUrl(DIRECTORY_ENDPOINT), { signal: _abortController.signal });
-      if (!response.ok) throw new Error(`Radio directory returned ${response.status}`);
-      const body = await response.json();
+      const body = await radioSource.getDirectory({ signal: _abortController.signal });
       if (!radioRequestIsCurrent(
         generation,
         _requestGeneration,

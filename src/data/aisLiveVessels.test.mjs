@@ -1663,6 +1663,6 @@ test('vessel selection passes the opaque source reference to optional history', 
   } finally {
     harness.cleanup();
     _setVesselStateForTest({ enabled: false });
-    aisLiveVesselsLayer.setSource(createAisStreamSource());
+    aisLiveVesselsLayer.setSource(createAisStreamSource({ api: (path) => path }));
   }
 });

@@ -11,6 +11,8 @@ import * as picking from './pickRegistry.js';
 import * as anchors from './fireAnchors.js';
 import * as overlays from '../overlays/worldOverlay.js';
 import * as focus from '../worldFocus.js';
+import { apiUrl } from '../sources/endpoints.js';
+import { createLayerSource } from '../sources/layerSources.js';
 const services = {
   render,
   sprites,
@@ -35,7 +37,9 @@ export function createFirmsHeatmapLayer(options) {
     ...options,
     icon: options.icon ?? '▲',
     source: options.source ?? 'NASA FIRMS',
-    feed: options.feed ?? createFirmsSource(),
+    feed:
+      options.feed ??
+      createLayerSource('local-firms', createFirmsSource({ api: apiUrl })),
     services,
     overlayHost: options.overlayHost ?? {
       setEntries: overlays.setOverlayEntries,

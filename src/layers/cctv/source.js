@@ -3,12 +3,11 @@ import {
   FRAME_ENDPOINT,
   MEDIA_ENDPOINT,
 } from './policy.js';
-import { apiUrl } from '../../sources/endpoints.js';
 function safeNumber(value, fallback = NaN) {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
 }
-function frameUrlFor(camera, refreshMs = ACTIVE_FRAME_REFRESH_MS) {
+function frameUrlFor(api, camera, refreshMs = ACTIVE_FRAME_REFRESH_MS) {
   const cadenceMs = Math.max(
     1000,
     safeNumber(refreshMs, ACTIVE_FRAME_REFRESH_MS),
@@ -24,15 +23,18 @@ function frameUrlFor(camera, refreshMs = ACTIVE_FRAME_REFRESH_MS) {
     pitch: String(Math.round(camera.pitchDeg || -10)),
     ts: String(tick),
   });
-  return `${apiUrl(FRAME_ENDPOINT)}/${encodeURIComponent(camera.id)}?${params.toString()}`;
+  return `${api(FRAME_ENDPOINT)}/${encodeURIComponent(camera.id)}?${params.toString()}`;
 }
-function mediaUrlFor(camera) {
-  return `${apiUrl(MEDIA_ENDPOINT)}/${encodeURIComponent(camera.id)}?ts=${Math.floor(Date.now() / 15000)}`;
+function mediaUrlFor(api, camera) {
+  return `${api(MEDIA_ENDPOINT)}/${encodeURIComponent(camera.id)}?ts=${Math.floor(Date.now() / 15000)}`;
 }
 /** Supply catalog/health records and the existing registered camera URL families. */
 export function createCctvSource({
   fetchImpl = (...args) => globalThis.fetch(...args),
+  api,
 } = {}) {
+  if (typeof api !== 'function')
+    throw new TypeError('createCctvSource requires an api(path) resolver');
   async function read(path, key, { signal } = {}) {
     signal?.throwIfAborted();
     const response = await fetchImpl(path, { cache: 'no-store', signal });
@@ -45,12 +47,12 @@ export function createCctvSource({
   }
   return {
     getCatalog(options) {
-      return read(apiUrl('/api/cctv/sources'), 'sources', options);
+      return read(api('/api/cctv/sources'), 'sources', options);
     },
     getHealth(options) {
-      return read(apiUrl('/api/cctv/health'), 'cameras', options);
+      return read(api('/api/cctv/health'), 'cameras', options);
     },
-    getFrameUrl: frameUrlFor,
-    getMediaUrl: mediaUrlFor,
+    getFrameUrl: (camera, refreshMs) => frameUrlFor(api, camera, refreshMs),
+    getMediaUrl: (camera) => mediaUrlFor(api, camera),
   };
 }

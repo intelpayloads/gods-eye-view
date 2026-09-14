@@ -4,9 +4,14 @@ import * as render from '../renderGovernor.js';
 import * as sprites from './spriteOrder.js';
 import * as picking from './pickRegistry.js';
 import * as overlays from '../overlays/worldOverlay.js';
+import { apiUrl } from '../sources/endpoints.js';
+import { createLayerSource } from '../sources/layerSources.js';
 
 const layer = createBikeshareLayer({
-  source: createBikeshareSource(),
+  source: createLayerSource(
+    'bikeshare',
+    createBikeshareSource({ api: apiUrl }),
+  ),
   services: { render, sprites, picking, overlays },
 });
 export const createBikeshareSelectedOverlayEntry =

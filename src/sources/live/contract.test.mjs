@@ -10,6 +10,9 @@ import {
   readsbSnapshot,
 } from './index.js';
 
+/** Resolve logical provider paths unchanged, as the standalone composition does. */
+const api = (path) => path;
+
 const now = 1800000000000;
 const aircraft = [
   'AbC123',
@@ -153,8 +156,8 @@ test('construction is inert; adapters preserve routes, viewport query, cache epo
       trace: [[10, 30, -97, 1000]],
     });
   };
-  const civil = createOpenSkySource({ fetchImpl, now: () => now });
-  const military = createAdsbLolSource({ fetchImpl, now: () => now });
+  const civil = createOpenSkySource({ api, fetchImpl, now: () => now });
+  const military = createAdsbLolSource({ api, fetchImpl, now: () => now });
   assert.equal(requests.length, 0);
   const signal = new AbortController().signal;
   const snapshot = await civil.getSnapshot(
@@ -181,6 +184,7 @@ test('cancellation after slow body parsing rejects even with a transport that ig
   let release;
   const controller = new AbortController();
   const source = createOpenSkySource({
+    api,
     fetchImpl: async () => ({
       ok: true,
       json: () =>
@@ -200,6 +204,7 @@ test('denials and outages never start another source and do not echo arbitrary r
   for (const status of [401, 403, 429, 502]) {
     let calls = 0;
     const source = createOpenSkySource({
+      api,
       fetchImpl: async () => {
         calls++;
         return response({ error: 'sensitive upstream detail' }, {}, status);
@@ -217,6 +222,7 @@ test('denials and outages never start another source and do not echo arbitrary r
 
 test('AIS reports limited received coverage and keeps connection state separate from positions', async () => {
   const source = createAisStreamSource({
+    api,
     origin: () => 'http://example.test',
     fetchImpl: async (url) => {
       if (url.includes('/track?'))
@@ -250,6 +256,7 @@ test('AIS reports limited received coverage and keeps connection state separate 
 
 test('a malformed vessel row cannot prevent admission of valid positions', async () => {
   const source = createAisStreamSource({
+    api,
     fetchImpl: async () =>
       response({
         status: 'live',
@@ -274,6 +281,7 @@ test('out-of-range source epochs do not reach Date or globe time constructors', 
 
 test('classification identities include positionless aircraft without admitting them to rendering', async () => {
   const source = createAdsbLolSource({
+    api,
     fetchImpl: async () =>
       response({
         ac: [
@@ -294,11 +302,13 @@ test('classification identities include positionless aircraft without admitting 
 
 test('identity lookup validates its response and honors body-parse cancellation', async () => {
   const malformed = createAdsbLolSource({
+    api,
     fetchImpl: async () => response({ ac: [{}] }),
   });
   await assert.rejects(malformed.getIdentities(), /Malformed/);
   const abort = new AbortController();
   const source = createAdsbLolSource({
+    api,
     fetchImpl: async () => ({
       ok: true,
       status: 200,
@@ -312,4 +322,34 @@ test('identity lookup validates its response and honors body-parse cancellation'
   await assert.rejects(source.getIdentities({}, { signal: abort.signal }), {
     name: 'AbortError',
   });
+});
+
+test('live routes resolve through the supplied api, which is required', async () => {
+  for (const factory of [
+    createOpenSkySource,
+    createAdsbLolSource,
+    createAisStreamSource,
+  ])
+    assert.throws(() => factory(), /requires an api/);
+  const calls = [];
+  const fetchImpl = async (url) => {
+    calls.push(url);
+    if (url.includes('/api/opensky')) return response({ states: [aircraft] });
+    if (url.includes('/api/adsblol'))
+      return response({ ac: [{ hex: 'abc123' }] });
+    return response({ status: 'live', rows: [] });
+  };
+  const compat = (path) => `https://compat.test${path}`;
+  await createOpenSkySource({ api: compat, fetchImpl }).getSnapshot();
+  await createAdsbLolSource({ api: compat, fetchImpl }).getIdentities();
+  await createAisStreamSource({
+    api: compat,
+    path: '/custom/ais',
+    fetchImpl,
+  }).getSnapshot({ maxRows: 10 });
+  assert.deepEqual(calls, [
+    'https://compat.test/api/opensky',
+    'https://compat.test/api/adsblol/mil',
+    'https://compat.test/custom/ais?maxRows=10',
+  ]);
 });

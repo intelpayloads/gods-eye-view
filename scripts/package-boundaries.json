@@ -271,6 +271,7 @@
       "src/layers/military/state.js",
       "src/layers/military/testing.js",
       "src/layers/military/tracking.js",
+      "src/layers/radio/source.js",
       "src/layers/satellites/catalog.js",
       "src/layers/satellites/controls.js",
       "src/layers/satellites/index.js",
@@ -314,6 +315,7 @@
       "src/layers/vessels/store.js",
       "src/layers/vessels/testing.js",
       "src/layers/vessels/tracking.js",
+      "src/layers/weather/source.js",
       "src/layers/worldModel/adapter.js",
       "src/layers/worldModel/controller.js",
       "src/layers/worldModel/demand.js",
@@ -345,6 +347,7 @@
       "src/search/placeSearch.js",
       "src/sharelink.js",
       "src/sources/endpoints.js",
+      "src/sources/layerSources.js",
       "src/sources/live/aircraft.js",
       "src/sources/live/contract.js",
       "src/sources/live/standalone.js",
@@ -996,7 +999,6 @@
   "live-observations": {
     "exports": ["./sources/live"],
     "modules": [
-      "src/sources/endpoints.js",
       "src/sources/live/aircraft.js",
       "src/sources/live/contract.js",
       "src/sources/live/index.js",
@@ -1126,7 +1128,6 @@
   "fire-layer": {
     "exports": ["./layers/firms"],
     "modules": [
-      "src/sources/endpoints.js",
       "src/data/firmsAdapt.js",
       "src/data/firmsLabels.js",
       "src/data/iconOrientation.js",
@@ -1149,7 +1150,6 @@
   "satellites-layer": {
     "exports": ["./layers/satellites"],
     "modules": [
-      "src/sources/endpoints.js",
       "src/data/issPass.js",
       "src/data/satelliteClass.js",
       "src/layers/satellites/catalog.js",
@@ -1172,7 +1172,6 @@
   "launches-layer": {
     "exports": ["./layers/launches"],
     "modules": [
-      "src/sources/endpoints.js",
       "src/layers/launches/camera.js",
       "src/layers/launches/controls.js",
       "src/layers/launches/index.js",
@@ -1198,7 +1197,6 @@
   "installations-layer": {
     "exports": ["./layers/installations"],
     "modules": [
-      "src/sources/endpoints.js",
       "src/data/installationFeedback.js",
       "src/data/militaryInstallationData.js",
       "src/layers/installations/controls.js",
@@ -1245,7 +1243,6 @@
   "traffic-layer": {
     "exports": ["./layers/traffic"],
     "modules": [
-      "src/sources/endpoints.js",
       "src/data/flowMatch.js",
       "src/data/tomtomTiles.js",
       "src/data/trafficBounds.js",
@@ -1274,7 +1271,6 @@
   "bikeshare-layer": {
     "exports": ["./layers/bikeshare"],
     "modules": [
-      "src/sources/endpoints.js",
       "src/layers/bikeshare/controls.js",
       "src/layers/bikeshare/index.js",
       "src/layers/bikeshare/ingestion.js",
@@ -1295,7 +1291,6 @@
   "cctv-layer": {
     "exports": ["./layers/cctv"],
     "modules": [
-      "src/sources/endpoints.js",
       "src/data/cctvCards.js",
       "src/data/cctvGizmo.js",
       "src/data/cctvLod.js",

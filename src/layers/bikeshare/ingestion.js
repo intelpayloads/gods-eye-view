@@ -1,5 +1,4 @@
 import { CITY_BY_ID } from './registry.js';
-import { apiUrl } from '../../sources/endpoints.js';
 
 export function createIngestion({
   state: layerState,
@@ -7,17 +6,6 @@ export function createIngestion({
   parts,
   source,
 }) {
-  /**
-   * Convert an upstream GBFS URL into a local proxy URL.
-   * The dev server proxies /api/gbfs/* to avoid CORS issues with third-party feeds.
-   * @param {string} upstreamUrl - Full HTTPS GBFS endpoint URL.
-   * @returns {string} Relative proxy URL.
-   */
-
-  function toProxyUrl(upstreamUrl) {
-    return apiUrl(`/api/gbfs/${encodeURIComponent(upstreamUrl)}`);
-  }
-
   /** Increment the loading reference count and mark loading state active. */
 
   function beginLoading() {
@@ -200,7 +188,6 @@ export function createIngestion({
   };
 
   return {
-    toProxyUrl,
     beginLoading,
     endLoading,
     fetchGbfsJson,

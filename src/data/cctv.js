@@ -10,9 +10,11 @@ import * as ground from './groundFloor.js';
 import * as mesh from './meshFloorSampler.js';
 import * as focus from './focusDeemphasis.js';
 import * as render from '../renderGovernor.js';
+import { apiUrl } from '../sources/endpoints.js';
+import { createLayerSource } from '../sources/layerSources.js';
 
 const layer = createCctvLayer({
-  source: createCctvSource(),
+  source: createLayerSource('cctv', createCctvSource({ api: apiUrl })),
   services: {
     sprites,
     activation,

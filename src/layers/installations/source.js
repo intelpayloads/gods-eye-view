@@ -1,8 +1,12 @@
-import { apiUrl } from '../../sources/endpoints.js';
 /** Read mapped installations and explicit nearby-place searches through fixed endpoints. */
 export function createInstallationSource({
   fetchImpl = (...args) => globalThis.fetch(...args),
+  api,
 } = {}) {
+  if (typeof api !== 'function')
+    throw new TypeError(
+      'createInstallationSource requires an api(path) resolver',
+    );
   return {
     async getMappedSites(box, { exact = false, signal } = {}) {
       const { south, west, north, east } = box || {};
@@ -27,7 +31,7 @@ export function createInstallationSource({
       );
       if (exact) query.set('exact', '1');
       const response = await fetchImpl(
-        apiUrl(`/api/military-installations?${query}`),
+        api(`/api/military-installations?${query}`),
         {
           signal,
         },
@@ -60,7 +64,7 @@ export function createInstallationSource({
         throw new TypeError('Invalid nearby installation search');
       signal?.throwIfAborted();
       const response = await fetchImpl(
-        apiUrl(
+        api(
           `/api/google/text-search?${new URLSearchParams({
             q: 'military installation',
             lat: latitude.toFixed(5),

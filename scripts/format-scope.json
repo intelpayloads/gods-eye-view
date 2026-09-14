@@ -480,5 +480,12 @@
   "src/embedded/chrome.js",
   "src/sources/endpoints.js",
   "src/standalone/ownership.js",
-  "tools/embedded-qa/main.js"
+  "tools/embedded-qa/main.js",
+  "src/sources/layerSources.js",
+  "src/sources/layerSources.test.mjs",
+  "src/sources/layerSourceComposition.test.mjs",
+  "src/layers/radio/source.js",
+  "src/layers/radio/source.test.mjs",
+  "src/layers/weather/source.js",
+  "src/layers/weather/source.test.mjs"
 ]

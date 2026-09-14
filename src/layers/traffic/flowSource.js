@@ -1,10 +1,12 @@
 import { tilesForBounds } from '../../data/tomtomTiles.js';
 import { decodeFlowTile } from './flowDecode.js';
-import { apiUrl } from '../../sources/endpoints.js';
 /** Own one decoded flow cache and its session counters. */
 export function createFlowTileSource({
   fetchImpl = (...args) => globalThis.fetch(...args),
+  api,
 } = {}) {
+  if (typeof api !== 'function')
+    throw new TypeError('createFlowTileSource requires an api(path) resolver');
   const DECODE_CACHE_TTL_MS = 120_000;
   /** @const {number} Max decoded tiles kept in memory before oldest-entry eviction. */
   const DECODE_CACHE_MAX_ENTRIES = 64;
@@ -60,7 +62,7 @@ export function createFlowTileSource({
 
         _tilesFetched += 1;
         const res = await fetchImpl(
-          apiUrl(`/api/tomtom/flow/${z}/${x}/${y}.pbf`),
+          api(`/api/tomtom/flow/${z}/${x}/${y}.pbf`),
           {
             signal,
           },

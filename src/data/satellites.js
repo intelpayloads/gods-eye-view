@@ -9,9 +9,14 @@ import * as overlays from '../overlays/worldOverlay.js';
 import * as context from './contextStore.js';
 import * as render from '../renderGovernor.js';
 import * as layerState from './layerState.js';
+import { apiUrl } from '../sources/endpoints.js';
+import { createLayerSource } from '../sources/layerSources.js';
 
 const layer = createSatellitesLayer({
-  source: createSatelliteSource(),
+  source: createLayerSource(
+    'satellites',
+    createSatelliteSource({ api: apiUrl }),
+  ),
   services: { picking, focus, readout, overlays, context, render, layerState },
 });
 export const satelliteVisualsVisible = layer.satelliteVisualsVisible;

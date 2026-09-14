@@ -12,10 +12,15 @@ import {
   readsbIdentities,
 } from './aircraft.js';
 import { normalizeVesselTrack, vesselSnapshot } from './vessels.js';
-import { apiUrl as resolveApiUrl } from '../endpoints.js';
 
 const defaultFetch = (...args) => globalThis.fetch(...args);
 const header = (response, name) => response.headers?.get?.(name);
+
+/** Sources resolve logical `/api/...` paths through the composition's resolver. */
+function requireApi(api, factory) {
+  if (typeof api !== 'function')
+    throw new TypeError(`${factory} requires an api(path) resolver`);
+}
 
 function openSkyError(response) {
   const error = httpError(response, 'OpenSky');
@@ -53,8 +58,10 @@ function openSkyError(response) {
 /** Existing same-origin aircraft routes; no request starts during construction. */
 export function createOpenSkySource({
   fetchImpl = defaultFetch,
+  api,
   now = () => Date.now(),
 } = {}) {
+  requireApi(api, 'createOpenSkySource');
   return {
     label: 'OpenSky Network',
     async getSnapshot(query = {}, { signal } = {}) {
@@ -65,7 +72,7 @@ export function createOpenSkySource({
       }
       const { response, payload } = await readResponse(
         fetchImpl,
-        resolveApiUrl(`/api/opensky${params.size ? '?' + params : ''}`),
+        api(`/api/opensky${params.size ? '?' + params : ''}`),
         { signal },
         'OpenSky',
       );
@@ -84,9 +91,7 @@ export function createOpenSkySource({
     async getTrack(reference, { signal } = {}) {
       const { response, payload } = await readResponse(
         fetchImpl,
-        resolveApiUrl(
-          '/api/opensky-track?icao24=' + encodeURIComponent(reference),
-        ),
+        api('/api/opensky-track?icao24=' + encodeURIComponent(reference)),
         { signal },
         'OpenSky',
       );
@@ -101,9 +106,7 @@ export function createOpenSkySource({
         throw new LiveSourceError('unsupported', 'Enrichment unavailable');
       const { response, payload } = await readResponse(
         fetchImpl,
-        resolveApiUrl(
-          `/api/adsbdb/${query.kind}/${encodeURIComponent(query.id)}`,
-        ),
+        api(`/api/adsbdb/${query.kind}/${encodeURIComponent(query.id)}`),
         { signal },
         'adsbdb',
       );
@@ -115,14 +118,16 @@ export function createOpenSkySource({
 
 export function createAdsbLolSource({
   fetchImpl = defaultFetch,
+  api,
   now = () => Date.now(),
 } = {}) {
+  requireApi(api, 'createAdsbLolSource');
   return {
     label: 'adsb.lol',
     async getIdentities(_query = {}, { signal } = {}) {
       const { response, payload } = await readResponse(
         fetchImpl,
-        resolveApiUrl('/api/adsblol/mil'),
+        api('/api/adsblol/mil'),
         { signal },
         'adsb.lol',
       );
@@ -132,7 +137,7 @@ export function createAdsbLolSource({
     async getSnapshot(_query = {}, { signal } = {}) {
       const { response, payload } = await readResponse(
         fetchImpl,
-        resolveApiUrl('/api/adsblol/mil'),
+        api('/api/adsblol/mil'),
         { signal },
         'adsb.lol',
       );
@@ -150,9 +155,7 @@ export function createAdsbLolSource({
     async getTrack(reference, { signal } = {}) {
       const { response, payload } = await readResponse(
         fetchImpl,
-        resolveApiUrl(
-          '/api/adsblol/trace?hex=' + encodeURIComponent(reference),
-        ),
+        api('/api/adsblol/trace?hex=' + encodeURIComponent(reference)),
         { signal },
         'adsb.lol',
       );
@@ -174,13 +177,15 @@ export function createAdsbLolSource({
 
 export function createAisStreamSource({
   fetchImpl = defaultFetch,
-  apiUrl: aisApiUrl = '/api/ais-live',
+  api,
+  path = '/api/ais-live',
   origin = () => globalThis.location?.origin || 'http://localhost',
 } = {}) {
+  requireApi(api, 'createAisStreamSource');
   return {
     label: 'AISStream',
     async getSnapshot({ maxRows = 12000 } = {}, { signal } = {}) {
-      const url = new URL(resolveApiUrl(aisApiUrl), origin());
+      const url = new URL(api(path), origin());
       url.searchParams.set('maxRows', String(maxRows));
       const { response, payload } = await readResponse(
         fetchImpl,
@@ -205,9 +210,7 @@ export function createAisStreamSource({
     async getTrack(reference, { signal } = {}) {
       const { response, payload } = await readResponse(
         fetchImpl,
-        resolveApiUrl(
-          '/api/ais-live/track?mmsi=' + encodeURIComponent(reference),
-        ),
+        api('/api/ais-live/track?mmsi=' + encodeURIComponent(reference)),
         { signal },
         'AIS live',
       );

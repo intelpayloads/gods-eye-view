@@ -1,5 +1,4 @@
 import { createFlowTileSource } from './flowSource.js';
-import { apiUrl } from '../../sources/endpoints.js';
 function buildOverpassQuery(
   south,
   west,
@@ -17,8 +16,11 @@ function buildOverpassQuery(
 /** Supply road responses, flow availability and one decoded flow cache. */
 export function createTrafficSource({
   fetchImpl = (...args) => globalThis.fetch(...args),
+  api,
 } = {}) {
-  const flow = createFlowTileSource({ fetchImpl });
+  if (typeof api !== 'function')
+    throw new TypeError('createTrafficSource requires an api(path) resolver');
+  const flow = createFlowTileSource({ fetchImpl, api });
   return {
     ...flow,
     async requestRoads(
@@ -45,7 +47,7 @@ export function createTrafficSource({
         majorOnly,
         timeoutSec,
       });
-      const response = await fetchImpl(apiUrl('/api/overpass'), {
+      const response = await fetchImpl(api('/api/overpass'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: 'data=' + encodeURIComponent(query),
@@ -65,7 +67,7 @@ export function createTrafficSource({
     },
     async getStatus({ signal } = {}) {
       signal?.throwIfAborted();
-      const response = await fetchImpl(apiUrl('/api/tomtom/status'), {
+      const response = await fetchImpl(api('/api/tomtom/status'), {
         signal,
       });
       if (!response.ok) throw new Error('HTTP ' + response.status);

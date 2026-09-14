@@ -2,10 +2,14 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createInstallationSource } from './source.js';
 
+/** Resolve logical provider paths unchanged, as the standalone composition does. */
+const api = (path) => path;
+
 const box = { south: 30.1, west: -97.9, north: 30.3, east: -97.6 };
 test('mapped-site sources validate viewport bounds and preserve the exact retry key', async () => {
   const calls = [];
   const source = createInstallationSource({
+    api,
     fetchImpl: async (url) => {
       calls.push(new URL(url, 'https://example.test'));
       return new Response(JSON.stringify({ elements: [], status: 'stale' }));
@@ -30,6 +34,7 @@ test('mapped-site sources validate viewport bounds and preserve the exact retry 
 });
 test('malformed installation and place snapshots are never accepted as empty success', async () => {
   const source = createInstallationSource({
+    api,
     fetchImpl: async () => new Response('{}'),
   });
   await assert.rejects(
@@ -44,6 +49,7 @@ test('malformed installation and place snapshots are never accepted as empty suc
 test('installation response parsing respects cancellation before any follow-on search', async () => {
   const controller = new AbortController();
   const source = createInstallationSource({
+    api,
     fetchImpl: async () => ({
       ok: true,
       json: async () => {
@@ -55,5 +61,30 @@ test('installation response parsing respects cancellation before any follow-on s
   await assert.rejects(
     source.getMappedSites(box, { signal: controller.signal }),
     { name: 'AbortError' },
+  );
+});
+
+test('installation routes resolve through the supplied api, which is required', async () => {
+  assert.throws(() => createInstallationSource(), /requires an api/);
+  const calls = [];
+  const source = createInstallationSource({
+    api: (path) => `https://compat.test${path}`,
+    fetchImpl: async (url) => {
+      calls.push(new URL(url));
+      return new Response('{"elements":[],"places":[]}');
+    },
+  });
+  await source.getMappedSites(box);
+  await source.searchNearby({
+    latitude: 30.2,
+    longitude: -97.7,
+    radiusM: 1000,
+  });
+  assert.deepEqual(
+    calls.map((url) => url.origin + url.pathname),
+    [
+      'https://compat.test/api/military-installations',
+      'https://compat.test/api/google/text-search',
+    ],
   );
 });

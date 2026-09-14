@@ -7,10 +7,11 @@ import {
   setOverlayEntries,
   setOverlaySourceVisible,
 } from '../overlays/worldOverlay.js';
+import { createLayerSource } from '../sources/layerSources.js';
 export * from '../layers/earthquakes/index.js';
-/** Wire the standalone source and application overlay owner. */
+/** Wire the standalone source (direct USGS, in its layer source slot) and application overlay owner. */
 export function createEarthquakesLayer({
-  source = createUsgsEarthquakeSource(),
+  source = createLayerSource('earthquakes', createUsgsEarthquakeSource()),
   overlayHost = {
     setEntries: setOverlayEntries,
     setVisible: setOverlaySourceVisible,

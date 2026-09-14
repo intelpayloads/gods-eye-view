@@ -10,11 +10,17 @@ import * as sprites from './spriteOrder.js';
 import * as focus from './focusDeemphasis.js';
 import * as worldFocus from '../worldFocus.js';
 import * as render from '../renderGovernor.js';
+import { apiUrl } from '../sources/endpoints.js';
+import { createLayerSource } from '../sources/layerSources.js';
 
 const aisLiveVesselsLayer = createVesselLayer({
-  source: createAisStreamSource({
-    apiUrl: import.meta.env?.VITE_AIS_LIVE_API_URL || '/api/ais-live',
-  }),
+  source: createLayerSource(
+    'ais-live-vessels',
+    createAisStreamSource({
+      api: apiUrl,
+      path: import.meta.env?.VITE_AIS_LIVE_API_URL || '/api/ais-live',
+    }),
+  ),
   options: {
     maxRows: import.meta.env?.VITE_AIS_LIVE_MAX_ROWS,
     maxLabels: import.meta.env?.VITE_AIS_LIVE_LABEL_MAX_ROWS,

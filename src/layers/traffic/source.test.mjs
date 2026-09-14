@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { createTrafficSource } from './source.js';
+
+/** Resolve logical provider paths unchanged, as the standalone composition does. */
+const api = (path) => path;
 const bounds = { south: 30.267, west: -97.744, north: 30.268, east: -97.743 };
 const fixture = readFileSync(
   new URL(
@@ -13,12 +16,14 @@ test('flow caches and diagnostics belong to their constructed source', async () 
   let requestsA = 0,
     requestsB = 0;
   const a = createTrafficSource({
+    api,
     fetchImpl: async () => {
       requestsA++;
       return new Response(fixture);
     },
   });
   const b = createTrafficSource({
+    api,
     fetchImpl: async () => {
       requestsB++;
       return new Response(fixture);
@@ -39,6 +44,7 @@ test('a cancelled flow body cannot refill its source cache', async () => {
   const controller = new AbortController();
   let calls = 0;
   const source = createTrafficSource({
+    api,
     fetchImpl: async () => ({
       ok: true,
       arrayBuffer: async () => {
@@ -62,6 +68,7 @@ test('a cancelled flow body cannot refill its source cache', async () => {
 test('road requests have finite bounds and retain the two-pass query', async () => {
   const calls = [];
   const source = createTrafficSource({
+    api,
     fetchImpl: async (...args) => {
       calls.push(args);
       return new Response('{"elements":[]}');
@@ -89,6 +96,7 @@ test('road requests have finite bounds and retain the two-pass query', async () 
 });
 test('malformed availability is an unavailable source rather than a keyless response', async () => {
   const source = createTrafficSource({
+    api,
     fetchImpl: async () => new Response('{}'),
   });
   await assert.rejects(source.getStatus(), /Malformed traffic status/);
@@ -97,6 +105,7 @@ test('malformed availability is an unavailable source rather than a keyless resp
 test('traffic construction is inert and parameters belong to each layer', async () => {
   const { createTrafficLayer } = await import('./index.js');
   const source = createTrafficSource({
+    api,
     fetchImpl: () => assert.fail('construction fetched data'),
   });
   const services = { credits: {}, render: {} };
@@ -112,6 +121,7 @@ test('traffic construction is inert and parameters belong to each layer', async 
 test('road body parsing retains the source request cancellation signal', async () => {
   const controller = new AbortController();
   const source = createTrafficSource({
+    api,
     fetchImpl: async () => ({
       ok: true,
       status: 200,
@@ -126,4 +136,23 @@ test('road body parsing retains the source request cancellation signal', async (
     signal: controller.signal,
   });
   await assert.rejects(response.json(), { name: 'AbortError' });
+});
+
+test('road, status and flow routes resolve through the supplied api, which is required', async () => {
+  assert.throws(() => createTrafficSource(), /requires an api/);
+  const calls = [];
+  const source = createTrafficSource({
+    api: (path) => `https://compat.test${path}`,
+    fetchImpl: async (url) => {
+      calls.push(url);
+      if (url.includes('/flow/')) return new Response(fixture);
+      return new Response('{"elements":[],"hasKey":true}');
+    },
+  });
+  await source.requestRoads(bounds);
+  await source.getStatus();
+  await source.fetchFlowForBounds(bounds);
+  assert.equal(calls[0], 'https://compat.test/api/overpass');
+  assert.equal(calls[1], 'https://compat.test/api/tomtom/status');
+  assert.match(calls[2], /^https:\/\/compat\.test\/api\/tomtom\/flow\/12\//);
 });

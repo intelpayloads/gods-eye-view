@@ -8,6 +8,12 @@
  * runtime-created floating DOM kept under `root`, provider API/asset URLs from
  * the host, and the world-model layer built from the host's ProjectionSource.
  *
+ * Layer sources: each Gods Eye layer in `LAYER_SOURCE_KEYS` reads its provider
+ * source by default. `layerSources: { [key]: 'world' }` swaps that layer's
+ * source for its registered world adapter (`WORLD_LAYER_SOURCE_KEYS`), which
+ * reads the same `worldModelSource`; the layer and its presentation stay. A
+ * 'world' key without an adapter fails `start()`.
+ *
  * Styles: load the package's `src/embedded/embedded.css` as a stylesheet
  * (generated from style.css, every rule scoped under `.gods-eye-root`, which
  * this module adds to `root`). The host sizes and positions `root`; static
@@ -17,13 +23,17 @@
  * (start/destroy/subscribe/getState/getComponents). One application runs per
  * page at a time; after `destroy()` resolves, a new one may start. Destroy
  * removes the chrome and the font stylesheets it added to <head>, and restores
- * <body> classes, endpoint and host settings.
+ * <body> classes, endpoint, layer source and host settings.
  *
  * Nothing here imports server, build or provider modules.
  */
 import { composeApplication } from '../standalone/application.js';
 import { createStandaloneWorldModelLayer } from '../data/worldModel.js';
 import { configureEndpoints } from '../sources/endpoints.js';
+import {
+  configureLayerSources,
+  WORLD_LAYER_SOURCES,
+} from '../sources/layerSources.js';
 import { configureHostElement } from '../app/host.js';
 import {
   attachApplicationStylesheets,
@@ -39,6 +49,12 @@ export {
 } from './chrome.js';
 export { WORLD_MODEL_LAYER_ID } from '../layers/worldModel/index.js';
 export { pageOwner } from '../standalone/ownership.js';
+export { LAYER_SOURCE_KEYS } from '../sources/layerSources.js';
+
+/** Layer source keys that have a world adapter and may be set to 'world'. */
+export const WORLD_LAYER_SOURCE_KEYS = Object.freeze(
+  Object.keys(WORLD_LAYER_SOURCES),
+);
 
 /** Embedded defaults: no page-owning provider dialogs or voice dock. */
 export const EMBEDDED_FEATURES = Object.freeze({
@@ -54,6 +70,7 @@ export const EMBEDDED_FEATURES = Object.freeze({
  * @param {string|null} [options.googleApiKey] Google Map Tiles key (browser-restricted).
  * @param {string|null} [options.cesiumToken] Cesium ion token.
  * @param {string|null} [options.apiBaseUrl] Provider API prefix; null = no provider API.
+ * @param {Record<string, 'provider'|'world'>} [options.layerSources] Per-layer source, keyed by `LAYER_SOURCE_KEYS`; unlisted = 'provider'.
  * @param {string} [options.assetBaseUrl] Prefix for the package's `public/` assets.
  * @param {object} [options.worldModel] Extra world-model layer options (head, predicates, updateInterval, debounceMs, ...).
  * @param {object|null} [options.initialCamera] `{lon, lat, heightM?, rangeM, headingDeg, pitchDeg}`.
@@ -65,6 +82,7 @@ export function createEmbeddedApplication({
   googleApiKey = null,
   cesiumToken = null,
   apiBaseUrl = null,
+  layerSources = {},
   assetBaseUrl,
   worldModel = {},
   initialCamera = null,
@@ -95,6 +113,13 @@ export function createEmbeddedApplication({
         document.body.className = bodyClasses;
       });
       defer(configureEndpoints({ apiBaseUrl, assetBaseUrl }));
+      defer(
+        configureLayerSources({
+          layerSources,
+          projectionSource: worldModelSource,
+          head: worldModel.head,
+        }),
+      );
       defer(configureHostElement(root));
       defer(attachApplicationStylesheets(document));
       root.classList.add(ROOT_CLASS);

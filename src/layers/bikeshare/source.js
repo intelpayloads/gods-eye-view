@@ -1,8 +1,10 @@
-import { apiUrl } from '../../sources/endpoints.js';
 /** Read a GBFS station document through the existing bounded server proxy. */
 export function createBikeshareSource({
   fetchImpl = (...args) => globalThis.fetch(...args),
+  api,
 } = {}) {
+  if (typeof api !== 'function')
+    throw new TypeError('createBikeshareSource requires an api(path) resolver');
   return {
     async getStations(upstreamUrl, { signal } = {}) {
       const url = new URL(upstreamUrl);
@@ -10,7 +12,7 @@ export function createBikeshareSource({
         throw new TypeError('A public HTTPS GBFS URL is required');
       signal?.throwIfAborted();
       const response = await fetchImpl(
-        apiUrl('/api/gbfs?url=' + encodeURIComponent(url.href)),
+        api('/api/gbfs?url=' + encodeURIComponent(url.href)),
         { method: 'GET', headers: { Accept: 'application/json' }, signal },
       );
       if (!response.ok) throw new Error('GBFS HTTP ' + response.status);

@@ -7,9 +7,14 @@ import * as context from './contextStore.js';
 import * as ground from './groundFloor.js';
 import * as anchors from './fireAnchors.js';
 import * as picking from './pickRegistry.js';
+import { apiUrl } from '../sources/endpoints.js';
+import { createLayerSource } from '../sources/layerSources.js';
 
 const layer = createInstallationsLayer({
-  source: createInstallationSource(),
+  source: createLayerSource(
+    'military-installations',
+    createInstallationSource({ api: apiUrl }),
+  ),
   services: { render, context, ground, anchors, picking },
 });
 export const approximateSurfaceDistanceM = layer.approximateSurfaceDistanceM;
