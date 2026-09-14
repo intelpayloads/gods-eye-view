@@ -1,0 +1,479 @@
+{
+  "revision_id": "4dbdebc661b94deb914320ea81756881",
+  "query": {
+    "spatial_scope": {
+      "bbox": [
+        -123.0,
+        37.0,
+        -121.0,
+        39.0
+      ]
+    },
+    "valid_at": "2026-09-10T22:57:25+00:00",
+    "known_as_of": null,
+    "type_filter": null,
+    "requested_layers": null,
+    "resolution": null,
+    "predicates": {
+      "pressure_hpa": 850
+    }
+  },
+  "projection_spec": {
+    "representation": "neutral-v1",
+    "camera": null,
+    "display_assumptions": {
+      "aircraft_height": "adsb-geometric-as-wgs84-ellipsoid",
+      "field_frame": "sphere-grid-labeled-on-wgs84",
+      "field_height": "pressure-level-at-display-height-zero"
+    },
+    "representations": null
+  },
+  "counts": {
+    "points": 97,
+    "lines": 0,
+    "polygons": 0,
+    "field_samples": 81,
+    "annotations": 1,
+    "assumptions": 6,
+    "omissions": 1
+  },
+  "points": [
+    {
+      "id": "world.aircraft/track:opensky:icao24:3c4b33",
+      "binding": "world.aircraft",
+      "position": {
+        "lon": -121.9978,
+        "lat": 38.503,
+        "height_m": 5913.12
+      },
+      "frame": "WGS84",
+      "height": {
+        "value_m": 5913.12,
+        "source_field": "geometric_height_m",
+        "assumption": "aircraft_height:adsb-geometric-as-wgs84-ellipsoid",
+        "interpretation": "explicit-grant",
+        "barometric_height_m": 5615.94
+      },
+      "time": {
+        "valid_at": "2026-09-10T22:57:25+00:00",
+        "sampled_at": "2026-09-10T22:57:24+00:00",
+        "known_as_of": "2026-09-13T22:40:10.918557+00:00",
+        "age_seconds": 1.0,
+        "temporal_status": "held-report"
+      },
+      "semantic_ref": {
+        "product_ref": {
+          "type_id": "aircraft.track_state_set.v1",
+          "content_id": "sha256:7b84ecd0559a5013fb0de5f79aea505a07b3f6c69e10715465ba6b9c80068d36"
+        },
+        "descriptor_id": "571f13a148c94db5aec02c3067bdb948",
+        "type_id": "aircraft.track_state_set.v1",
+        "semantic_identity": "track:opensky:icao24:3c4b33"
+      },
+      "source_ref": {
+        "source": {
+          "type_id": "source.opensky.state_vectors.v1",
+          "content_id": "sha256:452fc448d2967033c9aecee10c10b16069b414df4f50baa321ab132150336993"
+        },
+        "row_index": 11,
+        "assertion_ref": {
+          "type_id": "aircraft.identity_assertion_set.v1",
+          "content_id": "sha256:f4629883d9f9e1aead4fb40d526e53d641ec7fc5bf361fb4bb6688f2dfdb6a0a"
+        },
+        "observation_ref": {
+          "type_id": "aircraft.observation_set.v1",
+          "content_id": "sha256:c8b50f9cbf89a4e66adef43a19ddade5bf58bdc5bcfc2e1a630a4c3df4579b84"
+        }
+      },
+      "properties": {
+        "callsign": "DLH455  ",
+        "category": 0,
+        "identity": {
+          "key": "icao24",
+          "scope": "provider",
+          "provider": "opensky",
+          "physical_aircraft": "unresolved"
+        },
+        "on_ground": false,
+        "height_datum": "geometric-datum-unspecified-by-REST",
+        "velocity_mps": 250.2,
+        "true_track_deg": 28.36,
+        "position_source": 0
+      }
+    },
+    {
+      "id": "world.aircraft/track:opensky:icao24:4080a2",
+      "binding": "world.aircraft",
+      "position": {
+        "lon": -122.2156,
+        "lat": 37.5517,
+        "height_m": 701.04
+      },
+      "frame": "WGS84",
+      "height": {
+        "value_m": 701.04,
+        "source_field": "geometric_height_m",
+        "assumption": "aircraft_height:adsb-geometric-as-wgs84-ellipsoid",
+        "interpretation": "explicit-grant",
+        "barometric_height_m": 693.42
+      },
+      "time": {
+        "valid_at": "2026-09-10T22:57:25+00:00",
+        "sampled_at": "2026-09-10T22:57:24+00:00",
+        "known_as_of": "2026-09-13T22:40:10.918557+00:00",
+        "age_seconds": 1.0,
+        "temporal_status": "held-report"
+      },
+      "semantic_ref": {
+        "product_ref": {
+          "type_id": "aircraft.track_state_set.v1",
+          "content_id": "sha256:7b84ecd0559a5013fb0de5f79aea505a07b3f6c69e10715465ba6b9c80068d36"
+        },
+        "descriptor_id": "571f13a148c94db5aec02c3067bdb948",
+        "type_id": "aircraft.track_state_set.v1",
+        "semantic_identity": "track:opensky:icao24:4080a2"
+      },
+      "source_ref": {
+        "source": {
+          "type_id": "source.opensky.state_vectors.v1",
+          "content_id": "sha256:452fc448d2967033c9aecee10c10b16069b414df4f50baa321ab132150336993"
+        },
+        "row_index": 93,
+        "assertion_ref": {
+          "type_id": "aircraft.identity_assertion_set.v1",
+          "content_id": "sha256:f4629883d9f9e1aead4fb40d526e53d641ec7fc5bf361fb4bb6688f2dfdb6a0a"
+        },
+        "observation_ref": {
+          "type_id": "aircraft.observation_set.v1",
+          "content_id": "sha256:c8b50f9cbf89a4e66adef43a19ddade5bf58bdc5bcfc2e1a630a4c3df4579b84"
+        }
+      },
+      "properties": {
+        "callsign": "VIR19Z  ",
+        "category": 0,
+        "identity": {
+          "key": "icao24",
+          "scope": "provider",
+          "provider": "opensky",
+          "physical_aircraft": "unresolved"
+        },
+        "on_ground": false,
+        "height_datum": "geometric-datum-unspecified-by-REST",
+        "velocity_mps": 81.71,
+        "true_track_deg": 298.18,
+        "position_source": 0
+      }
+    },
+    {
+      "id": "world.aircraft/track:opensky:icao24:71c079",
+      "binding": "world.aircraft",
+      "position": {
+        "lon": -122.3537,
+        "lat": 37.6097,
+        "height_m": 7.62
+      },
+      "frame": "WGS84",
+      "height": {
+        "value_m": 7.62,
+        "source_field": "geometric_height_m",
+        "assumption": "aircraft_height:adsb-geometric-as-wgs84-ellipsoid",
+        "interpretation": "explicit-grant",
+        "barometric_height_m": 45.72
+      },
+      "time": {
+        "valid_at": "2026-09-10T22:57:25+00:00",
+        "sampled_at": "2026-09-10T22:57:25+00:00",
+        "known_as_of": "2026-09-13T22:40:10.918557+00:00",
+        "age_seconds": 0.0,
+        "temporal_status": "reported"
+      },
+      "semantic_ref": {
+        "product_ref": {
+          "type_id": "aircraft.track_state_set.v1",
+          "content_id": "sha256:7b84ecd0559a5013fb0de5f79aea505a07b3f6c69e10715465ba6b9c80068d36"
+        },
+        "descriptor_id": "571f13a148c94db5aec02c3067bdb948",
+        "type_id": "aircraft.track_state_set.v1",
+        "semantic_identity": "track:opensky:icao24:71c079"
+      },
+      "source_ref": {
+        "source": {
+          "type_id": "source.opensky.state_vectors.v1",
+          "content_id": "sha256:452fc448d2967033c9aecee10c10b16069b414df4f50baa321ab132150336993"
+        },
+        "row_index": 52,
+        "assertion_ref": {
+          "type_id": "aircraft.identity_assertion_set.v1",
+          "content_id": "sha256:f4629883d9f9e1aead4fb40d526e53d641ec7fc5bf361fb4bb6688f2dfdb6a0a"
+        },
+        "observation_ref": {
+          "type_id": "aircraft.observation_set.v1",
+          "content_id": "sha256:c8b50f9cbf89a4e66adef43a19ddade5bf58bdc5bcfc2e1a630a4c3df4579b84"
+        }
+      },
+      "properties": {
+        "callsign": "AAR212  ",
+        "category": 0,
+        "identity": {
+          "key": "icao24",
+          "scope": "provider",
+          "provider": "opensky",
+          "physical_aircraft": "unresolved"
+        },
+        "on_ground": false,
+        "height_datum": "geometric-datum-unspecified-by-REST",
+        "velocity_mps": 65.58,
+        "true_track_deg": 297.57,
+        "position_source": 0
+      }
+    }
+  ],
+  "lines": [],
+  "polygons": [],
+  "field_samples": [
+    {
+      "id": "world.weather/air_temperature/850hPa/39.000/237.000",
+      "binding": "world.weather",
+      "position": {
+        "lon": -123.0,
+        "lat": 39.0,
+        "height_m": 0.0
+      },
+      "native": {
+        "lon": 237.0,
+        "lat": 39.0,
+        "lon_convention": "0..360",
+        "frame": {
+          "declared_by": "GRIB2 section 3",
+          "shape_of_earth": 6,
+          "sphere_radius_m": 6371229
+        }
+      },
+      "frame": "WGS84-map-overlay",
+      "value": 297.25,
+      "units": "K",
+      "variable": "air_temperature",
+      "pressure_hpa": 850.0,
+      "vertical": "pressure-hPa-not-altitude",
+      "time": {
+        "valid_at": "2026-09-10T22:00:00+00:00",
+        "run_at": "2026-09-10T18:00:00+00:00",
+        "lag_seconds": 3445.0,
+        "known_as_of": "2026-09-13T22:40:09.556071+00:00"
+      },
+      "semantic_ref": {
+        "product_ref": {
+          "type_id": "weather.temperature_field.v1",
+          "content_id": "sha256:099531ec5b865b8bc9b32567f971260344acbdc1dd6dd05f52e7eb835ffb5724"
+        },
+        "descriptor_id": "050e401771814a65bc7766080f1a5e72",
+        "type_id": "weather.temperature_field.v1"
+      },
+      "source_ref": {
+        "block_ref": {
+          "type_id": "weather.field_block.v1",
+          "content_id": "sha256:b9187e4a8afbbf2ffa4c448987e0d555243f32395afb1f2a2f72e40b314f7ad5"
+        },
+        "source_ref": {
+          "type_id": "source.gfs.grib2.v1",
+          "content_id": "sha256:1ccaef8623552efea09052dc99b3d94ea27e6b03f010ce3d8e6f8fa64ebdae49"
+        },
+        "blocks": {
+          "values": "sha256:1fcaba930cb9aaaaed438df29abdf0f411942244861ce8b760bb6dc24785e528",
+          "mask": "sha256:b223ae57f38a3094d5efa4582a32431a5629c544c67f9c2253f8ca74c07e5f72"
+        }
+      }
+    },
+    {
+      "id": "world.weather/air_temperature/850hPa/39.000/237.250",
+      "binding": "world.weather",
+      "position": {
+        "lon": -122.75,
+        "lat": 39.0,
+        "height_m": 0.0
+      },
+      "native": {
+        "lon": 237.25,
+        "lat": 39.0,
+        "lon_convention": "0..360",
+        "frame": {
+          "declared_by": "GRIB2 section 3",
+          "shape_of_earth": 6,
+          "sphere_radius_m": 6371229
+        }
+      },
+      "frame": "WGS84-map-overlay",
+      "value": 298.25,
+      "units": "K",
+      "variable": "air_temperature",
+      "pressure_hpa": 850.0,
+      "vertical": "pressure-hPa-not-altitude",
+      "time": {
+        "valid_at": "2026-09-10T22:00:00+00:00",
+        "run_at": "2026-09-10T18:00:00+00:00",
+        "lag_seconds": 3445.0,
+        "known_as_of": "2026-09-13T22:40:09.556071+00:00"
+      },
+      "semantic_ref": {
+        "product_ref": {
+          "type_id": "weather.temperature_field.v1",
+          "content_id": "sha256:099531ec5b865b8bc9b32567f971260344acbdc1dd6dd05f52e7eb835ffb5724"
+        },
+        "descriptor_id": "050e401771814a65bc7766080f1a5e72",
+        "type_id": "weather.temperature_field.v1"
+      },
+      "source_ref": {
+        "block_ref": {
+          "type_id": "weather.field_block.v1",
+          "content_id": "sha256:b9187e4a8afbbf2ffa4c448987e0d555243f32395afb1f2a2f72e40b314f7ad5"
+        },
+        "source_ref": {
+          "type_id": "source.gfs.grib2.v1",
+          "content_id": "sha256:1ccaef8623552efea09052dc99b3d94ea27e6b03f010ce3d8e6f8fa64ebdae49"
+        },
+        "blocks": {
+          "values": "sha256:1fcaba930cb9aaaaed438df29abdf0f411942244861ce8b760bb6dc24785e528",
+          "mask": "sha256:b223ae57f38a3094d5efa4582a32431a5629c544c67f9c2253f8ca74c07e5f72"
+        }
+      }
+    },
+    {
+      "id": "world.weather/air_temperature/850hPa/39.000/237.500",
+      "binding": "world.weather",
+      "position": {
+        "lon": -122.5,
+        "lat": 39.0,
+        "height_m": 0.0
+      },
+      "native": {
+        "lon": 237.5,
+        "lat": 39.0,
+        "lon_convention": "0..360",
+        "frame": {
+          "declared_by": "GRIB2 section 3",
+          "shape_of_earth": 6,
+          "sphere_radius_m": 6371229
+        }
+      },
+      "frame": "WGS84-map-overlay",
+      "value": 298.72,
+      "units": "K",
+      "variable": "air_temperature",
+      "pressure_hpa": 850.0,
+      "vertical": "pressure-hPa-not-altitude",
+      "time": {
+        "valid_at": "2026-09-10T22:00:00+00:00",
+        "run_at": "2026-09-10T18:00:00+00:00",
+        "lag_seconds": 3445.0,
+        "known_as_of": "2026-09-13T22:40:09.556071+00:00"
+      },
+      "semantic_ref": {
+        "product_ref": {
+          "type_id": "weather.temperature_field.v1",
+          "content_id": "sha256:099531ec5b865b8bc9b32567f971260344acbdc1dd6dd05f52e7eb835ffb5724"
+        },
+        "descriptor_id": "050e401771814a65bc7766080f1a5e72",
+        "type_id": "weather.temperature_field.v1"
+      },
+      "source_ref": {
+        "block_ref": {
+          "type_id": "weather.field_block.v1",
+          "content_id": "sha256:b9187e4a8afbbf2ffa4c448987e0d555243f32395afb1f2a2f72e40b314f7ad5"
+        },
+        "source_ref": {
+          "type_id": "source.gfs.grib2.v1",
+          "content_id": "sha256:1ccaef8623552efea09052dc99b3d94ea27e6b03f010ce3d8e6f8fa64ebdae49"
+        },
+        "blocks": {
+          "values": "sha256:1fcaba930cb9aaaaed438df29abdf0f411942244861ce8b760bb6dc24785e528",
+          "mask": "sha256:b223ae57f38a3094d5efa4582a32431a5629c544c67f9c2253f8ca74c07e5f72"
+        }
+      }
+    }
+  ],
+  "annotations": [
+    {
+      "id": "world.weather/annotation/air_temperature/850hPa/2026-09-10T22:00:00+00:00",
+      "kind": "pressure-level-map",
+      "binding": "world.weather",
+      "text": "air_temperature at 850 hPa, valid 2026-09-10T22:00:00+00:00 (cycle 2026-09-10T18:00:00+00:00): 81 native nodes displayed at height 0 m as a map overlay. 850 hPa is a pressure level, not an altitude.",
+      "pressure_hpa": 850.0,
+      "units": "K",
+      "variable": "air_temperature",
+      "valid_time": "2026-09-10T22:00:00+00:00",
+      "run_at": "2026-09-10T18:00:00+00:00",
+      "display_height_m": 0.0,
+      "sample_count": 81,
+      "semantic_ref": {
+        "product_ref": {
+          "type_id": "weather.temperature_field.v1",
+          "content_id": "sha256:099531ec5b865b8bc9b32567f971260344acbdc1dd6dd05f52e7eb835ffb5724"
+        },
+        "descriptor_id": "050e401771814a65bc7766080f1a5e72",
+        "type_id": "weather.temperature_field.v1"
+      }
+    }
+  ],
+  "assumptions": [
+    {
+      "kind": "revision",
+      "revision_id": "4dbdebc661b94deb914320ea81756881",
+      "head": "world/main",
+      "resolved_at": "2026-09-13T23:50:21.778169+00:00",
+      "parent_id": "4237b10858564c00932ba9f59800927e"
+    },
+    {
+      "kind": "ignored-query-dimensions",
+      "binding": "world.aircraft",
+      "ignored": [
+        "pressure"
+      ],
+      "applied": [
+        "space",
+        "valid_time"
+      ],
+      "note": "the product's access kind does not honor these dimensions; nothing was resampled or filtered for them"
+    },
+    {
+      "kind": "display-assumption",
+      "key": "aircraft_height",
+      "value": "adsb-geometric-as-wgs84-ellipsoid",
+      "binding": "world.aircraft",
+      "note": "geometric_height_m read as height above the WGS84 ellipsoid; barometric height carried unconverted"
+    },
+    {
+      "kind": "display-assumption",
+      "key": "field_frame",
+      "value": "sphere-grid-labeled-on-wgs84",
+      "binding": "world.weather",
+      "note": "native sphere-grid angles labeled directly on a WGS84 map; no geodetic conversion is claimed"
+    },
+    {
+      "kind": "display-assumption",
+      "key": "field_height",
+      "value": "pressure-level-at-display-height-zero",
+      "binding": "world.weather",
+      "note": "the pressure level is drawn at display height 0 m; it is not surface or flight-level temperature"
+    },
+    {
+      "kind": "coordinate-relabel",
+      "key": "longitude",
+      "value": "0..360-to-signed-degrees",
+      "binding": "world.weather",
+      "lossless": true
+    }
+  ],
+  "omissions": [
+    {
+      "binding": "world.aircraft",
+      "reason": "no-geometric_height_m",
+      "count": 56,
+      "item_ids": [
+        "world.aircraft/track:opensky:icao24:4ac9b0",
+        "world.aircraft/track:opensky:icao24:4d23db",
+        "world.aircraft/track:opensky:icao24:a082ac",
+        "..."
+      ]
+    }
+  ]
+}

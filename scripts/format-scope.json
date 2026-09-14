@@ -455,5 +455,15 @@
   "src/layers/cctv/ground.js",
   "src/layers/cctv/health.js",
   "src/data/cctv.js",
-  "src/layers/cctv/source.test.mjs"
+  "src/layers/cctv/source.test.mjs",
+  "src/layers/worldModel/view.js",
+  "src/layers/worldModel/source.js",
+  "src/layers/worldModel/adapter.js",
+  "src/layers/worldModel/selection.js",
+  "src/layers/worldModel/index.js",
+  "src/layers/worldModel/adapter.test.mjs",
+  "src/layers/worldModel/source.test.mjs",
+  "src/layers/worldModel/ownership.test.mjs",
+  "src/data/worldModel.js",
+  "server/providers/world.js"
 ]
