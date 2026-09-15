@@ -305,6 +305,14 @@ export function createWorldViewController({
       });
     },
 
+    /** Product modalities to serve (e.g. ['observed', 'planned']); null = backplane default. */
+    setModalities(modalities) {
+      const next = modalities ? [...modalities] : null;
+      if (JSON.stringify(next) === JSON.stringify(state.demand.modalities))
+        return;
+      update({ ...state.demand, modalities: next });
+    },
+
     setDisplayAssumptions(displayAssumptions) {
       update({
         ...state.demand,

@@ -25,6 +25,13 @@ export * from '../layers/worldModel/index.js';
 
 export const STANDALONE_WORLD_MODEL_BASE_URL = '/api/world';
 
+/** Drop undefined keys so an unset host option keeps the layer's default. */
+function definedOnly(options) {
+  return Object.fromEntries(
+    Object.entries(options).filter(([, value]) => value !== undefined),
+  );
+}
+
 function envNumber(value, fallback) {
   const number = Number(value);
   return Number.isFinite(number) && number >= 0 ? number : fallback;
@@ -50,8 +57,21 @@ export function createStandaloneWorldModelLayer({
     30_000,
   ),
   debounceMs = envNumber(import.meta.env?.VITE_WORLD_MODEL_DEBOUNCE_MS, 300),
+  // Host demand options; an unset one keeps the layer's default.
+  head,
+  predicates,
+  modalities,
+  displayAssumptions,
+  policyThresholdSeconds,
 } = {}) {
   return createWorldModelLayer({
+    ...definedOnly({
+      head,
+      predicates,
+      modalities,
+      displayAssumptions,
+      policyThresholdSeconds,
+    }),
     source,
     services: { context, picking },
     overlayHost,

@@ -60,6 +60,7 @@ export function createWorldModelLayer({
   head = HEAD,
   displayAssumptions = DEFAULT_DISPLAY_ASSUMPTIONS,
   predicates = DEFAULT_PREDICATES,
+  modalities = null,
   policyThresholdSeconds = 30,
   now = () => Date.now(),
 } = {}) {
@@ -104,6 +105,7 @@ export function createWorldModelLayer({
       head,
       displayAssumptions: { ...displayAssumptions },
       predicates: predicates ? { ...predicates } : null,
+      modalities: modalities ? [...modalities] : null,
     },
     debounceMs,
     now,

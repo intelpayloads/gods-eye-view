@@ -25,6 +25,7 @@
  * @property {string[]|null} layers null = every binding of the revision
  * @property {Bbox|null} bbox null = no spatial scope (whole world / horizon in view)
  * @property {Record<string, unknown>|null} predicates
+ * @property {string[]|null} modalities null = the backplane default (observed only)
  * @property {Record<string, string>} displayAssumptions
  * @property {Record<string, object>} projectionPolicy
  * @property {number} nonce bumped by refresh() so an identical request is issued again
@@ -44,6 +45,7 @@ export function createDemand(overrides = {}) {
     layers: null,
     bbox: null,
     predicates: null,
+    modalities: null,
     displayAssumptions: {},
     projectionPolicy: {},
     nonce: 0,
@@ -128,6 +130,7 @@ export function buildRequest(demand, chain, nowMs) {
   if (demand.knownAsOf) query.known_as_of = demand.knownAsOf;
   if (demand.layers) query.requested_layers = [...demand.layers];
   if (demand.predicates) query.predicates = { ...demand.predicates };
+  if (demand.modalities) query.modalities = [...demand.modalities];
   const projectionSpec = {
     display_assumptions: { ...demand.displayAssumptions },
   };

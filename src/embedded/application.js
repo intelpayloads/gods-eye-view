@@ -72,7 +72,7 @@ export const EMBEDDED_FEATURES = Object.freeze({
  * @param {string|null} [options.apiBaseUrl] Provider API prefix; null = no provider API.
  * @param {Record<string, 'provider'|'world'>} [options.layerSources] Per-layer source, keyed by `LAYER_SOURCE_KEYS`; unlisted = 'provider'.
  * @param {string} [options.assetBaseUrl] Prefix for the package's `public/` assets.
- * @param {object} [options.worldModel] Extra world-model layer options (head, predicates, updateInterval, debounceMs, ...).
+ * @param {object} [options.worldModel] Extra world-model layer options (head, predicates, modalities, displayAssumptions, policyThresholdSeconds, updateInterval, debounceMs).
  * @param {object|null} [options.initialCamera] `{lon, lat, heightM?, rangeM, headingDeg, pitchDeg}`.
  * @param {object} [options.features] Opt in to `voice`, `keySetup`, `firstRun`.
  */

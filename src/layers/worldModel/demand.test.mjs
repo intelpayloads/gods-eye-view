@@ -131,3 +131,14 @@ test('policy shorthand and ages', () => {
   assert.equal(formatAge(-5), '-5s');
   assert.equal(formatAge(null), '—');
 });
+
+test('modalities reach the query only when the demand sets them', () => {
+  const observedOnly = buildRequest(createDemand(), CHAIN, T0);
+  assert.equal('modalities' in observedOnly.query, false);
+  const withPlanned = buildRequest(
+    createDemand({ modalities: ['observed', 'planned'] }),
+    CHAIN,
+    T0,
+  );
+  assert.deepEqual(withPlanned.query.modalities, ['observed', 'planned']);
+});
