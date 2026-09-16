@@ -12,6 +12,7 @@ import { createCctvThumbnailOverlayEntry, createFrameSlot } from '../data/cctvCa
 import { combinedOverlayAlpha } from './worldOverlayDraw.js';
 import {
   AMBIENT_CARD_COLLISION_CAPACITY,
+  MAX_OVERLAY_LINE_CHARS,
   WORLD_OVERLAY_OCCLUDER_SELECTORS,
   WORLD_OVERLAY_PAINT_LANES,
   clearOverlaySource,
@@ -1010,6 +1011,76 @@ test('entry normalization validates required fields and source lifecycle is stab
   setOverlaySourceVisible('fires', false);
   assert.equal(clearOverlaySource('fires'), true);
   assert.deepEqual(getWorldOverlayDiagnostics().entriesBySource, { fires: 0 });
+  env.cleanup();
+});
+
+test('card lines are clamped at normalization so no source can publish an unplaceable card', () => {
+  const long = 'x'.repeat(300);
+  const normalized = normalizeOverlayEntry('world-model', {
+    id: 'a',
+    position: position(),
+    title: long,
+    details: [long, 'short'],
+  });
+  assert.equal(normalized.title.length, MAX_OVERLAY_LINE_CHARS);
+  assert.ok(normalized.title.endsWith('…'));
+  assert.equal(normalized.details[0].length, MAX_OVERLAY_LINE_CHARS);
+  assert.equal(normalized.details[1], 'short');
+  assert.equal(normalizeOverlayEntry('world-model', { id: 'b', position: position(), title: 'x'.repeat(MAX_OVERLAY_LINE_CHARS) }).title.length, MAX_OVERLAY_LINE_CHARS);
+
+  // DWM-60: a world-model selected card at the embed's frame geometry — 1368 px
+  // wide, the four HUD corners (hard: #intel-hud composites below the host) at
+  // their measured rectangles, the anchor mid-screen and fourteen detail lines,
+  // one of them a viewport-wide lineage string. Both vertical placements cross a
+  // corner row; unclamped, the card was wider than the gap between the corners
+  // in that row and vetoed on every frame (projectedCount 0, paintedCount 0).
+  // Clamped, the 'below' placement fits between the bottom corners and paints.
+  const corner = (selector, rect) => ({ selector, parent: '#intel-hud', rect });
+  const env = installMockEnvironment({
+    width: 1368,
+    height: 738,
+    dpr: 1,
+    occluders: [
+      corner('.hud-top-left', { left: 36, top: 136, width: 447, height: 97 }),
+      corner('.hud-top-right', { left: 1049, top: 136, width: 283, height: 50 }),
+      corner('.hud-bottom-left', { left: 36, top: 567, width: 302, height: 50 }),
+      corner('.hud-bottom-right', { left: 1060, top: 540, width: 272, height: 76 }),
+    ],
+  });
+  initWorldOverlay(env.viewer);
+  const lineage = 'source source.opensky.state_vectors.v1@452fc448 (source.opensky.state_vectors.v1)'
+    + ' · connector opensky-live · publication 1a2b3c4d · received 2026-09-16T15:28:22.230239+00:00';
+  // mock measureText is 6 px/char: unclamped, the card is wider than the gap
+  // between the bottom corners (1060 - 338 px); clamped it is not.
+  assert.ok(lineage.length * 6 + 24 > 1060 - 338, 'the unclamped card cannot fit between the corners');
+  assert.ok(MAX_OVERLAY_LINE_CHARS * 6 + 24 < 1060 - 338, 'the clamped card can');
+  setOverlayEntries('world-model', [{
+    id: 'world.aircraft/track:opensky:icao24:a05ddc',
+    position: positionAtScreen(684, 369, 1368, 738),
+    variant: 'selected',
+    selected: true,
+    protected: true,
+    paintLane: 'selected',
+    collisionGroup: 'ambient-card',
+    priority: Number.MAX_SAFE_INTEGER,
+    title: 'VIR19Z · track:opensky:icao24:a05ddc',
+    details: [...Array.from({ length: 13 }, (_, i) => `detail ${i}`), lineage],
+    interactive: false,
+    anchorRadiusPx: 8,
+    minAnchorGapPx: 10,
+    verticalOnly: true,
+    placement: 'above',
+    edgeFade: 'keyhole',
+    horizonCull: false,
+    terrainOcclusion: false,
+  }], { cohortLimit: 1, collisionCapacity: 0, moving: false });
+  env.postRender.raise();
+  const diagnostics = getWorldOverlayDiagnostics();
+  assert.equal(diagnostics.entriesBySource['world-model'], 1);
+  assert.equal(diagnostics.projectedCount, 1, 'the clamped card is placeable');
+  assert.equal(diagnostics.paintedBySource['world-model'], 1, 'and paints');
+  const rect = getOverlayPaintRect('world-model', 'world.aircraft/track:opensky:icao24:a05ddc');
+  assert.ok(rect.w <= MAX_OVERLAY_LINE_CHARS * 6 + 24, `card width ${rect.w} is bounded by the clamp`);
   env.cleanup();
 });
 

@@ -271,6 +271,61 @@ function propertyText(value) {
 }
 
 /**
+ * One card fragment per property; a plain object is flattened one level
+ * (`identity.key icao24`) so no single fragment carries a JSON blob.
+ */
+function propertyFragments(key, value) {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return Object.entries(value).map(
+      ([k, v]) => `${key}.${k} ${propertyText(v)}`,
+    );
+  }
+  return [`${key} ${propertyText(value)}`];
+}
+
+/**
+ * Longest card line this layer authors, in characters. The overlay host
+ * places a card as ONE rectangle and never lets it cover chrome that
+ * composites below the host, so a viewport-wide line (a lineage chain, a
+ * grant name next to a timestamp) makes the whole card unplaceable and it
+ * silently never paints (DWM-60). Facts are therefore authored as short
+ * fragments and packed into lines of at most this many characters; the host
+ * ellipsizes anything longer as a last resort (`MAX_OVERLAY_LINE_CHARS`).
+ */
+export const MAX_CARD_LINE_CHARS = 72;
+const SEPARATOR = ' · ';
+const CONTINUATION = '  ';
+
+/**
+ * Pack fragments into card lines: fragments are joined with ` · ` while the
+ * line stays within `max`; the next fragment starts a new, indented
+ * continuation line. A fragment longer than `max` stands on its own line.
+ * @param {Array<string|null|undefined>} fragments
+ * @param {number} [max]
+ * @returns {string[]}
+ */
+export function packCardLines(fragments, max = MAX_CARD_LINE_CHARS) {
+  const lines = [];
+  let line = '';
+  for (const fragment of fragments) {
+    const text = fragment == null ? '' : String(fragment).trim();
+    if (!text) continue;
+    if (!line) {
+      line = text;
+      continue;
+    }
+    if (line.length + SEPARATOR.length + text.length <= max) {
+      line += SEPARATOR + text;
+      continue;
+    }
+    lines.push(line);
+    line = CONTINUATION + text;
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+/**
  * Lines for the selected card: [title, ...details]. Every line quotes the
  * projection's own numbers and grants; nothing is recomputed. "age" is the
  * product's own (age at product time T); "age at query" is what the view's
@@ -285,10 +340,23 @@ export function selectionCardLines(renderRecord) {
     const native = item.native || {};
     return [
       `${formatNumber(Number(item.value), 2)} ${item.units || ''} ${item.variable || 'field'} @ ${formatNumber(Number(item.pressure_hpa))} hPa`.trim(),
-      `pressure level, not altitude · drawn at ${formatNumber(renderRecord.height)} m (${item.frame || 'map overlay'})`,
-      `native lon ${formatNumber(Number(native.lon), 3)} (${native.lon_convention || '?'}) · lat ${formatNumber(Number(native.lat), 3)}`,
-      `valid ${time.valid_at || '?'} · cycle ${time.run_at || '?'} · lag ${formatNumber(Number(time.lag_seconds))} s`,
-      `product ${shortRef(item.semantic_ref?.product_ref)} · block ${shortRef(item.source_ref?.block_ref)}`,
+      ...packCardLines([
+        'pressure level, not altitude',
+        `drawn at ${formatNumber(renderRecord.height)} m (${item.frame || 'map overlay'})`,
+      ]),
+      ...packCardLines([
+        `native lon ${formatNumber(Number(native.lon), 3)} (${native.lon_convention || '?'})`,
+        `lat ${formatNumber(Number(native.lat), 3)}`,
+      ]),
+      ...packCardLines([
+        `valid ${time.valid_at || '?'}`,
+        `cycle ${time.run_at || '?'}`,
+        `lag ${formatNumber(Number(time.lag_seconds))} s`,
+      ]),
+      ...packCardLines([
+        `product ${shortRef(item.semantic_ref?.product_ref)}`,
+        `block ${shortRef(item.source_ref?.block_ref)}`,
+      ]),
     ];
   }
   const time = item.time || {};
@@ -310,11 +378,19 @@ export function selectionCardLines(renderRecord) {
   );
   const lines = [
     leadText && leadText !== '—' ? `${leadText} · ${identity}` : identity,
-    `${item.binding || '?'} · height ${formatNumber(Number(height.value_m))} m from ${height.source_field || '?'} (${height.assumption || 'no grant'})` +
-      (Number.isFinite(Number(height.barometric_height_m))
-        ? ` · baro ${formatNumber(Number(height.barometric_height_m))} m`
-        : ''),
-    `valid ${time.valid_at || '?'} · ${time.temporal_status || '?'} · age at product time ${formatNumber(Number(time.age_seconds))} s`,
+    ...packCardLines([
+      item.binding || '?',
+      `height ${formatNumber(Number(height.value_m))} m from ${height.source_field || '?'}`,
+      Number.isFinite(Number(height.barometric_height_m))
+        ? `baro ${formatNumber(Number(height.barometric_height_m))} m`
+        : null,
+    ]),
+    `grant ${height.assumption || 'none'}`,
+    ...packCardLines([
+      `valid ${time.valid_at || '?'}`,
+      time.temporal_status || '?',
+      `age at product time ${formatNumber(Number(time.age_seconds))} s`,
+    ]),
   ];
   if (time.age_at_query_seconds !== undefined) {
     lines.push(
@@ -329,14 +405,18 @@ export function selectionCardLines(renderRecord) {
   lines.push(`known ${time.known_as_of || '?'}`);
   if (shown.length) {
     lines.push(
-      shown
-        .filter((k) => k !== lead)
-        .map((k) => `${k} ${propertyText(props[k])}`)
-        .join(' · '),
+      ...packCardLines(
+        shown
+          .filter((k) => k !== lead)
+          .flatMap((k) => propertyFragments(k, props[k])),
+      ),
     );
   }
   lines.push(
-    `product ${shortRef(item.semantic_ref?.product_ref)} · source ${shortRef(item.source_ref?.source)} row ${item.source_ref?.row_index ?? '?'}`,
+    ...packCardLines([
+      `product ${shortRef(item.semantic_ref?.product_ref)}`,
+      `source ${shortRef(item.source_ref?.source)} row ${item.source_ref?.row_index ?? '?'}`,
+    ]),
   );
   return lines.filter((line) => line !== '');
 }
@@ -369,23 +449,36 @@ export function descriptorCardLines(descriptor) {
   const sem = descriptor.semantic || {};
   const acc = descriptor.access || {};
   const lines = [
-    `descriptor ${shortId(descriptor.id)} · ${descriptor.status || '?'} · ${sem.type_id || '?'}`,
-    `valid ${domainText(sem.valid_domain)} · known ${domainText(sem.knowledge_domain)}`,
+    ...packCardLines([
+      `descriptor ${shortId(descriptor.id)}`,
+      descriptor.status || '?',
+      sem.type_id || '?',
+    ]),
+    ...packCardLines([
+      `valid ${domainText(sem.valid_domain)}`,
+      `known ${domainText(sem.knowledge_domain)}`,
+    ]),
     `spatial ${domainText(sem.spatial_domain)}`,
-    `access ${acc.access_kind || '?'} @ ${acc.access_target || '?'} · dimensions ${(acc.supported_query_dimensions || []).join(',') || '—'}`,
+    ...packCardLines([
+      `access ${acc.access_kind || '?'} @ ${acc.access_target || '?'}`,
+      `dimensions ${(acc.supported_query_dimensions || []).join(',') || '—'}`,
+    ]),
   ];
   for (const rep of descriptor.representations || []) {
     const req = rep.requirements || {};
-    const reqText = Object.keys(req)
-      .map((key) => {
-        const value = req[key];
-        return value && typeof value === 'object' && !Array.isArray(value)
-          ? `${key}{${Object.keys(value).join(',')}}`
-          : key;
-      })
-      .join(' ');
+    const requires = Object.keys(req).map((key) => {
+      const value = req[key];
+      return value && typeof value === 'object' && !Array.isArray(value)
+        ? `${key}{${Object.keys(value).join(',')}}`
+        : key;
+    });
     lines.push(
-      `representation ${rep.kind || '?'} · capabilities ${(rep.capabilities || []).join(',') || '—'} · requires ${reqText || '—'}`,
+      ...packCardLines([
+        `representation ${rep.kind || '?'}`,
+        `capabilities ${(rep.capabilities || []).join(',') || '—'}`,
+        `requires ${requires[0] || '—'}`,
+        ...requires.slice(1),
+      ]),
     );
   }
   const failed = (descriptor.admission || []).filter(
@@ -412,20 +505,41 @@ export function lineageCardLines(report) {
   const run = report.transform_run;
   if (run) {
     lines.push(
-      `produced by ${run.transformation || '?'} · ${run.status || '?'} · ${(run.inputs || []).length} inputs`,
+      ...packCardLines([
+        `produced by ${run.transformation || '?'}`,
+        run.status || '?',
+        `${(run.inputs || []).length} inputs`,
+      ]),
     );
   }
   const bound = report.bound_in || [];
   if (bound.length) {
     lines.push(
-      `bound in ${bound.map((b) => `${b.binding}@${shortId(b.revision_id)}`).join(', ')}`,
+      ...packCardLines(
+        bound.map(
+          (b, i) =>
+            `${i === 0 ? 'bound in ' : ''}${b.binding}@${shortId(b.revision_id)}`,
+        ),
+      ),
     );
   }
   for (const source of (report.sources || []).slice(0, 4)) {
-    const via = (source.via || []).map((r) => shortRef(r)).join(' <- ');
+    const ref = shortRef(source.ref);
+    // The source type is only news when it differs from the ref's own type.
+    const sourceType =
+      source.source_type && source.source_type !== source.ref?.type_id
+        ? `(${source.source_type})`
+        : null;
+    const via = (source.via || []).map((r) => shortRef(r));
     lines.push(
-      `source ${shortRef(source.ref)} (${source.source_type || '?'}) · connector ${source.connector_instance_id || '?'} · publication ${shortId(source.publication_id)} · received ${source.received_at || '?'}` +
-        (via ? ` · via ${via}` : ''),
+      ...packCardLines([
+        `source ${ref}`,
+        sourceType,
+        `connector ${source.connector_instance_id || '?'}`,
+        `publication ${shortId(source.publication_id)}`,
+        `received ${source.received_at || '?'}`,
+        ...(via.length ? [`via ${via.join(' <- ')}`] : []),
+      ]),
     );
   }
   if ((report.sources || []).length > 4) {

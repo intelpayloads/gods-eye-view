@@ -528,7 +528,7 @@ test('selection publishes one protected card, then the admitted descriptor and l
   );
   assert.match(
     inspected,
-    /representation positioned_entities\/v1 · capabilities point,height,temporal_age/,
+    /representation positioned_entities\/v1\n {2}capabilities point,height,temporal_age/,
   );
   assert.match(inspected, /produced by aircraft\.materialize-track-state@1/);
   assert.match(inspected, /connector opensky-replay/);
@@ -579,7 +579,7 @@ test('selection publishes one protected card, then the admitted descriptor and l
   await flush();
   await flush();
   assert.equal(plain.cards().length, 1);
-  assert.equal(plain.layer.getStats().status, null);
+  assert.equal(plain.layer.getStats().facts, null);
   assert.deepEqual(plain.layer.getStats().features, {
     heads: false,
     provenance: false,
@@ -591,23 +591,27 @@ test('selection publishes one protected card, then the admitted descriptor and l
 test('status facts are shown as three separate lines per binding, never a verdict', async () => {
   const h = harness(fixtureSource());
   await h.layer.update(h.viewer);
-  const lines = h.layer.getStats().status;
-  assert.equal(lines.length, 2);
-  const aircraft = lines.find((l) => l.binding === 'world.aircraft');
+  // Reported as the panel's generic fact groups: one per binding, three lines.
+  const { facts, factsError } = h.layer.getStats();
+  assert.equal(factsError, null);
+  assert.equal(facts.length, 2);
+  const aircraft = facts.find((group) => group.label === 'world.aircraft');
+  assert.equal(aircraft.lines.length, 3);
+  const [source, processing, productTime] = aircraft.lines;
   assert.match(
-    aircraft.source,
+    source,
     /^source: opensky-replay idle · checkpoint .* · 1 receipts$/,
   );
   assert.match(
-    aircraft.processing,
+    processing,
     /^processing: opensky\.aircraft@1 (succeeded|unchanged)$/,
   );
   assert.match(
-    aircraft.productTime,
+    productTime,
     /^product time: valid instant to 2026-09-10T22:57:25\+00:00 \(\d+[smhd] before now\) · known \d+[smhd] ago · admitted$/,
   );
-  for (const line of lines) {
-    for (const text of [line.source, line.processing, line.productTime]) {
+  for (const group of facts) {
+    for (const text of group.lines) {
       assert.doesNotMatch(text, /fresh|healthy|verdict|ok\b/i);
     }
   }
@@ -687,7 +691,7 @@ test('a synthetic third binding conforming to the same contracts renders as poin
   assert.equal(card.title, 'track:ais:mmsi:1');
   assert.match(
     card.details.join('\n'),
-    /world\.vessels · height 13 m from antenna_height_m \(vessel_height:antenna-above-msl-as-ellipsoid\)/,
+    /world\.vessels · height 13 m from antenna_height_m\ngrant vessel_height:antenna-above-msl-as-ellipsoid/,
   );
   assert.match(card.details.join('\n'), /age at query 2 s · within policy/);
   assert.match(card.details.join('\n'), /mmsi 1 · fix_quality gnss/);

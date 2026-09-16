@@ -6918,6 +6918,42 @@ body.cockpit-mode .gods-eye-root .cockpit-signal-window {
   margin-top: 2px;
 }
 
+/* Facts a layer reports about its source (`stats.facts`), printed verbatim
+   under the meta line: a label per group, one line per fact. The panel shows
+   them and never grades them; long lines wrap inside the rail. */
+.gods-eye-root .data-toggle-facts {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.3px;
+  line-height: 1.35;
+  color: var(--text-dim);
+  padding-left: 26px;
+  margin-top: 3px;
+}
+
+.gods-eye-root .data-toggle-facts[hidden] {
+  display: none;
+}
+
+.gods-eye-root .data-toggle-fact-group + .data-toggle-fact-group {
+  margin-top: 3px;
+}
+
+.gods-eye-root .data-toggle-fact-label {
+  color: var(--text-secondary);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.gods-eye-root .data-toggle-fact {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.gods-eye-root .data-toggle-fact-error {
+  color: #ff8585;
+}
+
 /* Optional per-layer sub-controls: mode chips plus a color legend. Aligned
    under the layer name like .data-toggle-meta, and wrapping so a legend can
    grow without widening the rail. */

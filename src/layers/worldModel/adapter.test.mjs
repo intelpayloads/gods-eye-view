@@ -12,6 +12,8 @@ import {
   fieldSampleRecordsFromProjection,
   inspectionLines,
   lineageCardLines,
+  MAX_CARD_LINE_CHARS,
+  packCardLines,
   pointRecordsFromProjection,
   selectionCardLines,
   shortRef,
@@ -147,9 +149,14 @@ test('selection cards quote the grants, distinguish product-time age from query 
   assert.match(lines[0], /DLH455 · track:opensky:icao24:3c4b33/);
   assert.match(
     lines.join('\n'),
-    /world\.aircraft · height 5913 m from geometric_height_m \(aircraft_height:adsb-geometric-as-wgs84-ellipsoid\)/,
+    /world\.aircraft · height 5913 m from geometric_height_m · baro 5616 m/,
   );
-  assert.match(lines.join('\n'), /baro 5616 m/);
+  assert.match(
+    lines.join('\n'),
+    /^grant aircraft_height:adsb-geometric-as-wgs84-ellipsoid$/m,
+  );
+  // Every line fits the card the overlay host can place (DWM-60).
+  for (const line of lines) assert.ok(line.length <= MAX_CARD_LINE_CHARS, line);
   assert.match(lines.join('\n'), /held-report · age at product time 1 s/);
   assert.equal(
     lines.some((l) => l.startsWith('age at query')),
@@ -204,7 +211,19 @@ test('selection cards quote the grants, distinguish product-time age from query 
   assert.equal(wlines[0], '297.25 K air_temperature @ 850 hPa');
   assert.match(wlines[1], /pressure level, not altitude · drawn at 0 m/);
   assert.match(wlines[2], /native lon 237\.000 \(0\.\.360\)/);
-  assert.match(wlines[3], /lag 3445 s/);
+  assert.match(wlines.join('\n'), /lag 3445 s/);
+});
+
+test('card fragments pack into lines the host can place, continuation lines indented', () => {
+  assert.deepEqual(packCardLines(['a', 'b', null, '', 'c']), ['a · b · c']);
+  const packed = packCardLines(['x'.repeat(40), 'y'.repeat(40), 'z'], 72);
+  assert.deepEqual(packed, ['x'.repeat(40), `  ${'y'.repeat(40)} · z`]);
+  // an oversize fragment stands alone; the host ellipsizes it
+  assert.deepEqual(packCardLines(['short', 'w'.repeat(80)], 72), [
+    'short',
+    `  ${'w'.repeat(80)}`,
+  ]);
+  assert.deepEqual(packCardLines([]), []);
 });
 
 test("the inspection block shows the item's admitted descriptor then its lineage", () => {
@@ -219,16 +238,16 @@ test("the inspection block shows the item's admitted descriptor then its lineage
   );
   assert.match(
     text,
-    /valid instant 2026-09-10T22:57:25\+00:00 · known instant/,
+    /valid instant 2026-09-10T22:57:25\+00:00\n {2}known instant/,
   );
   assert.match(text, /spatial WGS84 bbox/);
   assert.match(
     text,
-    /access entity_set\/v1 @ world-entity-index · dimensions space,valid_time,identity/,
+    /access entity_set\/v1 @ world-entity-index\n {2}dimensions space,valid_time,identity/,
   );
   assert.match(
     text,
-    /representation positioned_entities\/v1 · capabilities point,height,temporal_age · requires /,
+    /representation positioned_entities\/v1\n {2}capabilities point,height,temporal_age\n {2}requires /,
   );
   assert.match(text, /time\{valid,sampled,age_basis\}/);
   assert.match(text, /position\{[^}]*lon[^}]*\}/);
@@ -238,10 +257,12 @@ test("the inspection block shows the item's admitted descriptor then its lineage
     /produced by aircraft\.materialize-track-state@1 · succeeded · 2 inputs/,
   );
   assert.match(text, /bound in world\.aircraft@/);
+  // the source type is not repeated when it is the ref's own type
   assert.match(
     text,
-    /source source\.opensky\.state_vectors\.v1@452fc448 \(source\.opensky\.state_vectors\.v1\) · connector opensky-replay · publication/,
+    /source source\.opensky\.state_vectors\.v1@452fc448\n {2}connector opensky-replay · publication/,
   );
+  for (const line of lines) assert.ok(line.length <= MAX_CARD_LINE_CHARS, line);
   // the weather product: 4 retained sources reached through the block ("via")
   const sample = fixture.field_samples.find((s) => s.id === NODE);
   const wtext = inspectionLines(sample, weatherProvenance).join('\n');

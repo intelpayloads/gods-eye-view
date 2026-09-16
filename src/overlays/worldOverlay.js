@@ -48,6 +48,27 @@ export const AMBIENT_CARD_COLLISION_CAPACITY = 1150;
 const DEFAULT_MOVING_SOLVE_MS = 125;
 const VALID_VARIANTS = new Set(['label', 'track', 'card', 'thumbnail', 'selected', 'tracked']);
 
+/**
+ * Longest title or detail line the host paints, in characters; longer lines
+ * are ellipsized at normalization. A card is placed as ONE rectangle and the
+ * placement rule is absolute (a card never covers chrome that composites
+ * below the host, see `snapshotAndProject`), so a source that publishes an
+ * unbounded line — a content id, a lineage chain, a JSON property — yields a
+ * card wider than the gap between the HUD corners and is vetoed on every
+ * frame: the click registers, the entry is held, nothing paints (DWM-60).
+ * 72 characters at the 10.5px detail font is roughly 450 px plus padding,
+ * which clears the corners at 1280 px and up. Clamping here costs nothing per
+ * frame; a source that wants more text wraps it into more lines.
+ */
+export const MAX_OVERLAY_LINE_CHARS = 72;
+const LINE_ELLIPSIS = '…';
+
+function clampOverlayLine(value) {
+  const text = String(value ?? '');
+  if (text.length <= MAX_OVERLAY_LINE_CHARS) return text;
+  return text.slice(0, MAX_OVERLAY_LINE_CHARS - 1) + LINE_ELLIPSIS;
+}
+
 /** Stable logical bottom-to-top paint order across the host-owned surfaces. */
 export const WORLD_OVERLAY_PAINT_LANES = Object.freeze([
   'detection',
@@ -418,8 +439,8 @@ export function normalizeOverlayEntry(sourceId, entry) {
     position: entry.position,
     cullPosition: snapshotCullPosition(entry),
     variant,
-    title: String(entry.title ?? ''),
-    details: Array.isArray(entry.details) ? entry.details.map((line) => String(line)) : [],
+    title: clampOverlayLine(entry.title),
+    details: Array.isArray(entry.details) ? entry.details.map(clampOverlayLine) : [],
     accent: entry.accent || WORLD_OVERLAY_STYLE.accent,
     paintLane: entry.paintLane,
     priority: Number.isFinite(Number(entry.priority)) ? Number(entry.priority) : 0,

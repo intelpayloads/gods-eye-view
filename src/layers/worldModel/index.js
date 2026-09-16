@@ -304,6 +304,18 @@ export function createWorldModelLayer({
     return lines;
   }
 
+  /**
+   * The same facts in the panel's generic shape (`stats.facts`): one group
+   * per binding, labelled by the binding, three lines. The Data Layers row
+   * prints these verbatim without knowing this layer.
+   */
+  function statusFacts(status) {
+    return statusLines(status).map((line) => ({
+      label: line.binding,
+      lines: [line.source, line.processing, line.productTime],
+    }));
+  }
+
   const layer = {
     id,
     name,
@@ -544,8 +556,10 @@ export function createWorldModelLayer({
         annotations: state.summary?.annotations ?? [],
         skipped: state.skipped.length,
         // Three separate facts per binding; never combined into a verdict.
-        status: features.status ? statusLines(view.status) : null,
-        statusError: view.statusError,
+        // `facts`, not `status`: the panel reads `status` as its feed-state
+        // enum, so an array there was silently dropped (DWM-60).
+        facts: features.status ? statusFacts(view.status) : null,
+        factsError: view.statusError ?? null,
         features,
         requests: view.counters,
       };

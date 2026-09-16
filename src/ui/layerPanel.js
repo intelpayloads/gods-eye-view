@@ -178,8 +178,13 @@ export class LayerPanel {
       bottomRow.className = 'data-toggle-meta';
       bottomRow.textContent = this._buildMetaText(layer);
 
+      const facts = document.createElement('div');
+      facts.className = 'data-toggle-facts';
+      this._syncFacts(facts, layer);
+
       row.appendChild(topRow);
       row.appendChild(bottomRow);
+      row.appendChild(facts);
 
       // Optional per-layer sub-controls (chips + color legend). The click
       // listener is delegated and attached once here, so it survives
@@ -317,8 +322,59 @@ export class LayerPanel {
         meta.textContent = this._buildMetaText(layer);
       }
 
+      this._syncFacts(row.querySelector('.data-toggle-facts'), layer);
       this._syncRowControls(row.querySelector('.data-toggle-controls'), layer);
     }
+  }
+
+  /**
+   * Print the facts a layer reports about what it is showing, verbatim, under
+   * the meta line. `stats.facts` is `[{ label, lines: string[] }]` — for the
+   * world model, one group per binding with its source, processing and
+   * product-time lines. The panel shows facts; it never grades them into a
+   * verdict (thresholds belong to the layer's own policy controls), and a
+   * failed facts fetch (`stats.factsError`) is reported as one more line.
+   * The block is hidden while the layer is off or reports nothing.
+   * @param {HTMLElement|null} container The row's `.data-toggle-facts` node.
+   * @param {object} layer Registered layer entry.
+   */
+  _syncFacts(container, layer) {
+    if (!container) return;
+    const stats = layer.stats || {};
+    const groups =
+      layer.enabled && Array.isArray(stats.facts) ? stats.facts : [];
+    const error =
+      layer.enabled && stats.factsError ? String(stats.factsError) : '';
+    container.textContent = '';
+    let shown = 0;
+    for (const group of groups) {
+      const lines = Array.isArray(group?.lines) ? group.lines : [];
+      if (lines.length === 0) continue;
+      const block = document.createElement('div');
+      block.className = 'data-toggle-fact-group';
+      if (group.label) {
+        const label = document.createElement('div');
+        label.className = 'data-toggle-fact-label';
+        label.textContent = String(group.label);
+        block.appendChild(label);
+      }
+      for (const line of lines) {
+        const node = document.createElement('div');
+        node.className = 'data-toggle-fact';
+        node.textContent = String(line);
+        block.appendChild(node);
+      }
+      container.appendChild(block);
+      shown++;
+    }
+    if (error) {
+      const node = document.createElement('div');
+      node.className = 'data-toggle-fact data-toggle-fact-error';
+      node.textContent = `status: ${error}`;
+      container.appendChild(node);
+      shown++;
+    }
+    container.hidden = shown === 0;
   }
 
   _buildMetaText(layer) {

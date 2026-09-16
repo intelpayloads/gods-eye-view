@@ -387,11 +387,15 @@ try {
       .find((x) => x.startsWith('world.aircraft/'));
     module.selectById(target);
     await new Promise((r) => setTimeout(r, 1500));
+    // Paint is decided per frame: ask for one and read the host afterwards.
+    window.__godsEyeView.viewer.scene.requestRender?.();
+    await new Promise((r) => setTimeout(r, 500));
     const diag = window.__gevWorldOverlay?.getDiagnostics?.() || {};
     return {
       target,
       selected: module.getSelectedId(),
       hostEntries: diag.entriesBySource?.[id] || 0,
+      painted: diag.paintedBySource?.[id] || 0,
     };
   }, LAYER_ID);
   // The overlay host holds the card; read its details through the layer's own card builder.
@@ -414,9 +418,12 @@ try {
   }, LAYER_ID);
   check(
     'click selects a point (one protected card is published by the layer)',
-    card.selected === card.target,
+    card.selected === card.target && card.hostEntries === 1,
     card,
   );
+  // The card must reach the paint stage: a card whose lines are wider than
+  // the gap between the HUD corners is held by the host but never drawn (DWM-60).
+  check('the selected card paints', card.painted === 1, card);
   check(
     'the admitted descriptor for the served item is resolvable with lineage',
     details.descriptorFound &&
@@ -427,22 +434,43 @@ try {
 
   // ── 4. STATUS: three separate lines per binding ──
   s = await stats();
-  const statusOk =
-    Array.isArray(s.status) &&
-    s.status.length >= 2 &&
-    s.status.every(
-      (l) =>
-        l.source.startsWith('source:') &&
-        l.processing.startsWith('processing:') &&
-        l.productTime.startsWith('product time:') &&
-        !/verdict|healthy|fresh/i.test(
-          `${l.source} ${l.processing} ${l.productTime}`,
-        ),
+  const factsOk =
+    Array.isArray(s.facts) &&
+    s.facts.length >= 2 &&
+    s.facts.every(
+      (group) =>
+        group.lines.length === 3 &&
+        group.lines[0].startsWith('source:') &&
+        group.lines[1].startsWith('processing:') &&
+        group.lines[2].startsWith('product time:') &&
+        !/verdict|healthy|fresh/i.test(group.lines.join(' ')),
     );
   check(
     'status is three separate fact lines per binding, no verdict',
-    statusOk,
-    s.status,
+    factsOk,
+    s.facts,
+  );
+  // The Data Layers row prints those facts verbatim under its meta line (DWM-60).
+  const rowFacts = await page.evaluate((id) => {
+    const block = document.querySelector(
+      `[data-layer-id="${id}"] .data-toggle-facts`,
+    );
+    const texts = (selector) =>
+      [...(block?.querySelectorAll(selector) || [])].map((n) => n.textContent);
+    return {
+      hidden: block?.hidden ?? null,
+      labels: texts('.data-toggle-fact-label'),
+      lines: texts('.data-toggle-fact'),
+    };
+  }, LAYER_ID);
+  check(
+    'the layer row shows the status facts under the meta line',
+    rowFacts.hidden === false &&
+      rowFacts.labels.includes('world.aircraft') &&
+      ['source:', 'processing:', 'product time:'].every((prefix) =>
+        rowFacts.lines.some((l) => l.startsWith(prefix)),
+      ),
+    rowFacts,
   );
 
   // OFF must clear, ON must restore.
