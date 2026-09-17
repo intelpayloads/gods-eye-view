@@ -404,9 +404,85 @@ test("the shipped registry configures flights: 'world': snapshots read the Proje
     assert.deepEqual(projectionSource.demands[0].query.type_filter, [
       'aircraft.track_state_set.v1',
     ]);
+    assert.deepEqual(projectionSource.demands[0].query.requested_layers, [
+      'world.aircraft',
+    ]);
     assert.deepEqual(requests, [], '/api/opensky was never fetched');
     await slot.getTrack('a1b2c3');
     assert.deepEqual(requests, ['/api/opensky-track?icao24=a1b2c3']);
+  } finally {
+    restore();
+  }
+});
+
+test("the shipped registry configures military: 'world': snapshots and identities read world.military_aircraft, trails still reach the provider", async () => {
+  resetLayerSources();
+  const requests = [];
+  const slot = createLayerSource(
+    'military',
+    createAdsbLolSource({
+      api: (path) => path,
+      fetchImpl: async (url) => {
+        requests.push(url);
+        return new Response('{"timestamp":1,"trace":[]}');
+      },
+    }),
+  );
+  const projectionSource = fixtureProjectionSource({
+    ...PROJECTION,
+    points: [
+      {
+        id: 'world.military_aircraft/track:adsblol:icao24:ae1454',
+        position: { lon: -157.9, lat: 21.3, height_m: 30 },
+        height: { barometric_height_m: null },
+        time: {
+          valid_at: '2026-09-17T18:06:10.501+00:00',
+          sampled_at: '2026-09-17T18:06:10.001+00:00',
+        },
+        semantic_ref: { semantic_identity: 'track:adsblol:icao24:ae1454' },
+        properties: {
+          callsign: 'BOE24   ',
+          type_code: 'C17',
+          registration: '05-5150',
+          on_ground: true,
+          velocity_mps: 9,
+        },
+      },
+    ],
+  });
+  const restore = configureLayerSources({
+    layerSources: { military: 'world' },
+    projectionSource,
+    head: 'world/test',
+  });
+  try {
+    assert.equal(layerSourceMode('military'), 'world');
+    assert.equal(slot.label, 'World model (adsb.lol)');
+    const snapshot = await slot.getSnapshot({});
+    assert.deepEqual(
+      snapshot.records.map((r) => [
+        r.id,
+        r.callsign,
+        r.typeCode,
+        r.registration,
+        r.onGround,
+      ]),
+      [['ae1454', 'BOE24', 'C17', '05-5150', true]],
+    );
+    assert.deepEqual(await slot.getIdentities({}), ['ae1454']);
+    assert.equal(projectionSource.demands.length, 2);
+    for (const demand of projectionSource.demands) {
+      assert.equal(demand.head, 'world/test');
+      assert.deepEqual(demand.query.type_filter, [
+        'aircraft.track_state_set.v1',
+      ]);
+      assert.deepEqual(demand.query.requested_layers, [
+        'world.military_aircraft',
+      ]);
+    }
+    assert.deepEqual(requests, [], '/api/adsblol/mil was never fetched');
+    await slot.getTrack('ae1454');
+    assert.deepEqual(requests, ['/api/adsblol/trace?hex=ae1454']);
   } finally {
     restore();
   }
@@ -417,6 +493,7 @@ test("the shipped registry configures earthquakes: 'world' and reads the Project
   assert.deepEqual(Object.keys(WORLD_LAYER_SOURCES), [
     'earthquakes',
     'flights',
+    'military',
   ]);
   const requests = [];
   const slot = createLayerSource(

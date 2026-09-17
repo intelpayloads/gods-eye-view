@@ -215,7 +215,7 @@ test('the direct source and the world adapter agree end to end for the same stat
   );
 });
 
-test('one demand per snapshot: head, type filter, wall-clock valid_at, the height grant, no policy, the signal; the viewport query is not sent', async () => {
+test('one demand per snapshot: head, type filter, the world.aircraft binding, wall-clock valid_at, the height grant, no policy, the signal; the viewport query is not sent', async () => {
   const projectionSource = fixtureProjectionSource(projectionOf(POINTS));
   const source = createWorldFlightSource({
     projectionSource,
@@ -233,6 +233,7 @@ test('one demand per snapshot: head, type filter, wall-clock valid_at, the heigh
   assert.equal(demand.revisionId, undefined);
   assert.deepEqual(demand.query, {
     type_filter: ['aircraft.track_state_set.v1'],
+    requested_layers: ['world.aircraft'],
     valid_at: '2026-09-16T23:06:40.000Z',
   });
   assert.deepEqual(demand.projectionSpec, {

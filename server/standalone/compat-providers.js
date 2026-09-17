@@ -12,7 +12,6 @@ import { cctvProxy } from '../providers/cctv.js';
 import { defaultSourceRoot } from '../providers/common/source-root.js';
 import { radioBrowserProxy } from '../providers/radio.js';
 import { gbfsProxy } from '../providers/gbfs.js';
-import { adsbLolProxy } from '../providers/aircraft/adsb-lol.js';
 import { aisLiveProxy } from '../providers/vessels/ais-live.js';
 import { trackBackfillProxies } from '../providers/aircraft/tracks.js';
 import { openAiRealtimeProxy } from '../providers/openai.js';
@@ -44,16 +43,13 @@ export const COMPAT_PROVIDERS = Object.freeze([
     id: 'track-backfill',
     plugin: 'track-backfill-proxies',
     create: () => trackBackfillProxies(),
-    // /api/opensky-track leaves with DWM-46, /api/adsblol/trace with DWM-31.
+    // /api/opensky-track leaves with DWM-46. /api/adsblol/trace is the one
+    // adsb.lol route still mounted after DWM-31 (the military snapshot and
+    // identities read world.military_aircraft); it leaves with retained
+    // tracks (polylines/v1, DWM-41), which the military world adapter's
+    // getTrack delegates to until then.
     routes: ['/api/opensky-track', '/api/adsblol/trace'],
-    removedBy: ['DWM-46', 'DWM-31'],
-  },
-  {
-    id: 'adsb-lol',
-    plugin: 'adsblol-proxy',
-    create: () => adsbLolProxy(),
-    routes: ['/api/adsblol/mil'],
-    removedBy: ['DWM-31'],
+    removedBy: ['DWM-46', 'DWM-41'],
   },
   {
     id: 'adsbdb',
@@ -198,6 +194,11 @@ export const COMPAT_EXCLUDED = Object.freeze([
   {
     plugin: 'gev-key-setup',
     reason: 'dev-only Provider Settings; writes .env. Compat keys come from a Kubernetes Secret.',
+  },
+  {
+    plugin: 'adsblol-proxy',
+    reason:
+      'removed by DWM-31: the military layer reads world.military_aircraft through its world adapter; /api/adsblol/mil stays a standalone dev route only.',
   },
   {
     plugin: 'gev-world-model-dev-proxy',

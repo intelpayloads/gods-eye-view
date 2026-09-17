@@ -4,7 +4,9 @@
  * `opensky` connector as `aircraft.track_state_set.v1`).
  *
  * One projection request per refresh, against the host's head at the wall
- * clock, under the `aircraft_height` grant the product declares (geometric
+ * clock, for the `world.aircraft` binding by name (the military layer's
+ * `world.military_aircraft` is the same product type, DWM-31), under the
+ * `aircraft_height` grant the product declares (geometric
  * height read as height above the WGS84 ellipsoid; barometric height carried
  * unconverted). Each projected point becomes the record
  * `normalizeOpenSkyAircraft` produces for the same state vector, admitted by
@@ -37,6 +39,8 @@ import {
 } from '../../sources/live/contract.js';
 
 export const AIRCRAFT_PRODUCT_TYPE = 'aircraft.track_state_set.v1';
+/** The binding this layer reads: `world.military_aircraft` (DWM-31) carries the same product type. */
+export const AIRCRAFT_BINDING = 'world.aircraft';
 export const AIRCRAFT_DISPLAY_ASSUMPTIONS = Object.freeze({
   aircraft_height: 'adsb-geometric-as-wgs84-ellipsoid',
 });
@@ -137,6 +141,7 @@ export function createWorldFlightSource({
         head,
         query: {
           type_filter: [AIRCRAFT_PRODUCT_TYPE],
+          requested_layers: [AIRCRAFT_BINDING],
           valid_at: wallClockValidAt(now()),
         },
         projectionSpec: {

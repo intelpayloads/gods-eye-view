@@ -312,6 +312,8 @@
   "src/layers/earthquakes/worldSource.test.mjs",
   "src/layers/flights/worldSource.js",
   "src/layers/flights/worldSource.test.mjs",
+  "src/layers/military/worldSource.js",
+  "src/layers/military/worldSource.test.mjs",
   "src/data/firmsHeatmap.js",
   "src/data/fireAnchors.js",
   "src/layers/firms/anchors.js",
