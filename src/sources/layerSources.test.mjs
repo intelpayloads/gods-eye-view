@@ -218,7 +218,7 @@ test('unknown keys, unknown modes, missing adapters and a missing ProjectionSour
         projectionSource,
       }),
     /Layer flights has no world adapter/,
-    'the shipped registry has no adapters yet',
+    'the shipped registry has no flights adapter',
   );
   assert.throws(
     () =>
@@ -295,6 +295,39 @@ test('a world adapter missing a provider method fails that call by name', () => 
       () => slot.getHealth(),
       /world adapter for cctv does not implement getHealth\(\)/,
     );
+  } finally {
+    restore();
+  }
+});
+
+test("the shipped registry configures earthquakes: 'world' and reads the ProjectionSource", async () => {
+  resetLayerSources();
+  assert.deepEqual(Object.keys(WORLD_LAYER_SOURCES), ['earthquakes']);
+  const requests = [];
+  const slot = createLayerSource(
+    'earthquakes',
+    createUsgsEarthquakeSource({
+      fetchImpl: async (url) => {
+        requests.push(url);
+        return new Response('{"features":[]}');
+      },
+    }),
+  );
+  const projectionSource = fixtureProjectionSource();
+  const restore = configureLayerSources({
+    layerSources: { earthquakes: 'world' },
+    projectionSource,
+    head: 'world/test',
+  });
+  try {
+    assert.equal(layerSourceMode('earthquakes'), 'world');
+    assert.deepEqual(await slot.getSnapshot(), []);
+    assert.equal(projectionSource.demands.length, 1);
+    assert.equal(projectionSource.demands[0].head, 'world/test');
+    assert.deepEqual(projectionSource.demands[0].query.type_filter, [
+      'seismic.event_set.v1',
+    ]);
+    assert.deepEqual(requests, [], 'USGS was never fetched directly');
   } finally {
     restore();
   }

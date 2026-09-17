@@ -15,10 +15,13 @@
  * returns what the provider source returns, method for method, so the layer
  * renders unchanged. The adapter lives next to its layer
  * (`src/layers/<layer>/worldSource.js`); a connector ticket registers it here.
+ * Registered so far: earthquakes (DWM-28, `world.earthquakes`).
  *
- * The standalone default is every layer on 'provider'.
+ * The standalone default is every layer on 'provider'; a host that embeds
+ * the application (the Dataforge client) flips a registered layer to 'world'.
  */
 import { HEAD } from '../layers/worldModel/view.js';
+import { createWorldEarthquakeSource } from '../layers/earthquakes/worldSource.js';
 
 /** Layer ids (and the cockpit weather effect) whose data source is switchable. */
 export const LAYER_SOURCE_KEYS = Object.freeze([
@@ -40,7 +43,9 @@ export const LAYER_SOURCE_KEYS = Object.freeze([
 export const LAYER_SOURCE_MODES = Object.freeze(['provider', 'world']);
 
 /** Registered world adapters, key -> `({ projectionSource, head }) => source`. */
-export const WORLD_LAYER_SOURCES = Object.freeze({});
+export const WORLD_LAYER_SOURCES = Object.freeze({
+  earthquakes: createWorldEarthquakeSource,
+});
 
 const DEFAULTS = Object.freeze({
   modes: Object.freeze({}),
