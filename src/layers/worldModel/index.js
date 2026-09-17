@@ -163,6 +163,14 @@ export function createWorldModelLayer({
           color: new Cesium.Color(...render.colorRgb, render.display.alpha),
           outlineColor: OUTLINE_COLOR,
           outlineWidth: 1,
+          // A 2-D point (the representation declares no height) sits on the
+          // terrain, not at ellipsoid height 0 under it.
+          ...(render.surface
+            ? {
+                heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+                disableDepthTestDistance: Number.POSITIVE_INFINITY,
+              }
+            : {}),
         };
     const entity = new Cesium.Entity({
       id: render.id,

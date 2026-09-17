@@ -130,7 +130,15 @@ export function pointRecordsFromProjection(projection) {
       continue;
     }
     const { longitude, latitude, height } = positionOf(point);
-    if (!isFinite3(longitude, latitude, height)) {
+    // A representation without the height capability (DWM-75) projects 2-D
+    // points: `height_m` and `height` are null by declaration, not missing.
+    // Such a point is drawn on the surface; a null height next to a declared
+    // height block is still a skip, never a guess.
+    const surface =
+      point.height === null &&
+      (point.position?.height_m === null ||
+        point.position?.height_m === undefined);
+    if (!isFinite3(longitude, latitude, surface ? 0 : height)) {
       skipped.push({ id, reason: 'non-finite-position' });
       continue;
     }
@@ -141,7 +149,8 @@ export function pointRecordsFromProjection(projection) {
       binding: typeof point.binding === 'string' ? point.binding : '',
       longitude,
       latitude,
-      height,
+      height: surface ? 0 : height,
+      surface,
       stale,
       colorRgb: bindingColor(point.binding),
       display: stale ? DISPLAY_CHOICES['point-stale'] : DISPLAY_CHOICES.point,
@@ -376,16 +385,19 @@ export function selectionCardLines(renderRecord) {
     0,
     lead ? 3 : 2,
   );
+  const surface = renderRecord?.surface === true;
   const lines = [
     leadText && leadText !== '—' ? `${leadText} · ${identity}` : identity,
     ...packCardLines([
       item.binding || '?',
-      `height ${formatNumber(Number(height.value_m))} m from ${height.source_field || '?'}`,
-      Number.isFinite(Number(height.barometric_height_m))
+      surface
+        ? 'surface entity, no height declared'
+        : `height ${formatNumber(Number(height.value_m))} m from ${height.source_field || '?'}`,
+      !surface && Number.isFinite(Number(height.barometric_height_m))
         ? `baro ${formatNumber(Number(height.barometric_height_m))} m`
         : null,
     ]),
-    `grant ${height.assumption || 'none'}`,
+    `grant ${surface ? 'none needed' : height.assumption || 'none'}`,
     ...packCardLines([
       `valid ${time.valid_at || '?'}`,
       time.temporal_status || '?',

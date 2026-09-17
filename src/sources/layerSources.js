@@ -20,7 +20,9 @@
  * connector ticket registers it here. Registered so far: earthquakes (DWM-28,
  * `world.earthquakes`), flights (DWM-67, `world.aircraft`; trails and
  * enrichment delegate), military (DWM-31, `world.military_aircraft`; the
- * identity list reads the same projection, trails delegate).
+ * identity list reads the same projection, trails delegate), local-firms
+ * (DWM-30, the three `world.fires.viirs_*` bindings merged into one
+ * snapshot; nothing delegates: the provider source has one method).
  *
  * Configuration validates each 'world' row at once (a registered adapter, a
  * ProjectionSource, a factory that returns a source); each slot then builds
@@ -34,6 +36,7 @@ import { HEAD } from '../layers/worldModel/view.js';
 import { createWorldEarthquakeSource } from '../layers/earthquakes/worldSource.js';
 import { createWorldFlightSource } from '../layers/flights/worldSource.js';
 import { createWorldMilitarySource } from '../layers/military/worldSource.js';
+import { createWorldFirmsSource } from '../layers/firms/worldSource.js';
 
 /** Layer ids (and the cockpit weather effect) whose data source is switchable. */
 export const LAYER_SOURCE_KEYS = Object.freeze([
@@ -59,6 +62,7 @@ export const WORLD_LAYER_SOURCES = Object.freeze({
   earthquakes: createWorldEarthquakeSource,
   flights: createWorldFlightSource,
   military: createWorldMilitarySource,
+  'local-firms': createWorldFirmsSource,
 });
 
 const DEFAULTS = Object.freeze({

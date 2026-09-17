@@ -86,12 +86,22 @@ The OSM-derived datasets are under the **Open Database License**. ODbL's share-a
 
 > We acknowledge the use of data and/or imagery from NASA's Fire Information for Resource Management System (FIRMS) (https://earthdata.nasa.gov/firms), part of NASA's Earth Observing System Data and Information System (EOSDIS).
 
-FIRMS active fires are **fetched live at runtime** (CC0 / U.S. public domain data): the
-`/api/firms` server-side proxy merges the three VIIRS NRT sources (NOAA-20, NOAA-21,
-Suomi-NPP) clamped to the trailing 24 h, cached 30 min to respect the shared MAP_KEY
-transaction quota. Requires a free `FIRMS_MAP_KEY`
+FIRMS active fires are **fetched live at runtime** (CC0 / U.S. public domain data): in the
+standalone app the `/api/firms` server-side proxy merges the three VIIRS NRT sources
+(NOAA-20, NOAA-21, Suomi-NPP) clamped to the trailing 24 h, cached 30 min to respect the
+shared MAP_KEY transaction quota. Requires a free `FIRMS_MAP_KEY`
 (https://firms.modaps.eosdis.nasa.gov/api/map_key/); the layer is empty without it.
 The former bundled 2026-05-25 snapshot was removed 2026-07-16.
+
+**FIRMS via the world model (DWM-30).** When a host embeds the application with
+`layerSources: { 'local-firms': 'world' }` (the Dataforge client), the fires layer reads
+the Dataforge world model instead of `/api/firms` (`src/layers/firms/worldSource.js`):
+the world model's `firms` connector retains each VIIRS feed's CSV (the MAP_KEY lives
+there, in a Kubernetes Secret, never in the browser or this server) and publishes the
+three feeds as `world.fires.viirs_noaa20`, `_noaa21` and `_snpp`; the adapter asks for
+the three bindings with a 24 h `temporal_age` policy and rebuilds the records the layer
+already renders. It is still NASA FIRMS data, so the acknowledgement stays registered
+either way.
 
 ### Natural Earth physical regions (`natural_earth/`)
 

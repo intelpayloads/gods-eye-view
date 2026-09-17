@@ -494,6 +494,7 @@ test("the shipped registry configures earthquakes: 'world' and reads the Project
     'earthquakes',
     'flights',
     'military',
+    'local-firms',
   ]);
   const requests = [];
   const slot = createLayerSource(
@@ -520,6 +521,88 @@ test("the shipped registry configures earthquakes: 'world' and reads the Project
       'seismic.event_set.v1',
     ]);
     assert.deepEqual(requests, [], 'USGS was never fetched directly');
+  } finally {
+    restore();
+  }
+});
+
+test("the shipped registry configures local-firms: 'world': the snapshot merges the three world.fires.viirs_* bindings and never calls /api/firms", async () => {
+  resetLayerSources();
+  const { requests, source } = countingFirmsProvider();
+  const slot = createLayerSource('local-firms', source);
+  const projectionSource = fixtureProjectionSource({
+    ...PROJECTION,
+    points: [
+      {
+        id: 'world.fires.viirs_noaa20/detection:firms:N20:2026-09-17T1006Z:30.2:-97.7',
+        binding: 'world.fires.viirs_noaa20',
+        position: { lon: -97.7, lat: 30.2, height_m: null },
+        height: null,
+        time: {
+          valid_at: '2026-09-17T10:06:00+00:00',
+          known_as_of: '2026-09-17T12:00:00+00:00',
+        },
+        properties: {
+          satellite: 'N20',
+          instrument: 'VIIRS',
+          confidence: 'n',
+          frp_mw: 12.5,
+          bright_ti4_k: 340,
+          bright_ti5_k: 295,
+          daynight: 'D',
+          acq_date: '2026-09-17',
+          acq_time: '1006',
+        },
+      },
+    ],
+  });
+  const restore = configureLayerSources({
+    layerSources: { 'local-firms': 'world' },
+    projectionSource,
+    head: 'world/test',
+  });
+  try {
+    assert.equal(layerSourceMode('local-firms'), 'world');
+    const snapshot = await slot.getSnapshot();
+    assert.deepEqual(snapshot.fires, [
+      {
+        lat: 30.2,
+        lon: -97.7,
+        frp: 12.5,
+        confidence: 'n',
+        brightness: 340,
+        brightnessTi5: 295,
+        daynight: 'D',
+        acqDate: '2026-09-17',
+        acqTime: '1006',
+        satellite: 'N20',
+        instrument: 'VIIRS',
+      },
+    ]);
+    assert.equal(snapshot.count, 1);
+    assert.equal(snapshot.fetchedAt, Date.parse('2026-09-17T12:00:00+00:00'));
+    assert.deepEqual(
+      snapshot.sources.map((s) => [s.source, s.count]),
+      [
+        ['VIIRS_NOAA20_NRT', 1],
+        ['VIIRS_NOAA21_NRT', 0],
+        ['VIIRS_SNPP_NRT', 0],
+      ],
+    );
+    assert.equal(projectionSource.demands.length, 1);
+    assert.deepEqual(projectionSource.demands[0].query.type_filter, [
+      'fire.detection_set.v1',
+    ]);
+    assert.deepEqual(projectionSource.demands[0].query.requested_layers, [
+      'world.fires.viirs_noaa20',
+      'world.fires.viirs_noaa21',
+      'world.fires.viirs_snpp',
+    ]);
+    assert.deepEqual(
+      projectionSource.demands[0].projectionSpec.projection_policy,
+      { temporal_age: { mode: 'withhold', threshold_seconds: 86400 } },
+    );
+    assert.deepEqual(requests, [], '/api/firms was never fetched');
   } finally {
     restore();
   }

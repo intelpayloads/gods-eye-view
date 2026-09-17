@@ -1,7 +1,6 @@
 import { openSkyProxy } from '../providers/aircraft/opensky.js';
 import { celestrakProxy, rocketLaunchesProxy } from '../providers/space.js';
 import { tomtomProxy } from '../providers/traffic.js';
-import { firmsProxy } from '../providers/firms.js';
 import { terrainHeightsProxy } from '../providers/terrain.js';
 import { adsbdbProxy } from '../providers/aircraft/enrichment.js';
 import { overpassProxy } from '../providers/overpass.js';
@@ -78,13 +77,6 @@ export const COMPAT_PROVIDERS = Object.freeze([
     create: () => rocketLaunchesProxy(),
     routes: ['/api/launches'],
     removedBy: ['DWM-36'],
-  },
-  {
-    id: 'firms',
-    plugin: 'firms-proxy',
-    create: () => firmsProxy(),
-    routes: ['/api/firms'],
-    removedBy: ['DWM-30'],
   },
   {
     id: 'gbfs',
@@ -199,6 +191,11 @@ export const COMPAT_EXCLUDED = Object.freeze([
     plugin: 'adsblol-proxy',
     reason:
       'removed by DWM-31: the military layer reads world.military_aircraft through its world adapter; /api/adsblol/mil stays a standalone dev route only.',
+  },
+  {
+    plugin: 'firms-proxy',
+    reason:
+      'removed by DWM-30: the fires layer reads the three world.fires.viirs_* bindings through its world adapter; /api/firms stays a standalone dev route only (FIRMS_MAP_KEY belongs to the world model connector).',
   },
   {
     plugin: 'gev-world-model-dev-proxy',

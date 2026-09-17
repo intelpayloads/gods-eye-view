@@ -128,6 +128,62 @@ test('non-finite positions or values are skipped with a reason, never guessed', 
   ]);
 });
 
+test('a 2-D point (no height declared, DWM-75) is drawn on the surface at 0, never skipped; a null height under a declared height block still is', () => {
+  const surface = {
+    id: 'world.fires.viirs_noaa20/detection:firms:N20:2026-09-17T1006Z:30.2:-97.7',
+    binding: 'world.fires.viirs_noaa20',
+    position: { lon: -97.7, lat: 30.2, height_m: null },
+    height: null,
+    time: {
+      valid_at: '2026-09-17T10:06:00+00:00',
+      known_as_of: '2026-09-17T12:00:00+00:00',
+    },
+    semantic_ref: {
+      semantic_identity: 'detection:firms:N20:2026-09-17T1006Z:30.2:-97.7',
+    },
+    source_ref: {
+      source: {
+        type_id: 'source.firms.viirs_noaa20_nrt.v1',
+        content_id: 'sha256:313f6326c7f8',
+      },
+      row_index: 3,
+    },
+    properties: { satellite: 'N20', confidence: 'n', frp_mw: 12.5 },
+  };
+  const declared = {
+    ...surface,
+    id: 'world.aircraft/x',
+    height: { value_m: null, source_field: 'geometric_height_m' },
+  };
+  const { records, skipped } = pointRecordsFromProjection({
+    points: [surface, declared],
+  });
+  assert.deepEqual(skipped, [
+    { id: 'world.aircraft/x', reason: 'non-finite-position' },
+  ]);
+  assert.equal(records.length, 1);
+  const [fire] = records;
+  assert.equal(fire.height, 0);
+  assert.equal(fire.surface, true);
+  assert.equal(fire.longitude, -97.7);
+  assert.deepEqual(fire.record, surface, 'the projected item is kept verbatim');
+  const aircraft = pointRecordsFromProjection(fixture).records[0];
+  assert.equal(aircraft.surface, false);
+  const lines = selectionCardLines(fire);
+  assert.equal(lines[0], 'detection:firms:N20:2026-09-17T1006Z:30.2:-97.7');
+  assert.match(
+    lines.join('\n'),
+    /world\.fires\.viirs_noaa20 · surface entity, no height declared/,
+  );
+  assert.match(lines.join('\n'), /^grant none needed$/m);
+  assert.match(lines.join('\n'), /satellite N20 · confidence n/);
+  assert.match(
+    lines.join('\n'),
+    /source\.firms\.viirs_noaa20_nrt\.v1@313f6326 row 3/,
+  );
+  for (const line of lines) assert.ok(line.length <= MAX_CARD_LINE_CHARS, line);
+});
+
 test('temperature colour clamps to the ramp and never throws', () => {
   assert.deepEqual(
     temperatureColor(200),

@@ -493,5 +493,7 @@
   "src/layers/radio/source.js",
   "src/layers/radio/source.test.mjs",
   "src/layers/weather/source.js",
-  "src/layers/weather/source.test.mjs"
+  "src/layers/weather/source.test.mjs",
+  "src/layers/firms/worldSource.js",
+  "src/layers/firms/worldSource.test.mjs"
 ]
