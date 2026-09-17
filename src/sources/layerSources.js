@@ -10,18 +10,28 @@
  *   'provider'  the provider source, as the standalone shell always did
  *   'world'     the layer's world adapter from `WORLD_LAYER_SOURCES`
  *
- * A world adapter is `({ projectionSource, head }) => source`. It reads the
- * host's ProjectionSource (the same transport as the world-model layer) and
- * returns what the provider source returns, method for method, so the layer
- * renders unchanged. The adapter lives next to its layer
- * (`src/layers/<layer>/worldSource.js`); a connector ticket registers it here.
- * Registered so far: earthquakes (DWM-28, `world.earthquakes`).
+ * A world adapter is `({ projectionSource, head, providerSource }) => source`.
+ * It reads the host's ProjectionSource (the same transport as the world-model
+ * layer) and returns what the provider source returns, method for method, so
+ * the layer renders unchanged. `providerSource` is the slot's own provider
+ * source: a method the layer's world product does not cover yet (a trail, an
+ * enrichment lookup) delegates to it instead of being reimplemented. The
+ * adapter lives next to its layer (`src/layers/<layer>/worldSource.js`); a
+ * connector ticket registers it here. Registered so far: earthquakes (DWM-28,
+ * `world.earthquakes`), flights (DWM-67, `world.aircraft`; trails and
+ * enrichment delegate).
+ *
+ * Configuration validates each 'world' row at once (a registered adapter, a
+ * ProjectionSource, a factory that returns a source); each slot then builds
+ * its own adapter instance, with its provider source, on the first call that
+ * reads the world model.
  *
  * The standalone default is every layer on 'provider'; a host that embeds
  * the application (the Dataforge client) flips a registered layer to 'world'.
  */
 import { HEAD } from '../layers/worldModel/view.js';
 import { createWorldEarthquakeSource } from '../layers/earthquakes/worldSource.js';
+import { createWorldFlightSource } from '../layers/flights/worldSource.js';
 
 /** Layer ids (and the cockpit weather effect) whose data source is switchable. */
 export const LAYER_SOURCE_KEYS = Object.freeze([
@@ -42,14 +52,17 @@ export const LAYER_SOURCE_KEYS = Object.freeze([
 
 export const LAYER_SOURCE_MODES = Object.freeze(['provider', 'world']);
 
-/** Registered world adapters, key -> `({ projectionSource, head }) => source`. */
+/** Registered world adapters, key -> `({ projectionSource, head, providerSource }) => source`. */
 export const WORLD_LAYER_SOURCES = Object.freeze({
   earthquakes: createWorldEarthquakeSource,
+  flights: createWorldFlightSource,
 });
 
 const DEFAULTS = Object.freeze({
   modes: Object.freeze({}),
-  adapters: Object.freeze({}),
+  factories: Object.freeze({}),
+  projectionSource: undefined,
+  head: HEAD,
 });
 let current = DEFAULTS;
 const created = new Set();
@@ -77,7 +90,7 @@ export function configureLayerSources({
   )
     throw new TypeError('layerSources must be an object of layer key -> mode');
   const modes = {};
-  const adapters = {};
+  const factories = {};
   for (const [key, mode] of Object.entries(layerSources)) {
     if (!LAYER_SOURCE_KEYS.includes(key))
       throw new TypeError(`Unknown layer source key: ${key}`);
@@ -98,15 +111,18 @@ export function configureLayerSources({
       throw new TypeError(
         `Layer ${key} reads the world model and requires a ProjectionSource`,
       );
-    const adapter = worldSources[key]({ projectionSource, head });
-    if (!adapter || typeof adapter !== 'object')
+    // Probe the factory now so a host fails at startup, not on the first poll.
+    const probe = worldSources[key]({ projectionSource, head });
+    if (!probe || typeof probe !== 'object')
       throw new TypeError(`The world adapter for ${key} returned no source`);
-    adapters[key] = adapter;
+    factories[key] = worldSources[key];
   }
   const previous = current;
   const next = Object.freeze({
     modes: Object.freeze(modes),
-    adapters: Object.freeze(adapters),
+    factories: Object.freeze(factories),
+    projectionSource,
+    head,
   });
   current = next;
   return () => {
@@ -134,7 +150,9 @@ export function createdLayerSourceKeys() {
  *
  * Methods delegate per call to the world adapter when the key is 'world',
  * else to the provider source; other properties (a source `label`) read from
- * the active source.
+ * the active source. The world adapter is this slot's own instance, built
+ * from the configured factory with this slot's provider source on first use
+ * and kept until the configuration changes.
  * @param {string} key One of LAYER_SOURCE_KEYS.
  * @param {object} providerSource
  */
@@ -143,8 +161,21 @@ export function createLayerSource(key, providerSource) {
     throw new TypeError(`Unknown layer source key: ${key}`);
   if (!providerSource || typeof providerSource !== 'object')
     throw new TypeError(`Layer ${key} requires a provider source`);
-  const active = () =>
-    current.modes[key] === 'world' ? current.adapters[key] : providerSource;
+  let built = { config: null, adapter: null };
+  const active = () => {
+    if (current.modes[key] !== 'world') return providerSource;
+    if (built.config !== current) {
+      const adapter = current.factories[key]({
+        projectionSource: current.projectionSource,
+        head: current.head,
+        providerSource,
+      });
+      if (!adapter || typeof adapter !== 'object')
+        throw new TypeError(`The world adapter for ${key} returned no source`);
+      built = { config: current, adapter };
+    }
+    return built.adapter;
+  };
   const slot = {};
   for (const name of Object.keys(providerSource)) {
     if (typeof providerSource[name] === 'function') {

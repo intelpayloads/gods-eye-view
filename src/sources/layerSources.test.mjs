@@ -59,16 +59,16 @@ const PROJECTION = Object.freeze({
 });
 
 /** An in-memory ProjectionSource that records each demand. */
-function fixtureProjectionSource() {
+function fixtureProjectionSource(projection = PROJECTION) {
   const demands = [];
   return {
     demands,
     async getRevisions({ head }) {
-      return { head, revisions: [{ id: PROJECTION.revision_id }] };
+      return { head, revisions: [{ id: projection.revision_id }] };
     },
     async getProjection(demand) {
       demands.push(demand);
-      return PROJECTION;
+      return projection;
     },
   };
 }
@@ -214,11 +214,21 @@ test('unknown keys, unknown modes, missing adapters and a missing ProjectionSour
   assert.throws(
     () =>
       configureLayerSources({
-        layerSources: { flights: 'world' },
+        layerSources: { satellites: 'world' },
         projectionSource,
       }),
-    /Layer flights has no world adapter/,
-    'the shipped registry has no flights adapter',
+    /Layer satellites has no world adapter/,
+    'the shipped registry has no satellites adapter',
+  );
+  assert.throws(
+    () =>
+      configureLayerSources({
+        layerSources: { 'local-firms': 'world' },
+        projectionSource,
+        worldSources: { 'local-firms': () => null },
+      }),
+    /world adapter for local-firms returned no source/,
+    'a factory that returns nothing fails at configuration',
   );
   assert.throws(
     () =>
@@ -300,9 +310,114 @@ test('a world adapter missing a provider method fails that call by name', () => 
   }
 });
 
+test("a world adapter is built per slot with that slot's provider source, once per configuration", async () => {
+  resetLayerSources();
+  const built = [];
+  const first = createLayerSource('military', {
+    label: 'first provider',
+    getSnapshot: async () => ({ records: [] }),
+  });
+  const second = createLayerSource('military', {
+    label: 'second provider',
+    getSnapshot: async () => ({ records: [] }),
+  });
+  const restore = configureLayerSources({
+    layerSources: { military: 'world' },
+    projectionSource: fixtureProjectionSource(),
+    head: 'world/test',
+    worldSources: {
+      military: ({ projectionSource, head, providerSource }) => {
+        built.push({ head, providerSource, projectionSource });
+        return {
+          label: `world over ${providerSource?.label ?? 'nothing'}`,
+          getSnapshot: async () => ({ records: [] }),
+        };
+      },
+    },
+  });
+  try {
+    assert.equal(first.label, 'world over first provider');
+    assert.equal(second.label, 'world over second provider');
+    await first.getSnapshot();
+    await second.getSnapshot();
+    assert.equal(
+      built.filter((b) => b.providerSource).length,
+      2,
+      'one adapter per slot, built once each',
+    );
+    assert.equal(
+      built[0].providerSource,
+      undefined,
+      'the configuration probe carries no provider source',
+    );
+    for (const b of built.slice(1)) assert.equal(b.head, 'world/test');
+  } finally {
+    restore();
+  }
+  assert.equal(first.label, 'first provider');
+});
+
+test("the shipped registry configures flights: 'world': snapshots read the ProjectionSource, trails still reach the provider", async () => {
+  resetLayerSources();
+  const requests = [];
+  const slot = createLayerSource(
+    'flights',
+    createOpenSkySource({
+      api: (path) => path,
+      fetchImpl: async (url) => {
+        requests.push(url);
+        return new Response('{"path":[]}');
+      },
+    }),
+  );
+  const projectionSource = fixtureProjectionSource({
+    ...PROJECTION,
+    points: [
+      {
+        id: 'world.aircraft/track:opensky:icao24:a1b2c3',
+        position: { lon: -97.7, lat: 30.2, height_m: 1000 },
+        height: { barometric_height_m: 950 },
+        time: {
+          valid_at: '2026-09-17T15:00:05+00:00',
+          sampled_at: '2026-09-17T15:00:00+00:00',
+        },
+        semantic_ref: { semantic_identity: 'track:opensky:icao24:a1b2c3' },
+        properties: { callsign: 'ABC123', velocity_mps: 200 },
+      },
+    ],
+  });
+  const restore = configureLayerSources({
+    layerSources: { flights: 'world' },
+    projectionSource,
+    head: 'world/test',
+  });
+  try {
+    assert.equal(layerSourceMode('flights'), 'world');
+    assert.equal(slot.label, 'World model (OpenSky)');
+    const snapshot = await slot.getSnapshot({ latitude: 30, longitude: -97 });
+    assert.deepEqual(
+      snapshot.records.map((r) => [r.id, r.callsign, r.speedMps]),
+      [['a1b2c3', 'ABC123', 200]],
+    );
+    assert.equal(projectionSource.demands.length, 1);
+    assert.equal(projectionSource.demands[0].head, 'world/test');
+    assert.deepEqual(projectionSource.demands[0].query.type_filter, [
+      'aircraft.track_state_set.v1',
+    ]);
+    assert.deepEqual(requests, [], '/api/opensky was never fetched');
+    await slot.getTrack('a1b2c3');
+    assert.deepEqual(requests, ['/api/opensky-track?icao24=a1b2c3']);
+  } finally {
+    restore();
+  }
+});
+
 test("the shipped registry configures earthquakes: 'world' and reads the ProjectionSource", async () => {
   resetLayerSources();
-  assert.deepEqual(Object.keys(WORLD_LAYER_SOURCES), ['earthquakes']);
+  assert.deepEqual(Object.keys(WORLD_LAYER_SOURCES), [
+    'earthquakes',
+    'flights',
+  ]);
   const requests = [];
   const slot = createLayerSource(
     'earthquakes',

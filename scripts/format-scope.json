@@ -310,6 +310,8 @@
   "src/layers/earthquakes/worldSource.js",
   "src/layers/earthquakes/ownership.test.mjs",
   "src/layers/earthquakes/worldSource.test.mjs",
+  "src/layers/flights/worldSource.js",
+  "src/layers/flights/worldSource.test.mjs",
   "src/data/firmsHeatmap.js",
   "src/data/fireAnchors.js",
   "src/layers/firms/anchors.js",
