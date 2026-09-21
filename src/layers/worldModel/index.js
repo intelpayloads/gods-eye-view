@@ -411,11 +411,20 @@ export function createWorldModelLayer({
     /**
      * Runtime params (DataLayerManager.setLayerParams path). Plain data in,
      * a boolean out; every value is validated before anything changes.
-     * @param {{follow?: 'live'|'pinned', revisionId?: string|null, layers?: string[]|null,
+     * @param {{head?: string, modalities?: string[]|null, follow?: 'live'|'pinned', revisionId?: string|null, layers?: string[]|null,
      *   validAt?: string|null, knownAsOf?: string|null, policy?: 'off'|'mark'|'withhold',
      *   policyThresholdSeconds?: number, bbox?: number[]|null}} [params]
      */
     setParams(params = {}) {
+      if (params.head !== undefined && (typeof params.head !== 'string' || !params.head.trim()))
+        return false;
+      if (
+        params.modalities !== undefined &&
+        params.modalities !== null &&
+        (!Array.isArray(params.modalities) ||
+          params.modalities.some((modality) => typeof modality !== 'string' || !modality.trim()))
+      )
+        return false;
       if (params.follow !== undefined && !FOLLOW_MODES.includes(params.follow))
         return false;
       if (params.policy !== undefined && !POLICY_MODES.includes(params.policy))
@@ -433,6 +442,8 @@ export function createWorldModelLayer({
         return false;
       if (params.policyThresholdSeconds !== undefined)
         state.policyThresholdSeconds = Number(params.policyThresholdSeconds);
+      if (params.head !== undefined) controller.setWorld(params.head.trim());
+      if (params.modalities !== undefined) controller.setModalities(params.modalities);
       if (params.layers !== undefined) controller.setLayers(params.layers);
       if (params.validAt !== undefined || params.knownAsOf !== undefined) {
         const demand = controller.getDemand();
@@ -462,6 +473,8 @@ export function createWorldModelLayer({
     getParams() {
       const demand = controller.getDemand();
       return {
+        head: demand.head,
+        modalities: demand.modalities ? [...demand.modalities] : null,
         follow: demand.follow,
         revisionId: demand.pinnedRevisionId,
         layers: demand.layers ? [...demand.layers] : null,
