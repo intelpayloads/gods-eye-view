@@ -112,7 +112,6 @@ const app = createEmbeddedApplication({
   worldModelSource, // the host's ProjectionSource
   googleApiKey,
   cesiumToken, // host configuration, not import.meta.env
-  apiBaseUrl: null, // provider API prefix, '' same-origin, null = none
   assetBaseUrl: 'assets/gods-eye', // where the package's public/ is served
   initialCamera: { lon, lat, rangeM, headingDeg, pitchDeg },
 });
@@ -130,11 +129,12 @@ await app.destroy();
   document head while the application runs (unless the host loads them).
 - **Floating DOM** the application creates at runtime (credits, cockpit
   canvas, panels, overlays) goes to the host element from `src/app/host.js`.
-- **Endpoints.** Provider requests keep their logical `/api/...` paths and
-  resolve through `src/sources/endpoints.js` at request time. With
-  `apiBaseUrl: null` they fail with `EndpointUnavailableError`, which layers
-  report like any provider outage. Aircraft models resolve under
-  `assetBaseUrl`.
+- **Data comes only from the world model** (DWM-136). Every layer with a
+  registered world adapter (`WORLD_LAYER_SOURCE_KEYS`) reads `worldModelSource`;
+  there is no provider API, so every other layer's `/api/...` request fails
+  with `EndpointUnavailableError` and the layer reports itself unavailable.
+  `apiBaseUrl` and `layerSources` are refused if a host still passes them.
+  Aircraft models resolve under `assetBaseUrl`.
 - **Features.** Voice, provider key setup and the first-run tour are off unless
   `features` enables them.
 - **Share links** keep the page path (`<base href>` safe) and `history.state`.
