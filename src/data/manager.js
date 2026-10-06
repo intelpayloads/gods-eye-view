@@ -62,8 +62,10 @@ function refreshFailureFromStats(stats, label) {
  * for real-time data overlays on the CesiumJS globe.
  */
 export class DataLayerManager {
-  constructor(viewer, { allowQaRegistration = false } = {}) {
+  constructor(viewer, { allowQaRegistration = false, hiddenLayerIds = [] } = {}) {
     this.viewer = viewer;
+    // Registered (state and share links still resolve) but left out of the panel.
+    this._hiddenLayerIds = new Set(hiddenLayerIds);
     this.layers = new Map(); // id → { module, enabled, initialized, intervalId, lifecycleState, lifecycleUncertain }
     this._listeners = new Set();
     this._visibilityRequestListeners = new Set();
@@ -1871,7 +1873,7 @@ export class DataLayerManager {
         name: entry.module.name,
         icon: entry.module.icon,
         source: entry.module.source,
-        showInTogglePanel: entry.module.showInTogglePanel !== false,
+        showInTogglePanel: entry.module.showInTogglePanel !== false && !this._hiddenLayerIds.has(id),
         enabled: entry.enabled,
         lifecycleState: entry.lifecycleState,
         lifecycleUncertain: entry.lifecycleUncertain,

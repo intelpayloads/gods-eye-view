@@ -20,12 +20,14 @@ export function createStandaloneData({
   controls: { styleManager },
   allowQaRegistration,
   worldModelLayer,
+  hiddenLayerIds = [],
   defer,
 }) {
   if (!worldModelLayer) throw new TypeError('A world-model layer is required');
   // Initialize data layer manager
   const dataManager = new DataLayerManager(viewer, {
     allowQaRegistration,
+    hiddenLayerIds,
   });
   defer(async () => {
     await dataManager.destroyAll();

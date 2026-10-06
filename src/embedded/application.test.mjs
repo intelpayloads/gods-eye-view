@@ -196,3 +196,31 @@ test('chrome asset references resolve under the host asset base', async () => {
 
 // Start/destroy/restart of the real application is a browser concern:
 // scripts/qa-embedded.mjs drives it (READY, RENDER, TEARDOWN, RE-ENTRY).
+
+test('embedded: every layer with a world adapter reads the world model, and only those', async () => {
+  const { EMBEDDED_LAYER_SOURCES, WORLD_LAYER_SOURCE_KEYS } = await import('./options.js');
+  assert.deepEqual(Object.keys(EMBEDDED_LAYER_SOURCES).sort(), [...WORLD_LAYER_SOURCE_KEYS].sort());
+  assert.ok(WORLD_LAYER_SOURCE_KEYS.length > 0, 'not vacuous');
+  assert.ok(Object.values(EMBEDDED_LAYER_SOURCES).every((mode) => mode === 'world'));
+});
+
+test('embedded: a source-backed layer with no world adapter is hidden, and only those', async () => {
+  const { SOURCELESS_LAYER_IDS, WORLD_LAYER_SOURCE_KEYS } = await import('./options.js');
+  const { LAYER_SOURCE_KEYS } = await import('../sources/layerSources.js');
+  for (const key of LAYER_SOURCE_KEYS)
+    assert.equal(SOURCELESS_LAYER_IDS.includes(key), !WORLD_LAYER_SOURCE_KEYS.includes(key), key);
+  assert.ok(SOURCELESS_LAYER_IDS.includes('satellites') && !SOURCELESS_LAYER_IDS.includes('earthquakes'), 'not vacuous');
+  const source = await readFile(new URL('src/embedded/application.js', repo), 'utf8');
+  assert.match(source, /hiddenLayerIds: SOURCELESS_LAYER_IDS/, 'the embed passes the rule to the panel');
+});
+
+test('embedded: a host still passing a provider API or a source table is refused by name', async () => {
+  const { refuseRemovedOptions } = await import('./options.js');
+  for (const name of ['apiBaseUrl', 'layerSources']) {
+    assert.throws(() => refuseRemovedOptions({ [name]: null }), new RegExp(`${name} was removed`));
+  }
+  const source = await readFile(new URL('src/embedded/application.js', repo), 'utf8');
+  assert.match(source, /createEmbeddedApplication\(options = \{\}\) \{\n  refuseRemovedOptions\(options\);/,
+    'the refusal runs before anything else');
+  assert.doesNotThrow(() => refuseRemovedOptions({ worldModel: {} }));
+});

@@ -5,14 +5,17 @@
  * inside that element while the application runs. It is the standalone
  * composition (`composeApplication`) with host-supplied configuration instead
  * of Vite's `import.meta.env`, the application chrome inserted into `root`,
- * runtime-created floating DOM kept under `root`, provider API/asset URLs from
- * the host, and the world-model layer built from the host's ProjectionSource.
+ * runtime-created floating DOM kept under `root`, asset URLs from the host,
+ * and the world-model layer built from the host's ProjectionSource.
  *
- * Layer sources: each Gods Eye layer in `LAYER_SOURCE_KEYS` reads its provider
- * source by default. `layerSources: { [key]: 'world' }` swaps that layer's
- * source for its registered world adapter (`WORLD_LAYER_SOURCE_KEYS`), which
- * reads the same `worldModelSource`; the layer and its presentation stay. A
- * 'world' key without an adapter fails `start()`.
+ * The world model is the only data source (DWM-136). There is no provider
+ * API: every layer with a registered world adapter (`WORLD_LAYER_SOURCE_KEYS`)
+ * reads the host's `worldModelSource`; every other source-backed layer has no
+ * source, stays registered, and is left out of the panel
+ * (`SOURCELESS_LAYER_IDS`). Projected products with no bespoke layer render
+ * through the generic world-model layer. A host cannot choose otherwise -- the removed
+ * `apiBaseUrl` and `layerSources` options are refused, not ignored, so a host
+ * still passing them fails at once instead of silently losing its layers.
  *
  * Styles: load the package's `src/embedded/embedded.css` as a stylesheet
  * (generated from style.css, every rule scoped under `.gods-eye-root`, which
@@ -30,10 +33,12 @@
 import { composeApplication } from '../standalone/application.js';
 import { createStandaloneWorldModelLayer } from '../data/worldModel.js';
 import { configureEndpoints } from '../sources/endpoints.js';
+import { configureLayerSources } from '../sources/layerSources.js';
 import {
-  configureLayerSources,
-  WORLD_LAYER_SOURCES,
-} from '../sources/layerSources.js';
+  EMBEDDED_LAYER_SOURCES,
+  SOURCELESS_LAYER_IDS,
+  refuseRemovedOptions,
+} from './options.js';
 import { configureHostElement } from '../app/host.js';
 import {
   attachApplicationStylesheets,
@@ -51,10 +56,11 @@ export { WORLD_MODEL_LAYER_ID } from '../layers/worldModel/index.js';
 export { pageOwner } from '../standalone/ownership.js';
 export { LAYER_SOURCE_KEYS } from '../sources/layerSources.js';
 
-/** Layer source keys that have a world adapter and may be set to 'world'. */
-export const WORLD_LAYER_SOURCE_KEYS = Object.freeze(
-  Object.keys(WORLD_LAYER_SOURCES),
-);
+export {
+  EMBEDDED_LAYER_SOURCES,
+  SOURCELESS_LAYER_IDS,
+  WORLD_LAYER_SOURCE_KEYS,
+} from './options.js';
 
 /** Embedded defaults: no page-owning provider dialogs or voice dock. */
 export const EMBEDDED_FEATURES = Object.freeze({
@@ -69,25 +75,23 @@ export const EMBEDDED_FEATURES = Object.freeze({
  * @param {object} options.worldModelSource ProjectionSource for the world-model layer.
  * @param {string|null} [options.googleApiKey] Google Map Tiles key (browser-restricted).
  * @param {string|null} [options.cesiumToken] Cesium ion token.
- * @param {string|null} [options.apiBaseUrl] Provider API prefix; null = no provider API.
- * @param {Record<string, 'provider'|'world'>} [options.layerSources] Per-layer source, keyed by `LAYER_SOURCE_KEYS`; unlisted = 'provider'.
  * @param {string} [options.assetBaseUrl] Prefix for the package's `public/` assets.
  * @param {object} [options.worldModel] Extra world-model layer options (head, predicates, modalities, displayAssumptions, policyThresholdSeconds, updateInterval, debounceMs).
  * @param {object|null} [options.initialCamera] `{lon, lat, heightM?, rangeM, headingDeg, pitchDeg}`.
  * @param {object} [options.features] Opt in to `voice`, `keySetup`, `firstRun`.
  */
-export function createEmbeddedApplication({
-  root,
-  worldModelSource,
-  googleApiKey = null,
-  cesiumToken = null,
-  apiBaseUrl = null,
-  layerSources = {},
-  assetBaseUrl,
-  worldModel = {},
-  initialCamera = null,
-  features = {},
-} = {}) {
+export function createEmbeddedApplication(options = {}) {
+  refuseRemovedOptions(options);
+  const {
+    root,
+    worldModelSource,
+    googleApiKey = null,
+    cesiumToken = null,
+    assetBaseUrl,
+    worldModel = {},
+    initialCamera = null,
+    features = {},
+  } = options;
   if (!root || typeof root.appendChild !== 'function')
     throw new TypeError('An embedding root element is required');
   if (!worldModelSource)
@@ -99,6 +103,7 @@ export function createEmbeddedApplication({
     features: { ...EMBEDDED_FEATURES, ...features },
     initialCamera,
     ownerLabel: 'embedded',
+    hiddenLayerIds: SOURCELESS_LAYER_IDS,
     loadingScreen: () => queryRoot.querySelector('#loading-screen'),
     createWorldModelLayer: () =>
       createStandaloneWorldModelLayer({
@@ -112,10 +117,10 @@ export function createEmbeddedApplication({
       defer(() => {
         document.body.className = bodyClasses;
       });
-      defer(configureEndpoints({ apiBaseUrl, assetBaseUrl }));
+      defer(configureEndpoints({ apiBaseUrl: null, assetBaseUrl }));
       defer(
         configureLayerSources({
-          layerSources,
+          layerSources: EMBEDDED_LAYER_SOURCES,
           projectionSource: worldModelSource,
           head: worldModel.head,
         }),

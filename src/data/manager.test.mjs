@@ -50,6 +50,17 @@ test('keeps panel-hidden coordinator layers registered and addressable', () => {
   assert.equal(mgr.isEnabled('military-awareness'), false);
 });
 
+test('a host-hidden layer stays registered and addressable but leaves the panel', () => {
+  const mgr = new DataLayerManager({}, { hiddenLayerIds: ['satellites'] });
+  mgr.register(makeSlowLayer('satellites', { updateInterval: -1 }).module);
+  mgr.register(makeSlowLayer('earthquakes', { updateInterval: -1 }).module);
+  assert.deepEqual(mgr.getAll().map(({ id, showInTogglePanel }) => ({ id, showInTogglePanel })), [
+    { id: 'satellites', showInTogglePanel: false },
+    { id: 'earthquakes', showInTogglePanel: true },
+  ]);
+  assert.equal(mgr.isEnabled('satellites'), false);
+});
+
 test('adopts direct layer params without re-entering the layer setter', () => {
   let params = { selectedFlightsTrackingId: 'flight-a' };
   let setterCalls = 0;

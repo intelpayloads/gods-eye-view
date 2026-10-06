@@ -1,7 +1,7 @@
 /**
  * Where each Gods Eye layer reads its data: its provider source or the world model.
  *
- * Every layer composition wraps its provider source (the compat provider API,
+ * Every layer composition wraps its provider source (the standalone `/api` provider,
  * or direct USGS for earthquakes) in `createLayerSource(key, providerSource)`.
  * The wrapper has the provider source's method names and picks the source per
  * call, so import-time layer singletons follow the configuration a host sets
@@ -29,8 +29,8 @@
  * its own adapter instance, with its provider source, on the first call that
  * reads the world model.
  *
- * The standalone default is every layer on 'provider'; a host that embeds
- * the application (the Dataforge client) flips a registered layer to 'world'.
+ * The standalone default is every layer on 'provider'; the embedded application
+ * puts every registered layer on 'world' and has no provider API (DWM-136).
  */
 import { HEAD } from '../layers/worldModel/view.js';
 import { createWorldEarthquakeSource } from '../layers/earthquakes/worldSource.js';
