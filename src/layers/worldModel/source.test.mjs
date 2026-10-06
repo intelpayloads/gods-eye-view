@@ -88,6 +88,7 @@ test('reads the chain and projects one demand by revision id', async () => {
   assert.deepEqual(sourceFeatures(source), {
     heads: true,
     provenance: true,
+    select: true,
     status: true,
   });
 });
@@ -254,6 +255,7 @@ test('any object with the two required methods is a ProjectionSource; the rest i
   assert.deepEqual(sourceFeatures(memory), {
     heads: false,
     provenance: false,
+    select: false,
     status: false,
   });
   assert.throws(

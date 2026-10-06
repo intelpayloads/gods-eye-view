@@ -18,3 +18,6 @@
 *.glb binary
 *.wav binary
 *.pbf binary
+
+# Retained source evidence is kept byte-for-byte (DWM-185): CelesTrak serves CRLF.
+src/layers/satellites/fixtures/** -text

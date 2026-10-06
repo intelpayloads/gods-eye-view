@@ -209,7 +209,7 @@ test('embedded: a source-backed layer with no world adapter is hidden, and only 
   const { LAYER_SOURCE_KEYS } = await import('../sources/layerSources.js');
   for (const key of LAYER_SOURCE_KEYS)
     assert.equal(SOURCELESS_LAYER_IDS.includes(key), !WORLD_LAYER_SOURCE_KEYS.includes(key), key);
-  assert.ok(SOURCELESS_LAYER_IDS.includes('satellites') && !SOURCELESS_LAYER_IDS.includes('earthquakes'), 'not vacuous');
+  assert.ok(SOURCELESS_LAYER_IDS.includes('cctv') && !SOURCELESS_LAYER_IDS.includes('earthquakes'), 'not vacuous');
   const source = await readFile(new URL('src/embedded/application.js', repo), 'utf8');
   assert.match(source, /hiddenLayerIds: SOURCELESS_LAYER_IDS/, 'the embed passes the rule to the panel');
 });
