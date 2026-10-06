@@ -3,7 +3,10 @@
  *
  * Kept apart from `application.js` so the rule is testable without a browser.
  */
-import { WORLD_LAYER_SOURCES } from '../sources/layerSources.js';
+import {
+  LAYER_SOURCE_KEYS,
+  WORLD_LAYER_SOURCES,
+} from '../sources/layerSources.js';
 
 /** Layer source keys that have a world adapter. */
 export const WORLD_LAYER_SOURCE_KEYS = Object.freeze(
@@ -13,6 +16,15 @@ export const WORLD_LAYER_SOURCE_KEYS = Object.freeze(
 /** Every layer with a world adapter, on 'world': the embedded source table. */
 export const EMBEDDED_LAYER_SOURCES = Object.freeze(
   Object.fromEntries(WORLD_LAYER_SOURCE_KEYS.map((key) => [key, 'world'])),
+);
+
+/**
+ * Layers hidden from the embedded panel: a source key is its layer's id, so a
+ * key with no world adapter is a layer with nothing to read. It stays
+ * registered; it appears once its adapter lands.
+ */
+export const SOURCELESS_LAYER_IDS = Object.freeze(
+  LAYER_SOURCE_KEYS.filter((key) => !WORLD_LAYER_SOURCE_KEYS.includes(key)),
 );
 
 const REMOVED_OPTIONS = Object.freeze(['apiBaseUrl', 'layerSources']);

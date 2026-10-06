@@ -22,6 +22,7 @@ import { resetContextStore } from '../data/contextStore.js';
  * @param {boolean} [options.allowQaRegistration]
  * @param {() => HTMLElement} options.loadingScreen Resolves `#loading-screen` once the scene phase has run host setup.
  * @param {() => object} options.createWorldModelLayer Builds this application's world-model layer.
+ * @param {string[]} [options.hiddenLayerIds] Layers registered but left out of the toggle panel.
  * @param {object} [options.features] See STANDALONE_FEATURES in ./tools.js.
  * @param {object|null} [options.initialCamera] Camera when no share link is present.
  * @param {(context: object) => void} [options.beforeScene] Host setup run first in the scene phase (context has `defer`, `signal`).
@@ -33,6 +34,7 @@ export function composeApplication({
   allowQaRegistration = false,
   loadingScreen,
   createWorldModelLayer,
+  hiddenLayerIds = [],
   features,
   initialCamera = null,
   beforeScene = null,
@@ -72,6 +74,7 @@ export function composeApplication({
       createStandaloneData({
         ...context,
         allowQaRegistration,
+        hiddenLayerIds,
         worldModelLayer: createWorldModelLayer(),
       }),
     createTools: (context) =>

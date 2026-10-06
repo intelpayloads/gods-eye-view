@@ -10,8 +10,10 @@
  *
  * The world model is the only data source (DWM-136). There is no provider
  * API: every layer with a registered world adapter (`WORLD_LAYER_SOURCE_KEYS`)
- * reads the host's `worldModelSource`, and every other layer has no source and
- * reports itself unavailable. A host cannot choose otherwise -- the removed
+ * reads the host's `worldModelSource`; every other source-backed layer has no
+ * source, stays registered, and is left out of the panel
+ * (`SOURCELESS_LAYER_IDS`). Projected products with no bespoke layer render
+ * through the generic world-model layer. A host cannot choose otherwise -- the removed
  * `apiBaseUrl` and `layerSources` options are refused, not ignored, so a host
  * still passing them fails at once instead of silently losing its layers.
  *
@@ -32,7 +34,11 @@ import { composeApplication } from '../standalone/application.js';
 import { createStandaloneWorldModelLayer } from '../data/worldModel.js';
 import { configureEndpoints } from '../sources/endpoints.js';
 import { configureLayerSources } from '../sources/layerSources.js';
-import { EMBEDDED_LAYER_SOURCES, refuseRemovedOptions } from './options.js';
+import {
+  EMBEDDED_LAYER_SOURCES,
+  SOURCELESS_LAYER_IDS,
+  refuseRemovedOptions,
+} from './options.js';
 import { configureHostElement } from '../app/host.js';
 import {
   attachApplicationStylesheets,
@@ -52,6 +58,7 @@ export { LAYER_SOURCE_KEYS } from '../sources/layerSources.js';
 
 export {
   EMBEDDED_LAYER_SOURCES,
+  SOURCELESS_LAYER_IDS,
   WORLD_LAYER_SOURCE_KEYS,
 } from './options.js';
 
@@ -96,6 +103,7 @@ export function createEmbeddedApplication(options = {}) {
     features: { ...EMBEDDED_FEATURES, ...features },
     initialCamera,
     ownerLabel: 'embedded',
+    hiddenLayerIds: SOURCELESS_LAYER_IDS,
     loadingScreen: () => queryRoot.querySelector('#loading-screen'),
     createWorldModelLayer: () =>
       createStandaloneWorldModelLayer({
