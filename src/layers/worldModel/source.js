@@ -14,6 +14,9 @@
  *   getHeads({ signal })                          -> Promise<{ [head]: revisionId }>
  *   getProvenance({ ref, follow, depth, signal })  -> Promise<ProvenanceReport>
  *   getStatus({ head, signal })                    -> Promise<Status>   (facts, never a verdict)
+ *   select({ revisionId | head, query, signal })   -> Promise<Selection>
+ *       `POST /select` with values: products the projection does not draw
+ *       (a sample series has no position), read by a layer adapter as numbers
  *
  * How the request reaches the world model is the host's business: the
  * standalone Gods Eye shell wires an HTTP source at a local development
@@ -66,6 +69,7 @@ export function sourceFeatures(source) {
     heads: typeof source?.getHeads === 'function',
     provenance: typeof source?.getProvenance === 'function',
     status: typeof source?.getStatus === 'function',
+    select: typeof source?.select === 'function',
   });
 }
 
@@ -331,6 +335,28 @@ export function createHttpProjectionSource({
     },
     async getStatus({ head: name = head, signal } = {}) {
       return request(`/status${searchOf({ head: name })}`, { signal });
+    },
+    async select({ revisionId, head: name, query = {}, signal } = {}) {
+      const byId = typeof revisionId === 'string' && revisionId;
+      if (!byId && (typeof name !== 'string' || !name)) {
+        throw new TypeError('select requires a revisionId or a head');
+      }
+      const payload = await request('/select', {
+        method: 'POST',
+        body: {
+          ...(byId ? { revision_id: revisionId } : { head: name }),
+          query,
+          include_values: true,
+        },
+        signal,
+      });
+      if (!Array.isArray(payload?.products)) {
+        throw new ProjectionSourceError(
+          'malformed',
+          'Selection is missing the products array',
+        );
+      }
+      return payload;
     },
     describe() {
       return { transport: 'http', baseUrl: root, head };

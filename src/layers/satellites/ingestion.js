@@ -1,4 +1,3 @@
-import { twoline2satrec } from 'satellite.js';
 import * as Cesium from 'cesium';
 import { CATALOG_GROUPS, ISS_NORAD, POINT_STYLES } from './policy.js';
 
@@ -24,7 +23,7 @@ export function createIngestion({
       try {
         updateSignal.throwIfAborted();
         // Load all core groups in parallel; a failed/empty group degrades
-        // gracefully (parseTLE of an upstream error body yields []).
+        // gracefully (an upstream error body yields no entries).
         const results = await Promise.all(
           CATALOG_GROUPS.map(async (groupDef) => {
             try {
@@ -32,7 +31,7 @@ export function createIngestion({
                 signal: updateSignal,
               });
               if (!res.ok) return { ...groupDef, entries: [], ok: false };
-              const entries = parts.orbits.parseTLE(res.text);
+              const entries = parts.orbits.groupEntries(res);
               updateSignal.throwIfAborted();
               return { ...groupDef, entries, ok: entries.length > 0 };
             } catch (error) {
@@ -105,8 +104,8 @@ export function createIngestion({
         const seen = new Set();
 
         for (const entry of allEntries) {
-          const satrec = twoline2satrec(entry.line1, entry.line2);
-          if (!satrec || satrec.error !== 0) continue;
+          const satrec = parts.orbits.satrecOf(entry);
+          if (!satrec) continue;
 
           const noradId = Number(satrec.satnum);
           if (seen.has(noradId)) continue;

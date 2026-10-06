@@ -22,7 +22,9 @@
  * enrichment delegate), military (DWM-31, `world.military_aircraft`; the
  * identity list reads the same projection, trails delegate), local-firms
  * (DWM-30, the three `world.fires.viirs_*` bindings merged into one
- * snapshot; nothing delegates: the provider source has one method).
+ * snapshot; nothing delegates: the provider source has one method),
+ * satellites (DWM-185, the `world.satellites.elements_<group>` element sets
+ * read through the ProjectionSource's `select`, propagated by the layer).
  *
  * Configuration validates each 'world' row at once (a registered adapter, a
  * ProjectionSource, a factory that returns a source); each slot then builds
@@ -37,6 +39,7 @@ import { createWorldEarthquakeSource } from '../layers/earthquakes/worldSource.j
 import { createWorldFlightSource } from '../layers/flights/worldSource.js';
 import { createWorldMilitarySource } from '../layers/military/worldSource.js';
 import { createWorldFirmsSource } from '../layers/firms/worldSource.js';
+import { createWorldSatelliteSource } from '../layers/satellites/worldSource.js';
 
 /** Layer ids (and the cockpit weather effect) whose data source is switchable. */
 export const LAYER_SOURCE_KEYS = Object.freeze([
@@ -63,6 +66,7 @@ export const WORLD_LAYER_SOURCES = Object.freeze({
   flights: createWorldFlightSource,
   military: createWorldMilitarySource,
   'local-firms': createWorldFirmsSource,
+  satellites: createWorldSatelliteSource,
 });
 
 const DEFAULTS = Object.freeze({

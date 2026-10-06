@@ -1,5 +1,4 @@
 import * as Cesium from 'cesium';
-import { twoline2satrec } from 'satellite.js';
 import {
   DENSE_REFRESH_FRAMES,
   DENSE_GROUP_PATH,
@@ -53,7 +52,7 @@ export function createCatalog({ state: layerState, services, parts, source }) {
 
   /**
    * Load the dense catalog extras (Starlink) as points-only satellites.
-   * Chunked so ~10K twoline2satrec builds + initial propagations never block a
+   * Chunked so ~10K satrec builds + initial propagations never block a
    * frame; a token guards against mode flips / catalog rebuilds mid-load.
    */
 
@@ -85,7 +84,6 @@ export function createCatalog({ state: layerState, services, parts, source }) {
           reason: `feed unavailable (${res.status})`,
         };
       }
-      const text = res.text;
       loadSignal.throwIfAborted();
       if (
         token !== layerState._denseLoadToken ||
@@ -94,7 +92,7 @@ export function createCatalog({ state: layerState, services, parts, source }) {
         return { status: 'superseded', reason: 'dense-load-superseded' };
       }
 
-      const entries = parts.orbits.parseTLE(text);
+      const entries = parts.orbits.groupEntries(res);
       const style = POINT_STYLES.dense;
       const now = new Date();
       let added = 0;
@@ -111,8 +109,8 @@ export function createCatalog({ state: layerState, services, parts, source }) {
         const end = Math.min(start + DENSE_CREATE_CHUNK, entries.length);
         for (let i = start; i < end; i++) {
           const entry = entries[i];
-          const satrec = twoline2satrec(entry.line1, entry.line2);
-          if (!satrec || satrec.error !== 0) continue;
+          const satrec = parts.orbits.satrecOf(entry);
+          if (!satrec) continue;
           const noradId = Number(satrec.satnum);
           if (layerState._catalog.has(noradId)) continue; // core catalog keeps priority
           const pos = parts.orbits.propagatePosition(satrec, now);

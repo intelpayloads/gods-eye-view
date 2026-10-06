@@ -6,6 +6,7 @@ import {
   degreesLong,
   degreesLat,
   twoline2satrec,
+  json2satrec,
 } from 'satellite.js';
 import { findNextIssPass } from '../../data/issPass.js';
 import { ORBIT_PATH_STEPS, ISS_NORAD } from './policy.js';
@@ -57,6 +58,34 @@ export function createOrbits({ state: layerState, services, parts, source }) {
       }
     }
     return result;
+  }
+
+  /**
+   * One group as `[{ name, toSatrec }]`, whichever source answered: TLE text
+   * (`res.text`, the provider) or CCSDS OMM element records (`res.elements`,
+   * the world adapter). The satrec is built on demand so the dense loader
+   * keeps its chunked builds; `satrecOf` drops a set SGP4 cannot initialise.
+   */
+
+  function groupEntries(res) {
+    if (Array.isArray(res?.elements))
+      return res.elements.map((omm) => ({
+        name: String(omm?.OBJECT_NAME ?? '').trim(),
+        toSatrec: () => json2satrec(omm),
+      }));
+    return parseTLE(String(res?.text ?? '')).map(({ name, line1, line2 }) => ({
+      name,
+      toSatrec: () => twoline2satrec(line1, line2),
+    }));
+  }
+
+  function satrecOf(entry) {
+    try {
+      const satrec = entry.toSatrec();
+      return satrec && satrec.error === 0 ? satrec : null;
+    } catch {
+      return null;
+    }
   }
 
   /**
@@ -312,6 +341,8 @@ export function createOrbits({ state: layerState, services, parts, source }) {
   return {
     orbitFrameModelMatrix,
     parseTLE,
+    groupEntries,
+    satrecOf,
     propagatePosition,
     orbitalPeriodSeconds,
     computeOrbitPath,
