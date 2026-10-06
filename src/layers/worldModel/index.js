@@ -22,6 +22,14 @@ import {
   HEAD,
   viewRectangleDegrees,
 } from './view.js';
+import {
+  SIM_HEAD_PREFIX,
+  STEP_SECONDS,
+  createSimulationRuns,
+  leaveRunParams,
+  stepRunParams,
+  viewRunParams,
+} from './simulationRuns.js';
 export * from './adapter.js';
 export * from './controller.js';
 export * from './demand.js';
@@ -98,7 +106,9 @@ export function createWorldModelLayer({
     prevPercentageChanged: null,
     rowControlsListener: null,
     policyThresholdSeconds,
+    simRuns: [],
   };
+  const simulationRuns = createSimulationRuns(source);
   const controller = createWorldViewController({
     source,
     initial: {
@@ -118,6 +128,56 @@ export function createWorldModelLayer({
     source,
     config: { id, name, sourceLabel },
   });
+
+  /** SIM RUNS n to enter the newest run; inside one, its chip leaves and two step the query time. */
+  function simulationRunChips(demand) {
+    if (!demand.head.startsWith(SIM_HEAD_PREFIX)) {
+      const [newest] = state.simRuns;
+      return newest
+        ? [
+            {
+              id: 'sim-view',
+              label: `SIM RUNS ${state.simRuns.length}`,
+              active: false,
+              state: 'idle',
+              title: `Simulated runs on ${state.simRuns.map((r) => r.head).join(', ')} — click to view the newest at its first epoch`,
+              params: viewRunParams(newest),
+            },
+          ]
+        : [];
+    }
+    const run = state.simRuns.find((r) => r.head === demand.head);
+    const at = demand.validAt || run?.earliest || '';
+    const chips = [
+      {
+        id: 'sim-leave',
+        label: `SIM ${demand.head
+          .slice(SIM_HEAD_PREFIX.length)
+          .replace(/^sha256:/, '')
+          .slice(0, 8)} @ ${at.slice(11, 19)}Z`,
+        active: true,
+        state: 'active',
+        title: `Viewing simulated run ${demand.head} at ${at}: stored epochs only, never interpolated — click to return to ${head}`,
+        params: leaveRunParams(head),
+      },
+    ];
+    if (run) {
+      for (const [id, label, seconds] of [
+        ['sim-back', `−${STEP_SECONDS / 60}m`, -STEP_SECONDS],
+        ['sim-forward', `+${STEP_SECONDS / 60}m`, STEP_SECONDS],
+      ]) {
+        chips.push({
+          id,
+          label,
+          active: false,
+          state: 'idle',
+          title: `Query time ${seconds > 0 ? 'forward' : 'back'} ${Math.abs(seconds)} s within ${run.earliest} – ${run.latest}`,
+          params: stepRunParams(run, at, seconds),
+        });
+      }
+    }
+    return chips;
+  }
 
   function notifyRowControls() {
     try {
@@ -379,6 +439,12 @@ export function createWorldModelLayer({
     async update(viewer, { signal } = {}) {
       if (!state.enabled || !state.dataSource) return false;
       const completed = await controller.tick({ signal });
+      try {
+        state.simRuns = await simulationRuns.read({ signal });
+      } catch (error) {
+        if (!signal?.aborted)
+          console.warn('[Data:WorldModel] simulated runs unreadable:', error);
+      }
       const view = controller.getState();
       if (completed && view.error && !view.loading)
         console.warn('[Data:WorldModel] Refresh error:', view.error);
@@ -416,13 +482,18 @@ export function createWorldModelLayer({
      *   policyThresholdSeconds?: number, bbox?: number[]|null}} [params]
      */
     setParams(params = {}) {
-      if (params.head !== undefined && (typeof params.head !== 'string' || !params.head.trim()))
+      if (
+        params.head !== undefined &&
+        (typeof params.head !== 'string' || !params.head.trim())
+      )
         return false;
       if (
         params.modalities !== undefined &&
         params.modalities !== null &&
         (!Array.isArray(params.modalities) ||
-          params.modalities.some((modality) => typeof modality !== 'string' || !modality.trim()))
+          params.modalities.some(
+            (modality) => typeof modality !== 'string' || !modality.trim(),
+          ))
       )
         return false;
       if (params.follow !== undefined && !FOLLOW_MODES.includes(params.follow))
@@ -443,7 +514,8 @@ export function createWorldModelLayer({
       if (params.policyThresholdSeconds !== undefined)
         state.policyThresholdSeconds = Number(params.policyThresholdSeconds);
       if (params.head !== undefined) controller.setWorld(params.head.trim());
-      if (params.modalities !== undefined) controller.setModalities(params.modalities);
+      if (params.modalities !== undefined)
+        controller.setModalities(params.modalities);
       if (params.layers !== undefined) controller.setLayers(params.layers);
       if (params.validAt !== undefined || params.knownAsOf !== undefined) {
         const demand = controller.getDemand();
@@ -538,6 +610,7 @@ export function createWorldModelLayer({
         title: `temporal_age policy (${state.policyThresholdSeconds} s): ${policy} — click for ${nextPolicy}. Applies only where the product declares the capability.`,
         params: { policy: nextPolicy },
       });
+      chips.unshift(...simulationRunChips(view.demand));
       return { chips, legend: [] };
     },
 
