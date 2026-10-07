@@ -249,13 +249,16 @@ export function createWorldModelLayer({
       ? {
           pixelSize: render.display.pixelSize,
           color: new Cesium.Color(...render.colorRgb, 0.95),
-          outlineColor: OUTLINE_COLOR,
-          outlineWidth: 1,
+          outlineWidth: render.display.outline ? 1 : 0,
+          scaleByDistance: new Cesium.NearFarScalar(
+            ...render.display.scaleByDistance,
+          ),
           // Display-only (DISPLAY_CHOICES['field-sample']): the sample is a
           // pressure-level map annotation at height 0, so keep it on the
-          // ground and visible through terrain. Its numbers are untouched.
+          // ground and visible through terrain up close -- and behind the
+          // Earth from space. Its numbers are untouched.
           heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
-          disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          disableDepthTestDistance: render.display.depthTestBeyondM,
         }
       : {
           pixelSize: render.display.pixelSize,
