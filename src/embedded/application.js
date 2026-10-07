@@ -44,6 +44,7 @@ import {
 } from './options.js';
 import { discoverWithin, productLayerOptions } from './worldProducts.js';
 import { mountWorldConfig } from './worldConfig.js';
+import { openRun } from './worldRuns.js';
 import { configureHostElement } from '../app/host.js';
 import { applyPresentation } from './presentation.js';
 import {
@@ -110,7 +111,7 @@ export function createEmbeddedApplication(options = {}) {
   let queryRoot = null;
   let discovery = { count: 0, error: null };
   let worldConfig = null;
-  return composeApplication({
+  const app = composeApplication({
     googleApiKey: googleApiKey || undefined,
     cesiumToken: cesiumToken || undefined,
     features: { ...EMBEDDED_FEATURES, ...features },
@@ -176,5 +177,22 @@ export function createEmbeddedApplication(options = {}) {
         queryRoot = null;
       });
     },
+  });
+  return Object.freeze({
+    ...app,
+    /**
+     * Open one simulation run (DWM-196): every panel row the run has a
+     * product for is pointed at its head and time and switched on. Resolves
+     * to what opened and what has nothing to draw (see `worldRuns.js`).
+     * @param {string} head A `sim/` head.
+     * @param {{validAt?: string|null}} [options]
+     */
+    openRun: (head, { validAt = null } = {}) =>
+      openRun({
+        manager: app.getComponents().data?.dataManager,
+        source: worldModelSource,
+        head,
+        validAt,
+      }),
   });
 }
