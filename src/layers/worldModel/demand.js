@@ -108,6 +108,15 @@ export function wallClockValidAt(nowMs) {
 }
 
 /**
+ * Most nodes of one dense-field plane (weather) a request asks for (DWM-193).
+ * The backplane meets it by keeping every k-th native node, never by
+ * resampling, and says which k. Without it a zoomed-out view asks for every
+ * 0.25 degree node in sight -- hundreds of megabytes at hemisphere scale --
+ * or, with the horizon in view, the whole globe, which the backplane refuses.
+ */
+export const FIELD_NODE_BUDGET = 8000;
+
+/**
  * The Projection request for a demand against a chain of completed revisions
  * (newest first), or null while the live revision is not known yet (a
  * head-resolved request would only be re-issued by id a moment later).
@@ -130,6 +139,7 @@ export function buildRequest(demand, chain, nowMs) {
   if (demand.knownAsOf) query.known_as_of = demand.knownAsOf;
   if (demand.layers) query.requested_layers = [...demand.layers];
   if (demand.predicates) query.predicates = { ...demand.predicates };
+  query.resolution = { max_field_nodes: FIELD_NODE_BUDGET };
   if (demand.modalities) query.modalities = [...demand.modalities];
   const projectionSpec = {
     display_assumptions: { ...demand.displayAssumptions },

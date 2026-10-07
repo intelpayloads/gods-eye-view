@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   buildRequest,
+  FIELD_NODE_BUDGET,
   createDemand,
   demandBbox,
   formatAge,
@@ -64,6 +65,7 @@ test('live requests pin to the newest chain revision and use the wall clock in w
     spatial_scope: { bbox: [-123, 37, -121, 39] },
     valid_at: '2026-09-10T22:57:25.000Z',
     predicates: { pressure_hpa: 850 },
+    resolution: { max_field_nodes: FIELD_NODE_BUDGET },
   });
   assert.deepEqual(request.projectionSpec, {
     display_assumptions: { aircraft_height: 'x' },
@@ -141,4 +143,16 @@ test('modalities reach the query only when the demand sets them', () => {
     T0,
   );
   assert.deepEqual(withPlanned.query.modalities, ['observed', 'planned']);
+});
+
+test('every request bounds a dense field, the whole-globe one most of all', () => {
+  // With the horizon in view there is no rectangle and no spatial scope: the
+  // request is the whole globe, the one a native-resolution answer cannot fit.
+  for (const bbox of [[-123, 37, -121, 39], null]) {
+    const request = buildRequest(createDemand({ bbox }), CHAIN, T0);
+    assert.deepEqual(request.query.resolution, {
+      max_field_nodes: FIELD_NODE_BUDGET,
+    });
+  }
+  assert.ok(Number.isInteger(FIELD_NODE_BUDGET) && FIELD_NODE_BUDGET > 0);
 });

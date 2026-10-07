@@ -37,11 +37,17 @@ export const DISPLAY_CHOICES = Object.freeze({
     colour: 'by-binding-dimmed',
     keyedBy: 'time.stale',
   }),
+  // A dense field is thousands of samples (DWM-193): small, no outline, and
+  // smaller still from space, so the globe stays readable. Depth-tested past
+  // `depthTestBeyondM` so the far side of the Earth is not drawn through it;
+  // closer in, it stays visible through terrain as a ground overlay.
   'field-sample': Object.freeze({
     kind: 'field-sample',
-    pixelSize: 9,
+    pixelSize: 6,
+    outline: false,
+    scaleByDistance: Object.freeze([1.5e6, 1.0, 2.0e7, 0.35]),
     clampToGround: true,
-    depthTest: false,
+    depthTestBeyondM: 100_000,
     heightOffsetM: 0,
     colour: 'kelvin-ramp',
   }),
