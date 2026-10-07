@@ -21,7 +21,7 @@ export function formatAge(seconds) {
 }
 
 /** The block's lines from one status read (`null` status = unreachable). */
-export function worldConfigLines({ status, heads, error, products }) {
+export function worldConfigLines({ status, heads, error, discovery }) {
   if (!status) {
     return {
       state: 'down',
@@ -36,11 +36,15 @@ export function worldConfigLines({ status, heads, error, products }) {
     name.startsWith(SIM_HEAD_PREFIX),
   ).length;
   const bindings = status.bindings?.length ?? 0;
+  const runLabel = `${runs} simulation run${runs === 1 ? '' : 's'}`;
+  const failed = discovery?.error;
   return {
-    state: 'ok',
+    state: failed ? 'partial' : 'ok',
     lines: [
       `${head.name ?? HEAD} · rev ${String(head.revision_id ?? '—').slice(0, 8)} · ${formatAge(head.age_seconds)}`,
-      `${bindings} products · ${products} drawn as layers · ${runs} simulation run${runs === 1 ? '' : 's'}`,
+      failed
+        ? `${bindings} products · ${runLabel} · product rows not loaded (${failed}); reload to retry`
+        : `${bindings} products · ${discovery?.count ?? 0} drawn as layers · ${runLabel}`,
     ],
   };
 }
@@ -52,12 +56,13 @@ export function worldConfigLines({ status, heads, error, products }) {
  * @param {object} options
  * @param {HTMLElement} options.before The layer list the block heads.
  * @param {object} options.source The host's ProjectionSource.
- * @param {() => number} options.productCount Product layers registered.
+ * @param {() => {count: number, error: string|null}} options.discovery
+ *   Product layers registered, or why discovery failed.
  */
 export function mountWorldConfig({
   before,
   source,
-  productCount = () => 0,
+  discovery = () => ({ count: 0, error: null }),
   head = HEAD,
   refreshMs = WORLD_CONFIG_REFRESH_MS,
 }) {
@@ -98,7 +103,7 @@ export function mountWorldConfig({
           : {},
       ]);
       if (!controller.signal.aborted)
-        render(worldConfigLines({ status, heads, products: productCount() }));
+        render(worldConfigLines({ status, heads, discovery: discovery() }));
     } catch (error) {
       if (!controller.signal.aborted)
         render(

@@ -39,7 +39,7 @@ const MODALITY_ICONS = Object.freeze({
 });
 
 /** How long start-up waits for the backplane before showing no products. */
-export const DISCOVERY_TIMEOUT_MS = 5000;
+export const DISCOVERY_TIMEOUT_MS = 15_000;
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -104,20 +104,26 @@ export async function discoverWorldProducts(
       Date.parse(product.earliest ?? '') > Date.parse(known.earliest ?? '');
     if (!known || newer) found.set(product.binding, product);
   };
-  for (const product of productsOf(
-    await source.getStatus({ head, signal }),
-    head,
-    claims,
-  ))
-    add(product);
-  if (typeof source.getHeads === 'function') {
-    const heads = await source.getHeads({ signal });
-    for (const simHead of Object.keys(heads ?? {})) {
-      if (!simHead.startsWith(SIM_HEAD_PREFIX)) continue;
-      const status = await source.getStatus({ head: simHead, signal });
-      for (const product of productsOf(status, simHead, claims)) add(product);
-    }
-  }
+  // Every head at once: one after another, a world with a few runs took
+  // longer than start-up waits and its product rows never appeared (DWM-194).
+  const mainStatus = source.getStatus({ head, signal });
+  mainStatus.catch(() => {}); // awaited below; a run's failure must not leave it unhandled
+  const heads =
+    typeof source.getHeads === 'function'
+      ? await source.getHeads({ signal })
+      : {};
+  const runs = Object.keys(heads ?? {}).filter((name) =>
+    name.startsWith(SIM_HEAD_PREFIX),
+  );
+  const [main, ...statuses] = await Promise.all([
+    mainStatus,
+    ...runs.map((simHead) => source.getStatus({ head: simHead, signal })),
+  ]);
+  for (const product of productsOf(main, head, claims)) add(product);
+  runs.forEach((simHead, index) => {
+    for (const product of productsOf(statuses[index], simHead, claims))
+      add(product);
+  });
   return [...found.values()];
 }
 
@@ -145,15 +151,31 @@ export function productLayerOptions(product) {
 
 /**
  * Discover with a deadline: a backplane that is down or slow must not hold
- * the application on its loading screen. No products is the honest answer
- * then, and the World Model block says the backplane is unreachable.
+ * the application on its loading screen. `{ products, error }`: on failure no
+ * products, and the reason, which the World Model block shows -- "0 drawn as
+ * layers" would read as a world with nothing to draw.
  */
-export async function discoverWithin(source, options = {}) {
-  const timeout = AbortSignal.timeout(DISCOVERY_TIMEOUT_MS);
+export async function discoverWithin(
+  source,
+  options = {},
+  timeoutMs = DISCOVERY_TIMEOUT_MS,
+) {
+  const timeout = AbortSignal.timeout(timeoutMs);
   try {
-    return await discoverWorldProducts(source, { ...options, signal: timeout });
+    return {
+      products: await discoverWorldProducts(source, {
+        ...options,
+        signal: timeout,
+      }),
+      error: null,
+    };
   } catch (error) {
     console.warn('[World Model] products not discovered:', error);
-    return [];
+    return {
+      products: [],
+      error: timeout.aborted
+        ? `no answer in ${Math.round(timeoutMs / 1000)} s`
+        : error?.message || String(error),
+    };
   }
 }
