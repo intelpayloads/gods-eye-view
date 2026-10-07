@@ -108,7 +108,7 @@ export function createEmbeddedApplication(options = {}) {
   if (!worldModelSource)
     throw new TypeError('A world-model ProjectionSource is required');
   let queryRoot = null;
-  let productCount = 0;
+  let discovery = { count: 0, error: null };
   let worldConfig = null;
   return composeApplication({
     googleApiKey: googleApiKey || undefined,
@@ -126,10 +126,10 @@ export function createEmbeddedApplication(options = {}) {
       }),
     // Each unclaimed drawable product of the world is a layer (DWM-189).
     async createProductLayers() {
-      const products = await discoverWithin(worldModelSource, {
+      const { products, error } = await discoverWithin(worldModelSource, {
         head: worldModel.head,
       });
-      productCount = products.length;
+      discovery = { count: products.length, error };
       void worldConfig?.refresh();
       return products.map((product) =>
         createStandaloneWorldModelLayer({
@@ -163,7 +163,7 @@ export function createEmbeddedApplication(options = {}) {
         before: root.querySelector('#data-toggles'),
         source: worldModelSource,
         head: worldModel.head,
-        productCount: () => productCount,
+        discovery: () => discovery,
       });
       defer(() => {
         worldConfig.remove();

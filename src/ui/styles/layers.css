@@ -170,6 +170,10 @@
   background: #ef4444;
 }
 
+.world-config[data-state='partial'] .world-config-dot {
+  background: #f59e0b;
+}
+
 .world-config-line {
   font-family: var(--font-mono);
   font-size: 9px;

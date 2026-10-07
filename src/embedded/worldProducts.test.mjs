@@ -14,6 +14,7 @@ import {
   productLayerOptions,
   productsOf,
 } from './worldProducts.js';
+import { worldConfigLines } from './worldConfig.js';
 
 const fixture = (name) =>
   JSON.parse(
@@ -127,10 +128,18 @@ test('a backplane that cannot be read yields no product rows instead of holding 
   const warn = console.warn;
   console.warn = () => {};
   try {
-    assert.deepEqual(
-      await discoverWithin(source({ fail: new Error('down') })),
-      [],
-    );
+    const failed = await discoverWithin(source({ fail: new Error('down') }));
+    assert.deepEqual(failed, { products: [], error: 'down' });
+    // A backplane that never answers is a named timeout, not an empty world.
+    const silent = {
+      getStatus: ({ signal }) =>
+        new Promise((_, reject) =>
+          signal.addEventListener('abort', () => reject(signal.reason)),
+        ),
+    };
+    const slow = await discoverWithin(silent, {}, 20);
+    assert.deepEqual(slow.products, []);
+    assert.match(slow.error, /no answer in/);
   } finally {
     console.warn = warn;
   }
@@ -147,4 +156,53 @@ test('a row is named from its binding: namespace and day dropped, words spaced',
     'Igs orbit final',
   );
   assert.equal(productLabel('weather'), 'Weather');
+});
+
+test('every head is read at once, so a world with several runs is not slower to discover', async () => {
+  let inFlight = 0;
+  let most = 0;
+  const base = source();
+  const counting = {
+    async getStatus(args) {
+      inFlight += 1;
+      most = Math.max(most, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      inFlight -= 1;
+      return base.getStatus(args);
+    },
+    getHeads: () => base.getHeads(),
+  };
+  const { products, error } = await discoverWithin(counting, {
+    claims: WORLD_LAYER_CLAIMS,
+  });
+  assert.equal(error, null);
+  assert.ok(products.length > 0);
+  const runs = Object.keys(simHeads).filter((h) => h.startsWith('sim/'));
+  assert.ok(
+    runs.length > 0,
+    'the fixture holds a run, so the rule is not vacuous',
+  );
+  assert.ok(most > 1, `status reads ran one at a time (${most} in flight)`);
+});
+
+test('the World Model block says when product rows did not load, not that there are none', () => {
+  const status = {
+    head: { name: 'world/main', revision_id: 'r1', age_seconds: 4 },
+    bindings: [{}, {}],
+  };
+  const ok = worldConfigLines({
+    status,
+    heads: {},
+    discovery: { count: 2, error: null },
+  });
+  assert.equal(ok.state, 'ok');
+  assert.match(ok.lines[1], /2 drawn as layers/);
+  const failed = worldConfigLines({
+    status,
+    heads: {},
+    discovery: { count: 0, error: 'no answer in 15 s' },
+  });
+  assert.equal(failed.state, 'partial');
+  assert.match(failed.lines[1], /not loaded \(no answer in 15 s\)/);
+  assert.doesNotMatch(failed.lines[1], /0 drawn/);
 });

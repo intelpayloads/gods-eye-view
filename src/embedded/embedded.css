@@ -5115,6 +5115,10 @@ body.cockpit-mode .gods-eye-root .cockpit-signal-window {
   background: #ef4444;
 }
 
+.gods-eye-root .world-config[data-state='partial'] .world-config-dot {
+  background: #f59e0b;
+}
+
 .gods-eye-root .world-config-line {
   font-family: var(--font-mono);
   font-size: 9px;
