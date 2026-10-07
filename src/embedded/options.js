@@ -5,8 +5,10 @@
  */
 import {
   LAYER_SOURCE_KEYS,
+  WORLD_LAYER_CLAIMS,
   WORLD_LAYER_SOURCES,
 } from '../sources/layerSources.js';
+import { REGISTERED_LAYER_IDS } from '../data/layerState.js';
 
 /** Layer source keys that have a world adapter. */
 export const WORLD_LAYER_SOURCE_KEYS = Object.freeze(
@@ -37,3 +39,44 @@ export function refuseRemovedOptions(options) {
         `${name} was removed (DWM-136): the embedded application reads only the world model`,
       );
 }
+
+/** The generic world-model layer's id (`WORLD_MODEL_LAYER_ID`). */
+const GENERIC_WORLD_LAYER_ID = 'world-model';
+
+/**
+ * Layers left out of the embedded panel: the sourceless ones, and the generic
+ * world-model layer, whose products are rows of their own here (DWM-189).
+ */
+export const EMBEDDED_HIDDEN_LAYER_IDS = Object.freeze([
+  ...SOURCELESS_LAYER_IDS,
+  GENERIC_WORLD_LAYER_ID,
+]);
+
+/** `World Model · world.aircraft` for a one-binding connector, else `World Model`. */
+function claimText({ bindings = [], types = [] }) {
+  return bindings.length === 1 && types.length === 0
+    ? `World Model · ${bindings[0]}`
+    : 'World Model';
+}
+
+/**
+ * Panel section and source line per shown layer (DWM-189): every connector
+ * reads the world model and its row says what of it; the static local layers
+ * are reference geography. Product layers carry their own section.
+ */
+export const EMBEDDED_PANEL_LABELS = Object.freeze(
+  Object.fromEntries([
+    ...WORLD_LAYER_SOURCE_KEYS.map((key) => [
+      key,
+      Object.freeze({
+        section: 'Connectors',
+        source: claimText(WORLD_LAYER_CLAIMS[key] ?? {}),
+      }),
+    ]),
+    ...REGISTERED_LAYER_IDS.filter(
+      (id) =>
+        !WORLD_LAYER_SOURCE_KEYS.includes(id) &&
+        !EMBEDDED_HIDDEN_LAYER_IDS.includes(id),
+    ).map((id) => [id, Object.freeze({ section: 'Reference' })]),
+  ]),
+);

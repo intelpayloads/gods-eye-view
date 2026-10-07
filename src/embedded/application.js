@@ -12,8 +12,10 @@
  * API: every layer with a registered world adapter (`WORLD_LAYER_SOURCE_KEYS`)
  * reads the host's `worldModelSource`; every other source-backed layer has no
  * source, stays registered, and is left out of the panel
- * (`SOURCELESS_LAYER_IDS`). Projected products with no bespoke layer render
- * through the generic world-model layer. A host cannot choose otherwise -- the removed
+ * (`SOURCELESS_LAYER_IDS`). Each drawable product no adapter claims is a
+ * layer of its own, discovered from the backplane at start, under a World
+ * Model block that is the configuration rather than a toggle; the embed has
+ * one fixed look (`presentation.js`) (DWM-189). A host cannot choose otherwise -- the removed
  * `apiBaseUrl` and `layerSources` options are refused, not ignored, so a host
  * still passing them fails at once instead of silently losing its layers.
  *
@@ -35,11 +37,15 @@ import { createStandaloneWorldModelLayer } from '../data/worldModel.js';
 import { configureEndpoints } from '../sources/endpoints.js';
 import { configureLayerSources } from '../sources/layerSources.js';
 import {
+  EMBEDDED_HIDDEN_LAYER_IDS,
   EMBEDDED_LAYER_SOURCES,
-  SOURCELESS_LAYER_IDS,
+  EMBEDDED_PANEL_LABELS,
   refuseRemovedOptions,
 } from './options.js';
+import { discoverWithin, productLayerOptions } from './worldProducts.js';
+import { mountWorldConfig } from './worldConfig.js';
 import { configureHostElement } from '../app/host.js';
+import { applyPresentation } from './presentation.js';
 import {
   attachApplicationStylesheets,
   renderApplicationMarkup,
@@ -62,11 +68,16 @@ export {
   WORLD_LAYER_SOURCE_KEYS,
 } from './options.js';
 
-/** Embedded defaults: no page-owning provider dialogs or voice dock. */
+/**
+ * Embedded defaults: no page-owning provider dialogs or voice dock, no share
+ * link in the host's address, and no scope vignette (DWM-189).
+ */
 export const EMBEDDED_FEATURES = Object.freeze({
   voice: false,
   keySetup: false,
   firstRun: false,
+  shareLink: false,
+  scopeMask: false,
 });
 
 /**
@@ -97,19 +108,37 @@ export function createEmbeddedApplication(options = {}) {
   if (!worldModelSource)
     throw new TypeError('A world-model ProjectionSource is required');
   let queryRoot = null;
+  let productCount = 0;
+  let worldConfig = null;
   return composeApplication({
     googleApiKey: googleApiKey || undefined,
     cesiumToken: cesiumToken || undefined,
     features: { ...EMBEDDED_FEATURES, ...features },
     initialCamera,
     ownerLabel: 'embedded',
-    hiddenLayerIds: SOURCELESS_LAYER_IDS,
+    hiddenLayerIds: EMBEDDED_HIDDEN_LAYER_IDS,
+    panelLabels: EMBEDDED_PANEL_LABELS,
     loadingScreen: () => queryRoot.querySelector('#loading-screen'),
     createWorldModelLayer: () =>
       createStandaloneWorldModelLayer({
         ...worldModel,
         source: worldModelSource,
       }),
+    // Each unclaimed drawable product of the world is a layer (DWM-189).
+    async createProductLayers() {
+      const products = await discoverWithin(worldModelSource, {
+        head: worldModel.head,
+      });
+      productCount = products.length;
+      void worldConfig?.refresh();
+      return products.map((product) =>
+        createStandaloneWorldModelLayer({
+          ...worldModel,
+          ...productLayerOptions(product),
+          source: worldModelSource,
+        }),
+      );
+    },
     beforeScene({ defer }) {
       if (!root.isConnected)
         throw new Error('The embedding root must be attached to the document');
@@ -129,6 +158,17 @@ export function createEmbeddedApplication(options = {}) {
       defer(attachApplicationStylesheets(document));
       root.classList.add(ROOT_CLASS);
       root.innerHTML = renderApplicationMarkup(assetBaseUrl);
+      applyPresentation(root, ROOT_CLASS);
+      worldConfig = mountWorldConfig({
+        before: root.querySelector('#data-toggles'),
+        source: worldModelSource,
+        head: worldModel.head,
+        productCount: () => productCount,
+      });
+      defer(() => {
+        worldConfig.remove();
+        worldConfig = null;
+      });
       queryRoot = root;
       defer(() => {
         root.replaceChildren();

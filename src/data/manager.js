@@ -17,6 +17,9 @@ const VALID_LAYER_SERIALIZATION_DISPOSITIONS = new Set([
   'enabled-only',
   'enabled+options',
   'enabled+mirrored-options',
+  // A layer the share link never carries: the embed's world-model product
+  // layers, discovered from the backplane at start (DWM-189).
+  'not-shared',
 ]);
 
 function isAbortError(error) {
@@ -62,10 +65,14 @@ function refreshFailureFromStats(stats, label) {
  * for real-time data overlays on the CesiumJS globe.
  */
 export class DataLayerManager {
-  constructor(viewer, { allowQaRegistration = false, hiddenLayerIds = [] } = {}) {
+  constructor(viewer, { allowQaRegistration = false, hiddenLayerIds = [], panelLabels = {} } = {}) {
     this.viewer = viewer;
     // Registered (state and share links still resolve) but left out of the panel.
     this._hiddenLayerIds = new Set(hiddenLayerIds);
+    // id -> { section?, source? }: how a host groups and attributes a row
+    // without touching the layer module (the embed reads every layer through
+    // the world model, so its rows say so).
+    this._panelLabels = new Map(Object.entries(panelLabels || {}));
     this.layers = new Map(); // id → { module, enabled, initialized, intervalId, lifecycleState, lifecycleUncertain }
     this._listeners = new Set();
     this._visibilityRequestListeners = new Set();
@@ -1872,7 +1879,8 @@ export class DataLayerManager {
         id,
         name: entry.module.name,
         icon: entry.module.icon,
-        source: entry.module.source,
+        source: this._panelLabels.get(id)?.source ?? entry.module.source,
+        panelSection: this._panelLabels.get(id)?.section ?? entry.module.panelSection ?? null,
         showInTogglePanel: entry.module.showInTogglePanel !== false && !this._hiddenLayerIds.has(id),
         enabled: entry.enabled,
         lifecycleState: entry.lifecycleState,

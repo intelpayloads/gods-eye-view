@@ -82,8 +82,9 @@ import {
 
 export class StyleManager extends ApplicationShell {
   constructor(viewer, options = {}) {
+    const { services: overrides = {}, ...rest } = options;
     super(viewer, {
-      ...options,
+      ...rest,
       services: {
         CITY_POIS,
         GLOBE_VIEW,
@@ -147,6 +148,7 @@ export class StyleManager extends ApplicationShell {
         regionalDistanceM,
         weatherCodeLabel,
         LocationSearch,
+        ...overrides,
       },
     });
   }

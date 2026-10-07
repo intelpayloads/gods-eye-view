@@ -62,6 +62,37 @@ export function layerFeedState(stats = {}) {
 }
 
 /** Layer row presentation over supplied state and actions; no layer imports. */
+/**
+ * Panel sections, in display order (DWM-189). A layer names its section
+ * (`panelSection`); a panel where no shown layer names one renders flat, in
+ * registration order, exactly as before.
+ */
+export const PANEL_SECTIONS = Object.freeze([
+  'Connectors',
+  'Observed',
+  'Planned',
+  'Simulated',
+  'Reference',
+]);
+
+/** Shown layers in section order (stable within a section), and whether to head them. */
+export function panelOrder(layers) {
+  const shown = layers.filter((layer) => layer.showInTogglePanel);
+  if (!shown.some((layer) => layer.panelSection))
+    return { layers: shown, sectioned: false };
+  const rank = (layer) => {
+    const index = PANEL_SECTIONS.indexOf(layer.panelSection);
+    return index === -1 ? PANEL_SECTIONS.length : index;
+  };
+  return {
+    layers: shown
+      .map((layer, index) => ({ layer, index }))
+      .sort((a, b) => rank(a.layer) - rank(b.layer) || a.index - b.index)
+      .map(({ layer }) => layer),
+    sectioned: true,
+  };
+}
+
 export class LayerPanel {
   constructor({
     getLayers,
@@ -111,8 +142,16 @@ export class LayerPanel {
     this._toggleContainer.innerHTML = '';
 
     const generation = this._generation;
-    for (const layer of this.getAll()) {
-      if (!layer.showInTogglePanel) continue;
+    const { layers, sectioned } = panelOrder(this.getAll());
+    let section;
+    for (const layer of layers) {
+      if (sectioned && layer.panelSection !== section) {
+        section = layer.panelSection;
+        const header = document.createElement('div');
+        header.className = 'data-section-header';
+        header.textContent = section || 'Other';
+        this._toggleContainer.appendChild(header);
+      }
       const row = document.createElement('div');
       row.className = 'data-toggle-row';
       row.dataset.layerId = layer.id;

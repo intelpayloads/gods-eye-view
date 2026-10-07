@@ -622,3 +622,32 @@ export function decodePanelStateParams(params) {
     .filter((entry) => typeof entry.collapsed === 'boolean');
   return specs.length ? { specs } : null;
 }
+
+/**
+ * The share-link surface with no URL behind it: an embedded application lives
+ * inside a host page whose address is the host's (DWM-189). It never reads the
+ * hash at start (so a stale link cannot restore a style or a scope), never
+ * writes it, and has nothing to copy. Every method ShareLinkManager's callers
+ * use is here, so the shell runs unchanged on either.
+ */
+export class DetachedShareLink {
+  parseInitialHash() {
+    return null;
+  }
+  async applyState() {
+    return null;
+  }
+  completeInitialRestore() {}
+  claimRestoreLane() {}
+  setLayerStateProvider() {}
+  setPanelStateProvider() {}
+  setStyleParamStateProvider() {}
+  onLayerStateChange() {}
+  onPanelStateChange() {}
+  onStyleChange() {}
+  onToggleChange() {}
+  async copyLink() {
+    return false;
+  }
+  destroy() {}
+}

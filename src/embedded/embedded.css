@@ -5062,6 +5062,71 @@ body.cockpit-mode .gods-eye-root .cockpit-signal-window {
   background: rgba(255, 255, 255, 0.03);
 }
 
+/* Panel sections (DWM-189): Connectors, Observed, Planned, Simulated, Reference. */
+.gods-eye-root .data-section-header {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--accent);
+  opacity: 0.75;
+  padding: 12px 10px 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  margin-top: 6px;
+}
+
+.gods-eye-root .data-section-header:first-child {
+  border-top: none;
+  margin-top: 0;
+  padding-top: 4px;
+}
+
+/* The World Model configuration block (DWM-189): always present, no toggle. */
+.gods-eye-root .world-config {
+  padding: 8px 10px 10px;
+  margin: 0 0 6px;
+  border-radius: 8px;
+  background: rgba(0, 212, 255, 0.05);
+  border: 1px solid rgba(0, 212, 255, 0.14);
+}
+
+.gods-eye-root .world-config-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text, #e8eaed);
+}
+
+.gods-eye-root .world-config-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #6b7280;
+  flex: none;
+}
+
+.gods-eye-root .world-config[data-state='ok'] .world-config-dot {
+  background: #22c55e;
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.6);
+}
+
+.gods-eye-root .world-config[data-state='down'] .world-config-dot {
+  background: #ef4444;
+}
+
+.gods-eye-root .world-config-line {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+  margin-top: 3px;
+  padding-left: 15px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Selected-only, provenance-first proximity results. This is intentionally a
    contextual panel, not a radar/engagement display. */
 .gods-eye-root #global-context-panel {

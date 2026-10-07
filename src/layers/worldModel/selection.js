@@ -6,6 +6,8 @@ import {
 } from './adapter.js';
 import { refString, sourceFeatures } from './source.js';
 
+/** The default layer's overlay source. Each world-model layer publishes its
+ * cards under its own id, so product layers never clear each other's (DWM-189). */
 export const WORLD_MODEL_OVERLAY_SOURCE_ID = 'world-model';
 
 /** One protected card at a time; it never competes with ambient labels. */
@@ -89,7 +91,7 @@ export function createSelection({
 
   function publishCard(entry, extraDetails = []) {
     overlayHost.setEntries(
-      WORLD_MODEL_OVERLAY_SOURCE_ID,
+      id,
       [cardEntry(entry, extraDetails)],
       WORLD_MODEL_SELECTED_OVERLAY_OPTIONS,
     );
@@ -223,7 +225,7 @@ export function createSelection({
     cancelInspection();
     if (!state.selectedId) return;
     state.selectedId = null;
-    overlayHost.clearSource(WORLD_MODEL_OVERLAY_SOURCE_ID);
+    overlayHost.clearSource(id);
     try {
       clearSelectedEntityContextForLayer(id);
     } catch {
@@ -251,7 +253,7 @@ export function createSelection({
     } else {
       cancelInspection();
       state.selectedId = null;
-      overlayHost.clearSource(WORLD_MODEL_OVERLAY_SOURCE_ID);
+      overlayHost.clearSource(id);
     }
   }
 
