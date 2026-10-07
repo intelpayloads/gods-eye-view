@@ -771,3 +771,68 @@ test('a simulated run is a chip: entering it asks for its head, modality and fir
   assert.equal(h.layer.getParams().modalities, null);
   assert.equal(h.layer.getParams().validAt, null);
 });
+
+test('a product layer is one binding: it asks only for it, reports only it, has no chips, and owns its own cards', async () => {
+  const source = fixtureSource();
+  const h = harness(source, {
+    id: 'world-product:world.weather',
+    layers: ['world.weather'],
+  });
+  await h.layer.update(h.viewer);
+  await flush();
+  const asked = source.calls.projections.at(-1);
+  assert.deepEqual(asked.query.requested_layers, ['world.weather']);
+  const { facts } = h.layer.getStats();
+  assert.deepEqual(
+    facts.map((group) => group.label),
+    ['world.weather'],
+    'the other binding in the status is not this row',
+  );
+  assert.deepEqual(h.layer.getRowControls().chips, []);
+  const overlaySources = new Set(h.overlay.map(([, sourceId]) => sourceId));
+  assert.deepEqual([...overlaySources], ['world-product:world.weather']);
+});
+
+test('a simulated product layer opens on its run: one chip per run holding it, two steps, nothing to leave to', async () => {
+  const simHeads = JSON.parse(
+    readFileSync(
+      new URL('./fixtures/simulated-run.heads.json', import.meta.url),
+    ),
+  );
+  const simStatus = JSON.parse(
+    readFileSync(
+      new URL('./fixtures/simulated-run.status.json', import.meta.url),
+    ),
+  );
+  const [runHead] = Object.keys(simHeads).filter((head) =>
+    head.startsWith('sim/'),
+  );
+  const run = simStatus.bindings.find((b) => b.modality === 'simulated');
+  const source = fixtureSource();
+  source.getHeads = async () => simHeads;
+  source.getStatus = async ({ head } = {}) =>
+    head === runHead ? simStatus : status;
+  const h = harness(source, {
+    id: `world-product:${run.binding}`,
+    layers: [run.binding],
+    modalities: ['simulated'],
+    head: runHead,
+    validAt: run.valid.earliest,
+    simulatedBinding: run.binding,
+  });
+  await h.layer.update(h.viewer);
+  const params = h.layer.getParams();
+  assert.equal(params.head, runHead);
+  assert.deepEqual(params.modalities, ['simulated']);
+  const ids = h.layer.getRowControls().chips.map((chip) => chip.id);
+  assert.deepEqual(ids, [`run-${runHead}`, 'sim-back', 'sim-forward']);
+  assert.ok(!ids.includes('sim-leave') && !ids.includes('sim-view'));
+  const forward = h.layer
+    .getRowControls()
+    .chips.find((chip) => chip.id === 'sim-forward');
+  assert.equal(h.layer.setParams(forward.params), true);
+  assert.equal(
+    Date.parse(h.layer.getParams().validAt) - Date.parse(run.valid.earliest),
+    60_000,
+  );
+});

@@ -21,6 +21,8 @@ export function createStandaloneData({
   allowQaRegistration,
   worldModelLayer,
   hiddenLayerIds = [],
+  panelLabels = {},
+  productLayers = [],
   defer,
 }) {
   if (!worldModelLayer) throw new TypeError('A world-model layer is required');
@@ -28,6 +30,7 @@ export function createStandaloneData({
   const dataManager = new DataLayerManager(viewer, {
     allowQaRegistration,
     hiddenLayerIds,
+    panelLabels,
   });
   defer(async () => {
     await dataManager.destroyAll();
@@ -54,8 +57,14 @@ export function createStandaloneData({
   for (const layer of localDataLayers) {
     dataManager.register(layer);
   }
+  // The world's own products, one layer each; the share link never carries
+  // them (they are rediscovered from the backplane every start).
+  for (const layer of productLayers) dataManager.register(layer);
   // Restoration starts only after the complete production registry is sealed.
-  dataManager.finalizeRegistrations(LAYER_STATE_REGISTRY);
+  dataManager.finalizeRegistrations([
+    ...LAYER_STATE_REGISTRY,
+    ...productLayers.map(({ id }) => ({ id, disposition: 'not-shared' })),
+  ]);
   if (allowQaRegistration) {
     window.__gevQaRegisterLayer = (targetManager, layerModule) => {
       if (targetManager !== dataManager)

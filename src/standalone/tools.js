@@ -10,19 +10,9 @@ import {
   releaseContinuousRender,
 } from '../renderGovernor.js';
 import { startStandaloneChrome } from './startupChrome.js';
+import { STANDALONE_FEATURES, resolveFeatures } from './features.js';
 
-/**
- * Optional page-owning features. The standalone shell enables all of them; an
- * embedding host opts in explicitly.
- *  - voice: the realtime voice command dock (needs the provider token API)
- *  - keySetup: the provider key setup dialog (needs the provider setup API)
- *  - firstRun: the welcome tour revealed after the loading screen
- */
-export const STANDALONE_FEATURES = Object.freeze({
-  voice: true,
-  keySetup: true,
-  firstRun: true,
-});
+export { STANDALONE_FEATURES } from './features.js';
 
 /** Attach scene tools, rendering listeners and the standalone debug handle. */
 export function createStandaloneTools({
@@ -35,7 +25,7 @@ export function createStandaloneTools({
   signal,
   defer,
 }) {
-  const enabled = { ...STANDALONE_FEATURES, ...features };
+  const enabled = resolveFeatures(features);
   const { viewer, tileset, mapStackController } = scene;
   const { styleManager, weatherEffects, cockpitCloudEffects } = controls;
   const { dataManager } = data;
@@ -61,9 +51,12 @@ export function createStandaloneTools({
   // its chance to register pre-install holds. (perf wave 2)
   installRenderGovernor(viewer);
 
-  // Install the explicit scope mask used by the DISPLAY controls.
-  installScopeMask(viewer);
-  defer(() => destroyScopeMask());
+  // Install the explicit scope mask used by the DISPLAY controls. Without
+  // it the toggles still answer (setScopeMaskEnabled draws nothing).
+  if (enabled.scopeMask) {
+    installScopeMask(viewer);
+    defer(() => destroyScopeMask());
+  }
 
   // The follow camera recomputes the tracked target's dead-reckon position
   // every frame — tracking anything is a per-frame animation. (perf wave 2)

@@ -2,6 +2,8 @@ import { StyleManager } from '../ui.js';
 import * as Cesium from 'cesium';
 import { flyToAustin } from '../camera.js';
 import { initCockpitCloudEffects } from '../cockpitCloudEffects.js';
+import { DetachedShareLink } from '../sharelink.js';
+import { resolveFeatures } from './features.js';
 
 /** Construct the existing controls and camera presentation. */
 export function createStandaloneControls({
@@ -9,12 +11,16 @@ export function createStandaloneControls({
   loaderStatus,
   placeSearch,
   initialCamera = null,
+  features,
   defer,
 }) {
   // Initialize the style manager (post-processing, HUD, locations, share links)
   const styleManager = new StyleManager(viewer, {
     mapStackController,
     placeSearch,
+    ...(resolveFeatures(features).shareLink
+      ? {}
+      : { services: { ShareLinkManager: DetachedShareLink } }),
   });
   defer(() => styleManager.orbitController.stop());
   defer(() => styleManager.hud.destroy());

@@ -205,13 +205,17 @@ test('embedded: every layer with a world adapter reads the world model, and only
 });
 
 test('embedded: a source-backed layer with no world adapter is hidden, and only those', async () => {
-  const { SOURCELESS_LAYER_IDS, WORLD_LAYER_SOURCE_KEYS } = await import('./options.js');
+  const { EMBEDDED_HIDDEN_LAYER_IDS, SOURCELESS_LAYER_IDS, WORLD_LAYER_SOURCE_KEYS } = await import('./options.js');
   const { LAYER_SOURCE_KEYS } = await import('../sources/layerSources.js');
-  for (const key of LAYER_SOURCE_KEYS)
+  for (const key of LAYER_SOURCE_KEYS) {
     assert.equal(SOURCELESS_LAYER_IDS.includes(key), !WORLD_LAYER_SOURCE_KEYS.includes(key), key);
+    assert.equal(EMBEDDED_HIDDEN_LAYER_IDS.includes(key), !WORLD_LAYER_SOURCE_KEYS.includes(key), key);
+  }
   assert.ok(SOURCELESS_LAYER_IDS.includes('cctv') && !SOURCELESS_LAYER_IDS.includes('earthquakes'), 'not vacuous');
+  // The generic world-model row is hidden too: its products are rows of their own (DWM-189).
+  assert.deepEqual(EMBEDDED_HIDDEN_LAYER_IDS.filter((id) => !SOURCELESS_LAYER_IDS.includes(id)), ['world-model']);
   const source = await readFile(new URL('src/embedded/application.js', repo), 'utf8');
-  assert.match(source, /hiddenLayerIds: SOURCELESS_LAYER_IDS/, 'the embed passes the rule to the panel');
+  assert.match(source, /hiddenLayerIds: EMBEDDED_HIDDEN_LAYER_IDS/, 'the embed passes the rule to the panel');
 });
 
 test('embedded: a host still passing a provider API or a source table is refused by name', async () => {

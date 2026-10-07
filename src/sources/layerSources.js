@@ -35,11 +35,26 @@
  * puts every registered layer on 'world' and has no provider API (DWM-136).
  */
 import { HEAD } from '../layers/worldModel/view.js';
-import { createWorldEarthquakeSource } from '../layers/earthquakes/worldSource.js';
-import { createWorldFlightSource } from '../layers/flights/worldSource.js';
-import { createWorldMilitarySource } from '../layers/military/worldSource.js';
-import { createWorldFirmsSource } from '../layers/firms/worldSource.js';
-import { createWorldSatelliteSource } from '../layers/satellites/worldSource.js';
+import {
+  EARTHQUAKE_PRODUCT_TYPE,
+  createWorldEarthquakeSource,
+} from '../layers/earthquakes/worldSource.js';
+import {
+  AIRCRAFT_BINDING,
+  createWorldFlightSource,
+} from '../layers/flights/worldSource.js';
+import {
+  MILITARY_BINDING,
+  createWorldMilitarySource,
+} from '../layers/military/worldSource.js';
+import {
+  FIRE_BINDINGS,
+  createWorldFirmsSource,
+} from '../layers/firms/worldSource.js';
+import {
+  ELEMENT_SET_TYPE,
+  createWorldSatelliteSource,
+} from '../layers/satellites/worldSource.js';
 
 /** Layer ids (and the cockpit weather effect) whose data source is switchable. */
 export const LAYER_SOURCE_KEYS = Object.freeze([
@@ -68,6 +83,29 @@ export const WORLD_LAYER_SOURCES = Object.freeze({
   'local-firms': createWorldFirmsSource,
   satellites: createWorldSatelliteSource,
 });
+
+/**
+ * What each world adapter draws, as the backplane's status names it: binding
+ * names, or product types for an adapter that selects by type. A product one
+ * of these claims is drawn by its own layer and never again as a generic
+ * world-model product layer (DWM-189).
+ */
+export const WORLD_LAYER_CLAIMS = Object.freeze({
+  earthquakes: Object.freeze({ types: [EARTHQUAKE_PRODUCT_TYPE] }),
+  flights: Object.freeze({ bindings: [AIRCRAFT_BINDING] }),
+  military: Object.freeze({ bindings: [MILITARY_BINDING] }),
+  'local-firms': Object.freeze({ bindings: [...FIRE_BINDINGS] }),
+  satellites: Object.freeze({ types: [ELEMENT_SET_TYPE] }),
+});
+
+/** The world layer that draws a `/status` binding entry, or null. */
+export function worldLayerClaiming(entry, claims = WORLD_LAYER_CLAIMS) {
+  for (const [key, claim] of Object.entries(claims)) {
+    if (claim.bindings?.includes(entry?.binding)) return key;
+    if (claim.types?.includes(entry?.type_id)) return key;
+  }
+  return null;
+}
 
 const DEFAULTS = Object.freeze({
   modes: Object.freeze({}),

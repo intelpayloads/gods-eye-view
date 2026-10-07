@@ -2,14 +2,18 @@
  * QA host for the embeddable application (scripts/qa-embedded.mjs).
  * A host-owned header plus one root element, an in-memory ProjectionSource
  * over the retained Experiment 002 fixtures, and no provider API.
+ *
+ * `?live` (or `?live=<base url>`, default `/world`) reads a running backplane
+ * over HTTP instead, and starts on load: the UI against a real world.
  */
 import '../../src/embedded/embedded.css';
 import { createEmbeddedApplication } from '../../src/embedded/application.js';
+import { createHttpProjectionSource } from '../../src/layers/worldModel/source.js';
 import projection from '../../src/layers/worldModel/fixtures/experiment-002.projection.json';
 import revisions from '../../src/layers/worldModel/fixtures/experiment-002.revisions.json';
 import status from '../../src/layers/worldModel/fixtures/experiment-002.status.json';
 
-const source = {
+const fixtureSource = {
   async getRevisions({ head, limit = 10 }) {
     return { head, revisions: revisions.revisions.slice(0, limit) };
   },
@@ -23,13 +27,16 @@ const source = {
 
 let app = null;
 const params = new URLSearchParams(location.search);
+const live = params.has('live');
+const source = live
+  ? createHttpProjectionSource({ baseUrl: params.get('live') || '/world' })
+  : fixtureSource;
 window.__renderErrors = [];
 window.__embeddedQa = {
   async create() {
     app = createEmbeddedApplication({
       root: document.getElementById('host-root'),
       worldModelSource: source,
-      apiBaseUrl: null,
       cesiumToken: params.get('cesiumToken') || null,
       initialCamera: {
         lon: -122.25,
@@ -97,3 +104,8 @@ window.__embeddedQa = {
     return status;
   },
 };
+
+if (live)
+  window.__embeddedQa
+    .create()
+    .catch((error) => console.error('[embedded-qa] start failed:', error));

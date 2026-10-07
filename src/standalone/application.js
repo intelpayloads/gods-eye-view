@@ -23,7 +23,7 @@ import { resetContextStore } from '../data/contextStore.js';
  * @param {() => HTMLElement} options.loadingScreen Resolves `#loading-screen` once the scene phase has run host setup.
  * @param {() => object} options.createWorldModelLayer Builds this application's world-model layer.
  * @param {string[]} [options.hiddenLayerIds] Layers registered but left out of the toggle panel.
- * @param {object} [options.features] See STANDALONE_FEATURES in ./tools.js.
+ * @param {object} [options.features] See STANDALONE_FEATURES in ./features.js.
  * @param {object|null} [options.initialCamera] Camera when no share link is present.
  * @param {(context: object) => void} [options.beforeScene] Host setup run first in the scene phase (context has `defer`, `signal`).
  * @param {string} [options.ownerLabel]
@@ -35,6 +35,8 @@ export function composeApplication({
   loadingScreen,
   createWorldModelLayer,
   hiddenLayerIds = [],
+  panelLabels = {},
+  createProductLayers = null,
   features,
   initialCamera = null,
   beforeScene = null,
@@ -69,13 +71,19 @@ export function composeApplication({
         loaderStatus,
         placeSearch,
         initialCamera,
+        features,
       }),
-    createData: (context) =>
+    createData: async (context) =>
       createStandaloneData({
         ...context,
         allowQaRegistration,
         hiddenLayerIds,
+        panelLabels,
         worldModelLayer: createWorldModelLayer(),
+        // Discovered before registration is sealed (DWM-189).
+        productLayers: createProductLayers
+          ? await createProductLayers(context)
+          : [],
       }),
     createTools: (context) =>
       createStandaloneTools({

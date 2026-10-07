@@ -63,6 +63,15 @@ export function createStandaloneWorldModelLayer({
   modalities,
   displayAssumptions,
   policyThresholdSeconds,
+  // One product of the world as its own layer (DWM-189).
+  id,
+  name,
+  icon,
+  sourceLabel,
+  layers,
+  validAt,
+  simulatedBinding,
+  panelSection,
 } = {}) {
   return createWorldModelLayer({
     ...definedOnly({
@@ -71,6 +80,14 @@ export function createStandaloneWorldModelLayer({
       modalities,
       displayAssumptions,
       policyThresholdSeconds,
+      id,
+      name,
+      icon,
+      sourceLabel,
+      layers,
+      validAt,
+      simulatedBinding,
+      panelSection,
     }),
     source,
     services: { context, picking },

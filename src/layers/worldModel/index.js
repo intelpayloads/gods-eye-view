@@ -13,7 +13,7 @@ import {
   formatAge,
   policyModeOf,
 } from './demand.js';
-import { createSelection, WORLD_MODEL_OVERLAY_SOURCE_ID } from './selection.js';
+import { createSelection } from './selection.js';
 import { assertProjectionSource, sourceFeatures } from './source.js';
 import {
   DEFAULT_DISPLAY_ASSUMPTIONS,
@@ -40,6 +40,17 @@ export * from './view.js';
 export const WORLD_MODEL_LAYER_ID = 'world-model';
 
 const OUTLINE_COLOR = Cesium.Color.BLACK.withAlpha(0.7);
+
+/** Run chips a simulated product row shows at most (newest first). */
+const MAX_RUN_CHIPS = 4;
+
+/** `sim/sha256:3d9ea495…` -> `3d9ea495`. */
+function runLabel(head) {
+  return head
+    .slice(SIM_HEAD_PREFIX.length)
+    .replace(/^sha256:/, '')
+    .slice(0, 8);
+}
 
 /**
  * The world-model layer: camera demand -> ordered, cancellable projections
@@ -69,6 +80,10 @@ export function createWorldModelLayer({
   displayAssumptions = DEFAULT_DISPLAY_ASSUMPTIONS,
   predicates = DEFAULT_PREDICATES,
   modalities = null,
+  layers = null,
+  validAt = null,
+  simulatedBinding = null,
+  panelSection = null,
   policyThresholdSeconds = 30,
   now = () => Date.now(),
 } = {}) {
@@ -116,6 +131,8 @@ export function createWorldModelLayer({
       displayAssumptions: { ...displayAssumptions },
       predicates: predicates ? { ...predicates } : null,
       modalities: modalities ? [...modalities] : null,
+      layers: layers ? [...layers] : null,
+      validAt,
     },
     debounceMs,
     now,
@@ -128,6 +145,42 @@ export function createWorldModelLayer({
     source,
     config: { id, name, sourceLabel },
   });
+
+  /**
+   * A simulated product layer (DWM-189): one chip per run holding the
+   * product, the active one lit, and two that step the query time. There is
+   * no live world to leave to -- the product only exists inside runs.
+   */
+  function productRunChips(demand) {
+    const runs = state.simRuns.filter((run) =>
+      run.bindings.includes(simulatedBinding),
+    );
+    const chips = runs.slice(0, MAX_RUN_CHIPS).map((run) => ({
+      id: `run-${run.head}`,
+      label: `RUN ${runLabel(run.head)}`,
+      active: run.head === demand.head,
+      state: run.head === demand.head ? 'active' : 'idle',
+      title: `Simulated run ${run.head}, ${run.earliest} – ${run.latest}: stored epochs only, never interpolated`,
+      params: viewRunParams(run),
+    }));
+    const run = runs.find((r) => r.head === demand.head);
+    if (run) chips.push(...stepChips(run, demand.validAt || run.earliest));
+    return chips;
+  }
+
+  function stepChips(run, at) {
+    return [
+      ['sim-back', `−${STEP_SECONDS / 60}m`, -STEP_SECONDS],
+      ['sim-forward', `+${STEP_SECONDS / 60}m`, STEP_SECONDS],
+    ].map(([chipId, label, seconds]) => ({
+      id: chipId,
+      label,
+      active: false,
+      state: 'idle',
+      title: `Query time ${seconds > 0 ? 'forward' : 'back'} ${Math.abs(seconds)} s within ${run.earliest} – ${run.latest}`,
+      params: stepRunParams(run, at, seconds),
+    }));
+  }
 
   /** SIM RUNS n to enter the newest run; inside one, its chip leaves and two step the query time. */
   function simulationRunChips(demand) {
@@ -161,21 +214,7 @@ export function createWorldModelLayer({
         params: leaveRunParams(head),
       },
     ];
-    if (run) {
-      for (const [id, label, seconds] of [
-        ['sim-back', `−${STEP_SECONDS / 60}m`, -STEP_SECONDS],
-        ['sim-forward', `+${STEP_SECONDS / 60}m`, STEP_SECONDS],
-      ]) {
-        chips.push({
-          id,
-          label,
-          active: false,
-          state: 'idle',
-          title: `Query time ${seconds > 0 ? 'forward' : 'back'} ${Math.abs(seconds)} s within ${run.earliest} – ${run.latest}`,
-          params: stepRunParams(run, at, seconds),
-        });
-      }
-    }
+    if (run) chips.push(...stepChips(run, at));
     return chips;
   }
 
@@ -351,6 +390,8 @@ export function createWorldModelLayer({
   function statusLines(status) {
     const lines = [];
     for (const binding of status?.bindings || []) {
+      // A product layer reports its own binding, not the whole world's.
+      if (layers && !layers.includes(binding.binding)) continue;
       const valid = binding.valid || {};
       const known = binding.knowledge || {};
       const sources = (binding.sources || [])
@@ -388,6 +429,7 @@ export function createWorldModelLayer({
     id,
     name,
     icon,
+    panelSection,
     source: sourceLabel,
     updateInterval,
     controller,
@@ -401,7 +443,7 @@ export function createWorldModelLayer({
       viewer.dataSources.add(state.dataSource);
       resetRendered();
       state.enabled = false;
-      overlayHost.setVisible(WORLD_MODEL_OVERLAY_SOURCE_ID, false);
+      overlayHost.setVisible(id, false);
       console.log('[Data:WorldModel] Initialized');
     },
 
@@ -412,7 +454,7 @@ export function createWorldModelLayer({
       services.picking.registerPickOwner(id, (pickedId) =>
         state.byId.has(pickedId),
       );
-      overlayHost.setVisible(WORLD_MODEL_OVERLAY_SOURCE_ID, true);
+      overlayHost.setVisible(id, true);
       subscribeCamera(viewer);
       onCameraChanged();
     },
@@ -425,8 +467,8 @@ export function createWorldModelLayer({
       selection.clearSelection();
       selection.removeClickHandler();
       services.picking.unregisterPickOwner(id);
-      overlayHost.clearSource(WORLD_MODEL_OVERLAY_SOURCE_ID);
-      overlayHost.setVisible(WORLD_MODEL_OVERLAY_SOURCE_ID, false);
+      overlayHost.clearSource(id);
+      overlayHost.setVisible(id, false);
     },
 
     /**
@@ -459,8 +501,8 @@ export function createWorldModelLayer({
       selection.clearSelection();
       selection.removeClickHandler();
       services.picking.unregisterPickOwner(id);
-      overlayHost.clearSource(WORLD_MODEL_OVERLAY_SOURCE_ID);
-      overlayHost.setVisible(WORLD_MODEL_OVERLAY_SOURCE_ID, false);
+      overlayHost.clearSource(id);
+      overlayHost.setVisible(id, false);
       try {
         services.context.removeEntityContextsForLayer(id);
       } catch {
@@ -564,6 +606,11 @@ export function createWorldModelLayer({
      */
     getRowControls() {
       const view = controller.getState();
+      // A product layer is one binding at the head: a simulated one picks
+      // and steps its runs; an observed or planned one has nothing to choose.
+      if (simulatedBinding)
+        return { chips: productRunChips(view.demand), legend: [] };
+      if (layers) return { chips: [], legend: [] };
       const pinned = view.follow === 'pinned';
       const policy = policyModeOf(view.demand);
       const nextPolicy =
