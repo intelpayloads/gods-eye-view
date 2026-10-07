@@ -144,6 +144,7 @@
       "src/embedded/presentation.js",
       "src/embedded/worldConfig.js",
       "src/embedded/worldProducts.js",
+      "src/embedded/worldRuns.js",
       "src/firstRunExperience.js",
       "src/hud.js",
       "src/hudLocality.js",
