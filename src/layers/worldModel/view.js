@@ -19,6 +19,9 @@ export const DEFAULT_DISPLAY_ASSUMPTIONS = Object.freeze({
   field_frame: 'sphere-grid-labeled-on-wgs84',
   // A pressure level is drawn at display height 0 m; pressure is not altitude.
   field_height: 'pressure-level-at-display-height-zero',
+  // A height the producer declares above the WGS84 ellipsoid, read as one
+  // (a simulated run's geodetic columns).
+  geodetic_height: 'declared-wgs84-ellipsoidal',
 });
 
 export const DEFAULT_PREDICATES = Object.freeze({ pressure_hpa: 850 });

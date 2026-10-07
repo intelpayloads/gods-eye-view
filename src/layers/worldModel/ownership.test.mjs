@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import * as Cesium from 'cesium';
 import { createWorldModelLayer } from './index.js';
+import { DEFAULT_DISPLAY_ASSUMPTIONS } from './view.js';
 
 const read = (name) =>
   JSON.parse(
@@ -204,10 +205,15 @@ test('renders one entity per projected item from the injected source, pinned to 
   const request = source.calls.projections[0];
   assert.equal(request.revisionId, HEAD_REV);
   assert.equal('spatial_scope' in request.query, false);
-  assert.deepEqual(
-    request.projectionSpec.display_assumptions,
+  // The layer sends its default grants, and they include every grant the
+  // retained projection was made under.
+  assert.deepEqual(request.projectionSpec.display_assumptions, {
+    ...DEFAULT_DISPLAY_ASSUMPTIONS,
+  });
+  for (const [key, value] of Object.entries(
     fixture.projection_spec.display_assumptions,
-  );
+  ))
+    assert.equal(request.projectionSpec.display_assumptions[key], value, key);
   const entities = h.sources[0].entities.values;
   assert.equal(entities.length, TOTAL);
   const dlh = h.sources[0].entities.getById(DLH);
@@ -716,4 +722,52 @@ test('analyst records are JSON-safe and only exist while shown', async () => {
   h.layer.disable(h.viewer);
   assert.deepEqual(h.layer.getAnalystRecords(), []);
   h.layer.destroy(h.viewer);
+});
+
+test('a simulated run is a chip: entering it asks for its head, modality and first epoch; its chip leaves it', async () => {
+  const simHeads = JSON.parse(
+    readFileSync(
+      new URL('./fixtures/simulated-run.heads.json', import.meta.url),
+    ),
+  );
+  const simStatus = JSON.parse(
+    readFileSync(
+      new URL('./fixtures/simulated-run.status.json', import.meta.url),
+    ),
+  );
+  const [runHead] = Object.keys(simHeads).filter((head) =>
+    head.startsWith('sim/'),
+  );
+  const source = fixtureSource();
+  source.getHeads = async () => simHeads;
+  source.getStatus = async ({ head } = {}) =>
+    head === runHead ? simStatus : status;
+  const h = harness(source);
+  const chips = () =>
+    Object.fromEntries(h.layer.getRowControls().chips.map((c) => [c.id, c]));
+  await h.layer.update(h.viewer);
+  assert.equal(chips()['sim-view'].label, 'SIM RUNS 1');
+  assert.equal(h.layer.setParams(chips()['sim-view'].params), true);
+  await flush();
+  const run = simStatus.bindings.find((b) => b.modality === 'simulated');
+  assert.equal(h.layer.getParams().head, runHead);
+  assert.deepEqual(h.layer.getParams().modalities, ['simulated']);
+  assert.equal(
+    Date.parse(h.layer.getParams().validAt),
+    Date.parse(run.valid.earliest),
+  );
+  assert.ok(
+    chips()['sim-leave'] && chips()['sim-forward'] && chips()['sim-back'],
+  );
+  assert.equal(h.layer.setParams(chips()['sim-forward'].params), true);
+  await flush();
+  assert.equal(
+    Date.parse(h.layer.getParams().validAt) - Date.parse(run.valid.earliest),
+    60_000,
+  );
+  assert.equal(h.layer.setParams(chips()['sim-leave'].params), true);
+  await flush();
+  assert.equal(h.layer.getParams().head, 'world/main');
+  assert.equal(h.layer.getParams().modalities, null);
+  assert.equal(h.layer.getParams().validAt, null);
 });
