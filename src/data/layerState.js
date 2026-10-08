@@ -736,7 +736,11 @@ export class LayerStateCoordinator {
       const enabled = new Set(this._durableState.enabledLayerIds);
       const settled = await Promise.allSettled(LAYER_STATE_REGISTRY.map(async (entry) => {
         const controller = this._restoreControllers.get(entry.id);
-        const targetEnabled = enabled.has(entry.id);
+        // A layer the panel hides has no switch, so a saved "on" from a page
+        // that once showed it would draw something nobody can turn off
+        // (DWM-197). The host enables such a layer itself when it wants one.
+        const targetEnabled = enabled.has(entry.id)
+          && !this.dataManager.isHiddenFromPanel?.(entry.id);
         const options = layerOptionsForRestore(this._durableState, entry.id);
         if (origin === LAYER_RESTORE_ORIGINS.share && options) {
           for (const trackingKey of Object.values(TRACKING_OPTION_KEY_BY_LAYER)) {

@@ -1595,3 +1595,21 @@ test('the owner layer going away revokes the pending watch at any origin', async
     f.coordinator.destroy();
   }
 });
+
+test('a layer the panel hides is never turned on by saved preferences (DWM-197)', async () => {
+  const saved = createDefaultLayerState();
+  saved.enabledLayerIds = ['world-model', 'earthquakes'];
+  const manager = new DataLayerManager({}, { hiddenLayerIds: ['world-model'] });
+  for (const id of REGISTERED_LAYER_IDS) manager.register(fakeLayer(id));
+  manager.finalizeRegistrations(LAYER_STATE_REGISTRY);
+  const coordinator = new LayerStateCoordinator(manager, shareSink(), {
+    storage: memoryStorage(serializeStoredLayerState(saved)),
+  });
+  await coordinator.start({});
+  assert.equal(manager.isEnabled('world-model'), false);
+  // Not vacuous: the same saved state still restores a layer the panel shows.
+  assert.equal(manager.isEnabled('earthquakes'), true);
+  // And the host can still switch the hidden layer on itself.
+  await manager.setEnabled('world-model', true, { origin: 'programmatic' });
+  assert.equal(manager.isEnabled('world-model'), true);
+});
