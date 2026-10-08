@@ -330,6 +330,7 @@
       "src/layers/worldModel/controller.js",
       "src/layers/worldModel/demand.js",
       "src/layers/worldModel/index.js",
+      "src/layers/worldModel/receiverPass.js",
       "src/layers/worldModel/selection.js",
       "src/layers/worldModel/simulationRuns.js",
       "src/layers/worldModel/source.js",

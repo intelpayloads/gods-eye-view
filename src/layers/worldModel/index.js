@@ -30,16 +30,24 @@ import {
   stepRunParams,
   viewRunParams,
 } from './simulationRuns.js';
+import {
+  PASS_DISPLAY,
+  RECEIVER_TRACK_BINDING,
+  createReceiverPasses,
+  showsReceiverPass,
+} from './receiverPass.js';
 export * from './adapter.js';
 export * from './controller.js';
 export * from './demand.js';
 export * from './selection.js';
+export * from './receiverPass.js';
 export * from './source.js';
 export * from './view.js';
 
 export const WORLD_MODEL_LAYER_ID = 'world-model';
 
 const OUTLINE_COLOR = Cesium.Color.BLACK.withAlpha(0.7);
+const LABEL_OFFSET = new Cesium.Cartesian2(12, 0);
 
 /** Run chips a simulated product row shows at most (newest first). */
 const MAX_RUN_CHIPS = 4;
@@ -122,8 +130,12 @@ export function createWorldModelLayer({
     rowControlsListener: null,
     policyThresholdSeconds,
     simRuns: [],
+    passSource: null,
+    passes: [],
+    passRevisionId: null,
   };
   const simulationRuns = createSimulationRuns(source);
+  const receiverPasses = createReceiverPasses(source);
   const controller = createWorldViewController({
     source,
     initial: {
@@ -290,6 +302,94 @@ export function createWorldModelLayer({
     return { entity, render, cartesian };
   }
 
+  /**
+   * GEN-309: the run's whole receiver pass under the marker, one polyline per
+   * stretch of one state, at the track's own heights. Replaced only when the
+   * revision changes; stepping the query time moves the marker along it.
+   */
+  function drawPasses(passes) {
+    const entities = state.passSource?.entities;
+    if (!entities) return;
+    // Removed outside the batch: see applyProjection.
+    entities.removeAll();
+    entities.suspendEvents();
+    for (const pass of passes) {
+      pass.segments.forEach((segment, index) => {
+        entities.add(
+          new Cesium.Entity({
+            id: `${pass.id}/${index}`,
+            name: `${pass.label} · ${segment.name} ${segment.from} – ${segment.until}`,
+            polyline: {
+              positions: segment.positions.map((p) =>
+                Cesium.Cartesian3.fromDegrees(p.lon, p.lat, p.height),
+              ),
+              width: PASS_DISPLAY.widthPx,
+              material: new Cesium.Color(
+                ...segment.colorRgb,
+                PASS_DISPLAY.alpha,
+              ),
+              arcType: Cesium.ArcType.NONE,
+            },
+            properties: { kind: PASS_DISPLAY.kind, display: PASS_DISPLAY },
+          }),
+        );
+      });
+    }
+    entities.resumeEvents();
+    state.passes = passes;
+    labelPassMarkers();
+  }
+
+  /** The current instant's marker on a pass carries the receiver's name. */
+  function labelPassMarkers() {
+    for (const { entity, render } of state.byId.values()) {
+      if (render.binding !== RECEIVER_TRACK_BINDING) continue;
+      const identity = render.record?.semantic_ref?.semantic_identity;
+      const pass = state.passes.find((p) => p.identity === identity);
+      entity.label = pass
+        ? new Cesium.LabelGraphics({
+            text: pass.label,
+            font: '13px sans-serif',
+            fillColor: Cesium.Color.WHITE,
+            outlineColor: OUTLINE_COLOR,
+            outlineWidth: 3,
+            style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+            pixelOffset: LABEL_OFFSET,
+            horizontalOrigin: Cesium.HorizontalOrigin.LEFT,
+            verticalOrigin: Cesium.VerticalOrigin.CENTER,
+          })
+        : undefined;
+    }
+  }
+
+  function clearPasses() {
+    state.passRevisionId = null;
+    if (state.passes.length || state.passSource?.entities.values.length)
+      drawPasses([]);
+  }
+
+  /** Read (cached per revision) and draw the pass for what was just projected. */
+  async function refreshPasses(revisionId) {
+    if (!features.select || !showsReceiverPass(controller.getDemand())) {
+      clearPasses();
+      return;
+    }
+    if (state.passRevisionId === revisionId) {
+      labelPassMarkers();
+      return;
+    }
+    state.passRevisionId = revisionId;
+    try {
+      const passes = await receiverPasses.read({ revisionId });
+      // A newer projection (or leaving the run) superseded this read.
+      if (state.passRevisionId !== revisionId || !state.enabled) return;
+      drawPasses(passes);
+    } catch (error) {
+      if (state.passRevisionId === revisionId) state.passRevisionId = null;
+      console.warn('[Data:WorldModel] receiver pass unreadable:', error);
+    }
+  }
+
   /** Only the controller's apply callback reaches here: ordering is decided there. */
   function applyProjection(projection) {
     if (!state.enabled || !state.dataSource) return;
@@ -300,8 +400,11 @@ export function createWorldModelLayer({
       byId.set(render.id, buildEntity(render, projection.revision_id));
     }
     const entities = state.dataSource.entities;
-    entities.suspendEvents();
+    // Remove outside the batch: Cesium folds a remove and an add of the same
+    // id inside one suspended batch into no event at all, so the visualizers
+    // kept drawing the previous entity and a step never moved the marker.
     entities.removeAll();
+    entities.suspendEvents();
     for (const entry of byId.values()) entities.add(entry.entity);
     entities.resumeEvents();
 
@@ -315,6 +418,7 @@ export function createWorldModelLayer({
     state.rendered = true;
     selection.refreshContextRegistrations();
     selection.reselect();
+    refreshPasses(projection.revision_id);
     console.log(
       `[Data:WorldModel] Rendered revision ${projection.revision_id.slice(0, 8)}: ` +
         (state.perBinding
@@ -462,6 +566,9 @@ export function createWorldModelLayer({
       state.dataSource = new Cesium.CustomDataSource(id);
       state.dataSource.show = false;
       viewer.dataSources.add(state.dataSource);
+      state.passSource = new Cesium.CustomDataSource(`${id}-pass`);
+      state.passSource.show = false;
+      viewer.dataSources.add(state.passSource);
       resetRendered();
       state.enabled = false;
       overlayHost.setVisible(id, false);
@@ -471,6 +578,7 @@ export function createWorldModelLayer({
     enable(viewer = state.viewer) {
       state.enabled = true;
       if (state.dataSource) state.dataSource.show = true;
+      if (state.passSource) state.passSource.show = true;
       selection.installClickHandler();
       services.picking.registerPickOwner(id, (pickedId) =>
         state.byId.has(pickedId),
@@ -485,6 +593,7 @@ export function createWorldModelLayer({
       state.enabled = false;
       unsubscribeCamera(viewer);
       if (state.dataSource) state.dataSource.show = false;
+      if (state.passSource) state.passSource.show = false;
       selection.clearSelection();
       selection.removeClickHandler();
       services.picking.unregisterPickOwner(id);
@@ -532,7 +641,13 @@ export function createWorldModelLayer({
       if (state.dataSource && viewer) {
         viewer.dataSources.remove(state.dataSource, true);
       }
+      if (state.passSource && viewer) {
+        viewer.dataSources.remove(state.passSource, true);
+      }
       state.dataSource = null;
+      state.passSource = null;
+      state.passes = [];
+      state.passRevisionId = null;
       state.viewer = null;
       resetRendered();
     },
@@ -583,6 +698,7 @@ export function createWorldModelLayer({
         // move to another run. Lost, every row drew the whole run and one
         // click selected the same item in two of them (DWM-210).
         if (layers && params.layers === undefined) controller.setLayers(layers);
+        if (!showsReceiverPass(controller.getDemand())) clearPasses();
       }
       if (params.modalities !== undefined)
         controller.setModalities(params.modalities);
@@ -741,6 +857,11 @@ export function createWorldModelLayer({
 
     getProjectionSummary() {
       return state.summary;
+    },
+
+    /** The receiver passes drawn under the run's markers (GEN-309); [] off a run head. */
+    getReceiverPasses() {
+      return state.passes;
     },
 
     getRenderedIds() {
