@@ -428,6 +428,24 @@ export function createWorldModelLayer({
     }));
   }
 
+  /**
+   * The card's facts: the status lines (when the source serves status) and,
+   * per binding, what the backplane withheld for a grant this view did not
+   * send -- one line per grant, so the card says what it cannot draw and
+   * why instead of drawing nothing (DWM-208).
+   */
+  function cardFacts(view) {
+    const groups = features.status ? statusFacts(view.status) : [];
+    for (const o of state.summary?.ungranted || []) {
+      if (layers && !layers.includes(o.binding)) continue;
+      const lines = o.grants.map((g) => `withheld ${o.count}: needs ${g}`);
+      const group = groups.find((g) => g.label === o.binding);
+      if (group) group.lines.push(...lines);
+      else groups.push({ label: o.binding, lines });
+    }
+    return features.status || groups.length ? groups : null;
+  }
+
   const layer = {
     id,
     name,
@@ -702,7 +720,7 @@ export function createWorldModelLayer({
         // Three separate facts per binding; never combined into a verdict.
         // `facts`, not `status`: the panel reads `status` as its feed-state
         // enum, so an array there was silently dropped (DWM-60).
-        facts: features.status ? statusFacts(view.status) : null,
+        facts: cardFacts(view),
         factsError: view.statusError ?? null,
         features,
         requests: view.counters,
