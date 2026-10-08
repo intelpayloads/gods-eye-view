@@ -251,6 +251,19 @@ export function summarizeProjection(projection) {
       (a) =>
         a?.kind === 'projection-policy' || a?.kind === 'policy-not-applicable',
     ),
+    // Bindings withheld for a grant this view did not send, with the grants
+    // they need (DWM-208). A height omission names one grant, a field one a
+    // list; either way the reason is the backplane's, not re-derived here.
+    ungranted: omissions
+      .map((o) => ({
+        binding: o?.binding || '?',
+        reason: o?.reason || '?',
+        count: Number(o?.count || 0),
+        grants: []
+          .concat(o?.assumptions_required ?? o?.assumption_required ?? [])
+          .map(String),
+      }))
+      .filter((o) => o.grants.length > 0),
     withheld: omissions
       .filter((o) => o?.reason === 'temporal-age-withheld')
       .reduce((sum, o) => sum + Number(o.count || 0), 0),

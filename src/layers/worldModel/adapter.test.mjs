@@ -427,3 +427,38 @@ test('summary carries counts, policy echoes, withheld and marked; short refs', (
   );
   assert.equal(shortRef(null), '');
 });
+
+test('an omission that names a grant is ungranted, whichever field names it; others are not', () => {
+  const summary = summarizeProjection({
+    omissions: [
+      {
+        binding: 'world.rf.receiver_track',
+        reason: 'height-interpretation-unresolved',
+        assumption_required: 'geodetic_height:declared-wgs84-ellipsoidal',
+        count: 1,
+      },
+      {
+        binding: 'world.rf.coverage',
+        reason: 'assumption-required',
+        assumptions_required: ['field_plane_height:declared-wgs84-ellipsoidal'],
+        count: 16065,
+      },
+      { binding: 'world.aircraft', reason: 'temporal-age-withheld', count: 5 },
+    ],
+  });
+  assert.deepEqual(summary.ungranted, [
+    {
+      binding: 'world.rf.receiver_track',
+      reason: 'height-interpretation-unresolved',
+      count: 1,
+      grants: ['geodetic_height:declared-wgs84-ellipsoidal'],
+    },
+    {
+      binding: 'world.rf.coverage',
+      reason: 'assumption-required',
+      count: 16065,
+      grants: ['field_plane_height:declared-wgs84-ellipsoidal'],
+    },
+  ]);
+  assert.deepEqual(summarizeProjection(fixture).ungranted, []);
+});

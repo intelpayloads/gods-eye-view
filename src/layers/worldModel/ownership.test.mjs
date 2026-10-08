@@ -625,6 +625,52 @@ test('status facts are shown as three separate lines per binding, never a verdic
   h.layer.destroy(h.viewer);
 });
 
+test('a binding withheld for a grant says so on the card, one line per grant (DWM-208)', async () => {
+  const withheld = {
+    binding: 'world.aircraft',
+    reason: 'height-interpretation-unresolved',
+    assumption_required: 'aircraft_height:adsb-geometric-as-wgs84-ellipsoid',
+    count: 97,
+  };
+  const h = harness(
+    fixtureSource({
+      projection: { ...fixture, omissions: [...fixture.omissions, withheld] },
+    }),
+  );
+  await h.layer.update(h.viewer);
+  const aircraft = h.layer
+    .getStats()
+    .facts.find((group) => group.label === 'world.aircraft');
+  assert.equal(aircraft.lines.length, 4, 'after the three status lines');
+  assert.equal(
+    aircraft.lines[3],
+    'withheld 97: needs aircraft_height:adsb-geometric-as-wgs84-ellipsoid',
+  );
+  assert.ok(
+    aircraft.lines[3].length <= 72,
+    'a card line the host need not clamp',
+  );
+  h.layer.destroy(h.viewer);
+
+  // Without status, the withheld binding is still its own fact group.
+  const plain = harness(
+    fixtureSource({
+      optional: false,
+      projection: { ...fixture, omissions: [withheld] },
+    }),
+  );
+  await plain.layer.update(plain.viewer);
+  assert.deepEqual(plain.layer.getStats().facts, [
+    {
+      label: 'world.aircraft',
+      lines: [
+        'withheld 97: needs aircraft_height:adsb-geometric-as-wgs84-ellipsoid',
+      ],
+    },
+  ]);
+  plain.layer.destroy(plain.viewer);
+});
+
 test('a synthetic third binding conforming to the same contracts renders as points with no layer change', async () => {
   const vessels = Array.from({ length: 3 }, (_, i) => ({
     id: `world.vessels/track:ais:mmsi:${i}`,
