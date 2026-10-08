@@ -292,8 +292,14 @@ function shortId(value) {
 function propertyText(value) {
   if (value === null || value === undefined) return '—';
   if (typeof value === 'string') return value.trim() || '—';
-  if (typeof value === 'number')
-    return Number.isInteger(value) ? String(value) : value.toFixed(2);
+  if (typeof value === 'number') {
+    if (Number.isInteger(value)) return String(value);
+    // Two decimals would print 1.9e-18 W as 0.00 (DWM-209).
+    const magnitude = Math.abs(value);
+    return magnitude < 0.01 || magnitude >= 1e6
+      ? value.toExponential(2)
+      : value.toFixed(2);
+  }
   if (typeof value === 'boolean') return value ? 'true' : 'false';
   return JSON.stringify(value);
 }
@@ -321,6 +327,8 @@ function propertyFragments(key, value) {
  * ellipsizes anything longer as a last resort (`MAX_OVERLAY_LINE_CHARS`).
  */
 export const MAX_CARD_LINE_CHARS = 72;
+/** Property fragments a closed card shows before saying how many it left out. */
+export const MAX_CARD_VALUES = 8;
 const SEPARATOR = ' · ';
 const CONTINUATION = '  ';
 
@@ -381,10 +389,6 @@ export function selectionCardLines(renderRecord) {
         `cycle ${time.run_at || '?'}`,
         `lag ${formatNumber(Number(time.lag_seconds))} s`,
       ]),
-      ...packCardLines([
-        `product ${shortRef(item.semantic_ref?.product_ref)}`,
-        `block ${shortRef(item.source_ref?.block_ref)}`,
-      ]),
     ];
   }
   const time = item.time || {};
@@ -395,18 +399,23 @@ export function selectionCardLines(renderRecord) {
       : {};
   const identity =
     item.semantic_ref?.semantic_identity || renderRecord?.id || 'item';
-  // Opportunistic: a callsign-like property leads the title when present;
-  // otherwise the first two properties are shown generically.
+  // Opportunistic: a callsign-like property leads the title when present.
+  // Then the item's own values, all of them up to a budget, ahead of where
+  // and when: they are what a click asks about (DWM-209).
   const keys = Object.keys(props);
   const lead = keys.includes('callsign') ? 'callsign' : null;
   const leadText = lead ? propertyText(props[lead]) : '';
-  const shown = (lead ? [lead, ...keys.filter((k) => k !== lead)] : keys).slice(
-    0,
-    lead ? 3 : 2,
-  );
+  const values = keys
+    .filter((k) => k !== lead)
+    .flatMap((k) => propertyFragments(k, props[k]));
   const surface = renderRecord?.surface === true;
+  const age = Number(time.age_seconds);
   const lines = [
     leadText && leadText !== '—' ? `${leadText} · ${identity}` : identity,
+    ...packCardLines(values.slice(0, MAX_CARD_VALUES)),
+    values.length > MAX_CARD_VALUES
+      ? `… ${values.length - MAX_CARD_VALUES} more values`
+      : '',
     ...packCardLines([
       item.binding || '?',
       surface
@@ -417,10 +426,13 @@ export function selectionCardLines(renderRecord) {
         : null,
     ]),
     `grant ${surface ? 'none needed' : height.assumption || 'none'}`,
+    // Only what the projection says: an unset status or age is left out.
     ...packCardLines([
       `valid ${time.valid_at || '?'}`,
-      time.temporal_status || '?',
-      `age at product time ${formatNumber(Number(time.age_seconds))} s`,
+      time.temporal_status || null,
+      time.age_seconds != null && Number.isFinite(age)
+        ? `age at product time ${formatNumber(age)} s`
+        : null,
     ]),
   ];
   if (time.age_at_query_seconds !== undefined) {
@@ -433,23 +445,30 @@ export function selectionCardLines(renderRecord) {
             : ''),
     );
   }
-  lines.push(`known ${time.known_as_of || '?'}`);
-  if (shown.length) {
-    lines.push(
-      ...packCardLines(
-        shown
-          .filter((k) => k !== lead)
-          .flatMap((k) => propertyFragments(k, props[k])),
-      ),
-    );
+  return lines.filter((line) => line !== '');
+}
+
+/**
+ * Where a selected item came from, shown when its card is opened (DWM-209):
+ * when it was known, the product, and the retained source row or block.
+ * @param {object} renderRecord A record from the functions above.
+ * @returns {string[]}
+ */
+export function selectionProvenanceLines(renderRecord) {
+  const item = renderRecord?.record || {};
+  if (renderRecord?.kind === 'field-sample') {
+    return packCardLines([
+      `product ${shortRef(item.semantic_ref?.product_ref)}`,
+      `block ${shortRef(item.source_ref?.block_ref)}`,
+    ]);
   }
-  lines.push(
+  return [
+    `known ${item.time?.known_as_of || '?'}`,
     ...packCardLines([
       `product ${shortRef(item.semantic_ref?.product_ref)}`,
       `source ${shortRef(item.source_ref?.source)} row ${item.source_ref?.row_index ?? '?'}`,
     ]),
-  );
-  return lines.filter((line) => line !== '');
+  ];
 }
 
 function domainText(domain) {

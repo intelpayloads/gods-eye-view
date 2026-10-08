@@ -18,6 +18,7 @@ import * as context from './contextStore.js';
 import * as picking from './pickRegistry.js';
 import {
   clearOverlaySource,
+  hitTestWorldOverlay,
   setOverlayEntries,
   setOverlaySourceVisible,
 } from '../overlays/worldOverlay.js';
@@ -51,6 +52,7 @@ export function createStandaloneWorldModelLayer({
     setEntries: setOverlayEntries,
     setVisible: setOverlaySourceVisible,
     clearSource: clearOverlaySource,
+    hitTest: hitTestWorldOverlay,
   },
   updateInterval = envNumber(
     import.meta.env?.VITE_WORLD_MODEL_FOLLOW_MS,
