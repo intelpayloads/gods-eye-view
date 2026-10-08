@@ -1856,6 +1856,14 @@ export class DataLayerManager {
     }
   }
 
+  /**
+   * True for a layer the panel leaves out (`hiddenLayerIds`): a user has no
+   * switch for it, so saved preferences never turn it on (DWM-197).
+   */
+  isHiddenFromPanel(layerId) {
+    return this._hiddenLayerIds.has(layerId);
+  }
+
   isEnabled(layerId) {
     const entry = this.layers.get(layerId);
     return entry ? entry.enabled : false;
