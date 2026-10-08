@@ -10,8 +10,10 @@
  * "as of" one instant, so its activity is one small select per epoch, read
  * a few at a time. Both depend only on the revision and are read once.
  *
- * Thresholds are drawn only if the run carries them; today's published runs
- * do not, so the strip shows none rather than lines re-derived here.
+ * Thresholds are drawn only if the run carries them: the receiver
+ * response's `nominal_min_sinr_db` and `unavailable_below_sinr_db`, columns
+ * of every track row since GEN-313. A run published before them draws none
+ * rather than lines re-derived here.
  *
  * Pure and DOM-free: `ui/runPlayer.js` draws what this module computes.
  */
@@ -67,6 +69,25 @@ export function cadenceOf(epochs) {
   return best?.gap ?? null;
 }
 
+/** Threshold columns the strip draws, in the order it lists them. */
+export const THRESHOLDS = Object.freeze([
+  Object.freeze({ key: 'nominalMinSinrDb', name: 'nominal' }),
+  Object.freeze({ key: 'unavailableBelowSinrDb', name: 'unavailable' }),
+]);
+
+/**
+ * The run's thresholds: a column's value when every row carries the same
+ * one. A column some rows lack, or whose value changes within the run, is
+ * not one line, so it is left out rather than averaged or picked.
+ */
+export function thresholdsOf(rows) {
+  return THRESHOLDS.flatMap(({ key, name }) => {
+    const values = new Set(rows.map((row) => row.thresholds?.[key] ?? null));
+    const [db] = values;
+    return values.size === 1 && db !== null ? [{ name, db }] : [];
+  });
+}
+
 /**
  * Track rows + per-epoch jammer flags -> the timeline, or null when the run
  * has no receiver track (nothing to step through at the track's cadence).
@@ -93,7 +114,7 @@ export function timelineFrom(trackSelection, jammer = new Map()) {
     end: rows.at(-1).at,
     cadenceMs: cadenceOf(rows.map((row) => row.at)),
     rows,
-    thresholds: [],
+    thresholds: thresholdsOf(series.rows),
   };
 }
 
@@ -149,15 +170,18 @@ export function bannerOf(row) {
 
 /**
  * The strip's geometry in a `width` x `height` box: the SINR line (broken
- * at an unknown SINR), the jammer's active windows as x ranges, and the x of
- * a time. A window spans an active epoch to the next epoch, like the pass.
+ * at an unknown SINR), the jammer's active windows as x ranges, the
+ * thresholds as y levels, and the x of a time. A window spans an active
+ * epoch to the next epoch, like the pass. The y range covers the thresholds
+ * too, so a line the SINR never reaches is still drawn.
  */
 export function stripGeometry(timeline, { width, height, pad = 4 }) {
   const span = Math.max(1, timeline.end - timeline.start);
   const x = (ms) => ((ms - timeline.start) / span) * width;
-  const known = timeline.rows
-    .map((row) => row.sinrDb)
-    .filter((db) => db !== null);
+  const known = [
+    ...timeline.rows.map((row) => row.sinrDb),
+    ...timeline.thresholds.map((t) => t.db),
+  ].filter((db) => db !== null);
   const lo = known.length ? Math.min(...known) : 0;
   const hi = known.length ? Math.max(...known) : 1;
   const range = hi - lo || 1;
@@ -189,6 +213,7 @@ export function stripGeometry(timeline, { width, height, pad = 4 }) {
     sinrMinDb: lo,
     sinrMaxDb: hi,
     lines,
+    thresholds: timeline.thresholds.map((t) => ({ ...t, y: y(t.db) })),
     windows: windows.map((w) => ({
       ...w,
       x0: x(w.fromMs),

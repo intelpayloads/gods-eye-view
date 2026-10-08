@@ -15,6 +15,7 @@
 import { SIM_HEAD_PREFIX } from '../layers/worldModel/simulationRuns.js';
 import { RECEIVER_TRACK_BINDING } from '../layers/worldModel/receiverPass.js';
 import { SPEEDS, createRunClock } from '../layers/worldModel/runClock.js';
+import { RECEIVER_STATES } from '../layers/worldModel/receiverPass.js';
 import {
   bannerOf,
   createRunTimelines,
@@ -44,9 +45,16 @@ const STYLE = `
 .${ROOT_CLASS} .rp-swatch { width: 10px; height: 10px; border-radius: 2px; flex: none; }
 .${ROOT_CLASS} .rp-banner-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .${ROOT_CLASS} .rp-time { color: #8fdcf0; font-weight: 400; }
+.${ROOT_CLASS} .rp-strip { position: relative; }
+.${ROOT_CLASS} .rp-threshold {
+  position: absolute; right: 2px; transform: translateY(-100%);
+  font-size: 9px; line-height: 1; padding: 1px 3px; border-radius: 3px;
+  background: rgba(10, 10, 15, 0.7); pointer-events: none;
+}
 .${ROOT_CLASS} svg { display: block; width: 100%; height: 56px; cursor: pointer; touch-action: none; }
 .${ROOT_CLASS} svg:focus-visible { outline: 1px solid var(--accent, #00d4ff); outline-offset: 2px; }
-.${ROOT_CLASS} .rp-axis { display: flex; justify-content: space-between; color: #6fa9b8; margin-top: 2px; }
+.${ROOT_CLASS} .rp-axis { display: flex; justify-content: space-between; gap: 8px; color: #6fa9b8; margin-top: 2px; white-space: nowrap; }
+.${ROOT_CLASS} .rp-range { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .${ROOT_CLASS} .rp-controls { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
 .${ROOT_CLASS} button {
   font: inherit; color: inherit; background: rgba(0, 212, 255, 0.08);
@@ -71,6 +79,13 @@ function svg(tag, attributes = {}) {
 
 function rgb([r, g, b], alpha = 1) {
   return `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, ${alpha})`;
+}
+
+/** A threshold line takes its state's colour: nominal at or above it, unavailable below it. */
+const THRESHOLD_STATES = Object.freeze({ nominal: 0, unavailable: 2 });
+
+function sinr(db) {
+  return `${Math.round(db)}`.replace('-', '\u2212');
 }
 
 function clockText(ms) {
@@ -141,8 +156,8 @@ export function mountRunPlayer({ dataManager, container }) {
       <span class="rp-banner-text"></span>
       <span class="rp-time"></span>
     </div>
-    <svg viewBox="0 0 ${STRIP.width} ${STRIP.height}" preserveAspectRatio="none" tabindex="0"
-      role="slider" aria-label="Run time (SINR over the run)"></svg>
+    <div class="rp-strip"><svg viewBox="0 0 ${STRIP.width} ${STRIP.height}" preserveAspectRatio="none" tabindex="0"
+      role="slider" aria-label="Run time (SINR over the run)"></svg></div>
     <div class="rp-axis"><span class="rp-start"></span><span class="rp-range"></span><span class="rp-end"></span></div>
     <div class="rp-controls">
       <button type="button" class="rp-back" title="Back one epoch" aria-label="Back one epoch">◀◀</button>
@@ -193,6 +208,7 @@ export function mountRunPlayer({ dataManager, container }) {
 
   function drawStrip() {
     strip.replaceChildren();
+    for (const tag of root.querySelectorAll('.rp-threshold')) tag.remove();
     const timeline = state.timeline;
     if (!timeline) return;
     const geometry = stripGeometry(timeline, STRIP);
@@ -218,6 +234,30 @@ export function mountRunPlayer({ dataManager, container }) {
         }),
       );
     }
+    // The receiver response's thresholds (GEN-313), in the colours of the
+    // states they separate, labelled over the strip (SVG text would stretch).
+    for (const t of geometry.thresholds) {
+      const colour = rgb(RECEIVER_STATES[THRESHOLD_STATES[t.name]].colorRgb);
+      strip.appendChild(
+        svg('line', {
+          class: 'rp-threshold-line',
+          x1: 0,
+          x2: STRIP.width,
+          y1: t.y,
+          y2: t.y,
+          stroke: colour,
+          'stroke-width': 1,
+          'stroke-dasharray': '4 3',
+          'vector-effect': 'non-scaling-stroke',
+        }),
+      );
+      const tag = document.createElement('span');
+      tag.className = 'rp-threshold';
+      tag.style.top = `${(t.y / STRIP.height) * 100}%`;
+      tag.style.color = colour;
+      tag.textContent = `${t.name} ${sinr(t.db)} dB`;
+      strip.parentElement.appendChild(tag);
+    }
     // Each epoch's state as a dot on the line: the colour the path uses.
     for (const row of timeline.rows) {
       if (row.sinrDb === null) continue;
@@ -241,7 +281,6 @@ export function mountRunPlayer({ dataManager, container }) {
     strip.appendChild(cursor);
     $('.rp-start').textContent = clockText(timeline.start);
     $('.rp-end').textContent = clockText(timeline.end);
-    const sinr = (db) => `${Math.round(db)}`.replace('-', '−');
     $('.rp-range').textContent =
       `SINR ${sinr(geometry.sinrMinDb)}…${sinr(geometry.sinrMaxDb)} dB` +
       (geometry.windows.length ? ' · shaded: jammer active' : '');

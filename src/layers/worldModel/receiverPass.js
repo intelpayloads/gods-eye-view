@@ -172,7 +172,10 @@ export function passesFromSelection(selection) {
 /**
  * `POST /select` answer -> the receiver track's rows, one series per
  * receiver, in time order: `{ at, validTime, state, sinrDb, available,
- * position }`. The run player (GEN-310) reads the same rows as the pass.
+ * position, thresholds }`. `thresholds` holds the receiver response's
+ * `nominal_min_sinr_db` and `unavailable_below_sinr_db` (GEN-313), null
+ * where a run published before them does not carry them. The run player
+ * (GEN-310) reads the same rows as the pass.
  */
 export function trackSeriesFromSelection(selection) {
   const products = (selection?.products ?? []).filter(
@@ -195,6 +198,8 @@ export function trackSeriesFromSelection(selection) {
       const lat = finiteNumber(value.lat_deg);
       const height = finiteNumber(value.height_m);
       const sinrDb = finiteNumber(value.sinr_db);
+      const nominal = finiteNumber(value.nominal_min_sinr_db);
+      const unavailable = finiteNumber(value.unavailable_below_sinr_db);
       series.get(key).rows.push({
         at,
         validTime: row.valid_time,
@@ -205,6 +210,12 @@ export function trackSeriesFromSelection(selection) {
         position: [lon, lat, height].every(Number.isFinite)
           ? { lon, lat, height }
           : null,
+        thresholds: {
+          nominalMinSinrDb: Number.isFinite(nominal) ? nominal : null,
+          unavailableBelowSinrDb: Number.isFinite(unavailable)
+            ? unavailable
+            : null,
+        },
       });
     }
   }

@@ -1,0 +1,1052 @@
+{
+ "revision_id": "51b2ead1f8814df8b050a596b0258551",
+ "query": {
+  "spatial_scope": null,
+  "valid_at": null,
+  "known_as_of": null,
+  "type_filter": null,
+  "requested_layers": [
+   "simulation.rf.receiver_track"
+  ],
+  "resolution": null,
+  "predicates": {
+   "interval": {
+    "start": "1970-01-01T00:00:00Z",
+    "end": "2100-01-01T00:00:00Z"
+   }
+  },
+  "modalities": [
+   "simulated"
+  ]
+ },
+ "products": [
+  {
+   "product_ref": {
+    "type_id": "simulation.rf.receiver_track_sample_series.v1",
+    "content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc"
+   },
+   "descriptor_id": "8b63d6f9e38244248e78c6ac7cde328a",
+   "values_ref": null,
+   "metadata": {
+    "selected": 40,
+    "of": 40,
+    "access_target": "world-sample-store",
+    "coverage": {
+     "first": "2026-10-07T13:55:00+00:00",
+     "last": "2026-10-07T14:14:30+00:00"
+    },
+    "outside_coverage": false,
+    "declared_columns": {
+     "lat_deg": {
+      "unit": "deg",
+      "dtype": "float64",
+      "frame": "WGS84",
+      "quantity": "geodetic_latitude"
+     },
+     "lon_deg": {
+      "unit": "deg",
+      "dtype": "float64",
+      "frame": "WGS84",
+      "quantity": "geodetic_longitude"
+     },
+     "sinr_db": {
+      "unit": "dB",
+      "dtype": "float64",
+      "quantity": "signal_to_interference_plus_noise_ratio"
+     },
+     "height_m": {
+      "unit": "m",
+      "dtype": "float64",
+      "frame": "WGS84",
+      "quantity": "height_above_ellipsoid"
+     },
+     "available": {
+      "unit": "dimensionless",
+      "dtype": "bool",
+      "quantity": "receiver_available"
+     },
+     "state_code": {
+      "unit": "dimensionless",
+      "dtype": "int64",
+      "quantity": "receiver_state_code"
+     },
+     "reason_code": {
+      "unit": "dimensionless",
+      "dtype": "int64",
+      "quantity": "receiver_reason_code"
+     },
+     "recovery_seconds": {
+      "unit": "s",
+      "dtype": "float64",
+      "quantity": "receiver_recovery_delay"
+     },
+     "nominal_min_sinr_db": {
+      "unit": "dB",
+      "dtype": "float64",
+      "quantity": "receiver_nominal_min_sinr"
+     },
+     "interference_power_w": {
+      "unit": "W",
+      "dtype": "float64",
+      "quantity": "total_interference_power_at_receiver"
+     },
+     "unavailable_below_sinr_db": {
+      "unit": "dB",
+      "dtype": "float64",
+      "quantity": "receiver_unavailable_below_sinr"
+     }
+    },
+    "frame": "WGS84",
+    "order": "declared"
+   },
+   "values": [
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 0,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T13:55:00+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 51.629070265964494,
+      "lon_deg": -25.00914435149468,
+      "sinr_db": 20.0,
+      "height_m": 429939.0663719605,
+      "available": true,
+      "state_code": 0.0,
+      "reason_code": 2.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 0.0,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 1,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T13:55:30+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 51.42763867697162,
+      "lon_deg": -22.049227139880294,
+      "sinr_db": 20.0,
+      "height_m": 429792.01159721013,
+      "available": true,
+      "state_code": 0.0,
+      "reason_code": 2.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 0.0,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 2,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T13:56:00+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 51.14590799977878,
+      "lon_deg": -19.12152572740125,
+      "sinr_db": 20.0,
+      "height_m": 429622.68478826806,
+      "available": true,
+      "state_code": 0.0,
+      "reason_code": 2.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 0.0,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 3,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T13:56:30+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 50.785623457778854,
+      "lon_deg": -16.235715346636642,
+      "sinr_db": 20.0,
+      "height_m": 429431.5730312237,
+      "available": true,
+      "state_code": 0.0,
+      "reason_code": 2.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 0.0,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 4,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T13:57:00+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 50.34894718556241,
+      "lon_deg": -13.40047500548428,
+      "sinr_db": 20.0,
+      "height_m": 429219.2717521848,
+      "available": true,
+      "state_code": 0.0,
+      "reason_code": 2.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 0.0,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 5,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T13:57:30+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 49.83839826749148,
+      "lon_deg": -10.623346169206556,
+      "sinr_db": 20.0,
+      "height_m": 428986.4824172973,
+      "available": true,
+      "state_code": 0.0,
+      "reason_code": 2.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 0.0,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 6,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T13:58:00+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 49.25678766726529,
+      "lon_deg": -7.910648781829084,
+      "sinr_db": 20.0,
+      "height_m": 428734.00975209277,
+      "available": true,
+      "state_code": 0.0,
+      "reason_code": 2.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 0.0,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 7,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T13:58:30+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 48.60715066278656,
+      "lon_deg": -5.267448819295751,
+      "sinr_db": 20.0,
+      "height_m": 428462.75811431586,
+      "available": true,
+      "state_code": 0.0,
+      "reason_code": 2.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 0.0,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 8,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T13:59:00+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 47.89268532788623,
+      "lon_deg": -2.697592283253917,
+      "sinr_db": 20.0,
+      "height_m": 428173.72926484316,
+      "available": true,
+      "state_code": 0.0,
+      "reason_code": 2.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 0.0,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 9,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T13:59:30+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 47.11668629743163,
+      "lon_deg": -0.20374400934289633,
+      "sinr_db": 20.0,
+      "height_m": 427868.01602876856,
+      "available": true,
+      "state_code": 0.0,
+      "reason_code": 2.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 0.0,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 10,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T14:00:00+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 46.2824931101849,
+      "lon_deg": 2.2125077369267157,
+      "sinr_db": 20.0,
+      "height_m": 427546.7991439009,
+      "available": true,
+      "state_code": 0.0,
+      "reason_code": 2.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 0.0,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 11,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T14:00:30+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 45.39344143158276,
+      "lon_deg": 4.550544237220589,
+      "sinr_db": 20.0,
+      "height_m": 427211.34191545297,
+      "available": true,
+      "state_code": 0.0,
+      "reason_code": 2.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 0.0,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 12,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T14:01:00+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 44.45282274174952,
+      "lon_deg": 6.81059457415719,
+      "sinr_db": 20.0,
+      "height_m": 426862.98483062093,
+      "available": true,
+      "state_code": 0.0,
+      "reason_code": 2.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 0.0,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 13,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T14:01:30+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 43.46385167986685,
+      "lon_deg": 8.993610475814942,
+      "sinr_db": 20.0,
+      "height_m": 426503.1398029523,
+      "available": true,
+      "state_code": 0.0,
+      "reason_code": 2.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 0.0,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 14,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T14:02:00+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 42.429640672202424,
+      "lon_deg": 11.101143878794765,
+      "sinr_db": 20.0,
+      "height_m": 426133.2840695122,
+      "available": true,
+      "state_code": 0.0,
+      "reason_code": 2.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 0.0,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 15,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T14:02:30+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 41.35318120602612,
+      "lon_deg": 13.135231644367332,
+      "sinr_db": 20.0,
+      "height_m": 425754.9537656678,
+      "available": true,
+      "state_code": 0.0,
+      "reason_code": 2.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 0.0,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 16,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T14:03:00+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 40.23733095742959,
+      "lon_deg": 15.09829034187254,
+      "sinr_db": 20.0,
+      "height_m": 425369.7372037359,
+      "available": true,
+      "state_code": 0.0,
+      "reason_code": 2.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 0.0,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 17,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T14:03:30+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 39.08480591688386,
+      "lon_deg": 16.993022745790874,
+      "sinr_db": 1.7884539022902501,
+      "height_m": 424979.26788358926,
+      "available": true,
+      "state_code": 1.0,
+      "reason_code": 0.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 6.524522961722345e-19,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 18,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T14:04:00+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 37.89817665963181,
+      "lon_deg": 18.822336661019676,
+      "sinr_db": 0.4444273735566284,
+      "height_m": 424585.2172645218,
+      "available": true,
+      "state_code": 1.0,
+      "reason_code": 0.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 8.92728726312797e-19,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 19,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T14:04:30+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 36.67986795724851,
+      "lon_deg": 20.58927592696561,
+      "sinr_db": -1.0732263334749703,
+      "height_m": 424189.2873292782,
+      "available": false,
+      "state_code": 2.0,
+      "reason_code": 1.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 1.2703320978009413e-18,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 20,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T14:05:00+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 35.43216100501175,
+      "lon_deg": 22.296962962437085,
+      "sinr_db": -2.7465538944548484,
+      "height_m": 423793.2029725143,
+      "available": false,
+      "state_code": 2.0,
+      "reason_code": 1.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 1.8721550159671525e-18,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 21,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T14:05:30+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 34.157197630327126,
+      "lon_deg": 23.948551875052733,
+      "sinr_db": -4.4372098100443225,
+      "height_m": 423398.70424673334,
+      "available": false,
+      "state_code": 2.0,
+      "reason_code": 1.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 2.7679279728868302e-18,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 22,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T14:06:00+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 32.85698594419365,
+      "lon_deg": 25.547190986110074,
+      "sinr_db": -5.717400811258884,
+      "height_m": 423007.53850042017,
+      "available": false,
+      "state_code": 2.0,
+      "reason_code": 1.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 3.720268398866671e-18,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 23,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T14:06:30+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 31.53340698929811,
+      "lon_deg": 27.095993584304516,
+      "sinr_db": -5.915213659869707,
+      "height_m": 422621.4524435072,
+      "available": false,
+      "state_code": 2.0,
+      "reason_code": 1.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 3.894103890563235e-18,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 24,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T14:07:00+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 30.188222023518183,
+      "lon_deg": 28.598015729404754,
+      "sinr_db": -4.8912422727675064,
+      "height_m": 422242.18417637347,
+      "available": false,
+      "state_code": 2.0,
+      "reason_code": 1.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 3.0740700034267468e-18,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 25,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T14:07:30+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 28.823080152840312,
+      "lon_deg": 30.056240002293624,
+      "sinr_db": -3.2605682740842923,
+      "height_m": 421871.4552191104,
+      "available": false,
+      "state_code": 2.0,
+      "reason_code": 1.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 2.1086383408191893e-18,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 26,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T14:08:00+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 27.43952609248887,
+      "lon_deg": 31.473564204271625,
+      "sinr_db": -1.558055798018927,
+      "height_m": 421510.9625782552,
+      "available": false,
+      "state_code": 2.0,
+      "reason_code": 1.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 1.4215468965665825e-18,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 27,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T14:08:30+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 26.03900788955786,
+      "lon_deg": 32.852794117855844,
+      "sinr_db": 0.011133276824750737,
+      "height_m": 421162.37088844355,
+      "available": false,
+      "state_code": 3.0,
+      "reason_code": 4.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 9.874397513161762e-19,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 28,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T14:09:00+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 24.62288448534935,
+      "lon_deg": 34.196639554935246,
+      "sinr_db": 1.4060898490408391,
+      "height_m": 420827.3046665927,
+      "available": false,
+      "state_code": 3.0,
+      "reason_code": 4.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 7.134208391992975e-19,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 29,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T14:09:30+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 23.192431104538823,
+      "lon_deg": 35.50771478501626,
+      "sinr_db": 2.6379081388781955,
+      "height_m": 420507.3402977023,
+      "available": true,
+      "state_code": 1.0,
+      "reason_code": 3.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 5.347649859684164e-19,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 30,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T14:10:00+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 21.748853962569275,
+      "lon_deg": 36.788532312939616,
+      "sinr_db": 20.0,
+      "height_m": 420204.00032250653,
+      "available": true,
+      "state_code": 0.0,
+      "reason_code": 2.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 0.0,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 31,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T14:10:30+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 20.29328543144675,
+      "lon_deg": 38.04151581256086,
+      "sinr_db": 20.0,
+      "height_m": 419918.74367464153,
+      "available": true,
+      "state_code": 0.0,
+      "reason_code": 2.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 0.0,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 32,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T14:11:00+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 18.82679802242767,
+      "lon_deg": 39.26899669083145,
+      "sinr_db": 20.0,
+      "height_m": 419652.9604941661,
+      "available": true,
+      "state_code": 0.0,
+      "reason_code": 2.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 0.0,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 33,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T14:11:30+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 17.350408448482256,
+      "lon_deg": 40.47322045015651,
+      "sinr_db": 20.0,
+      "height_m": 419407.9650568192,
+      "available": true,
+      "state_code": 0.0,
+      "reason_code": 2.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 0.0,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 34,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T14:12:00+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 15.86508324770518,
+      "lon_deg": 41.65635195494473,
+      "sinr_db": 20.0,
+      "height_m": 419184.98947105854,
+      "available": true,
+      "state_code": 0.0,
+      "reason_code": 2.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 0.0,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 35,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T14:12:30+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 14.371744073703267,
+      "lon_deg": 42.82048120865684,
+      "sinr_db": 20.0,
+      "height_m": 418985.17773562524,
+      "available": true,
+      "state_code": 0.0,
+      "reason_code": 2.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 0.0,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 36,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T14:13:00+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 12.871272671644492,
+      "lon_deg": 43.96762948054918,
+      "sinr_db": 20.0,
+      "height_m": 418809.580188381,
+      "available": true,
+      "state_code": 0.0,
+      "reason_code": 2.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 0.0,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 37,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T14:13:30+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 11.364515563756328,
+      "lon_deg": 45.09975565839521,
+      "sinr_db": 20.0,
+      "height_m": 418659.1483753236,
+      "available": true,
+      "state_code": 0.0,
+      "reason_code": 2.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 0.0,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 38,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T14:14:00+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 9.852288469590388,
+      "lon_deg": 46.218762751790145,
+      "sinr_db": 20.0,
+      "height_m": 418534.73036684137,
+      "available": true,
+      "state_code": 0.0,
+      "reason_code": 2.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 0.0,
+      "unavailable_below_sinr_db": 0.0
+     }
+    },
+    {
+     "product_content_id": "sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+     "ordinal": 39,
+     "semantic_identity": "satellite:norad:25544",
+     "valid_time": "2026-10-07T14:14:30+00:00",
+     "knowledge_time": "2026-10-08T18:28:30.156388+00:00",
+     "series_key": {
+      "receiver": "receiver:foundation:iss-receiver"
+     },
+     "value": {
+      "lat_deg": 8.335380488142075,
+      "lon_deg": 47.32650448337768,
+      "sinr_db": 20.0,
+      "height_m": 418437.0665458482,
+      "available": true,
+      "state_code": 0.0,
+      "reason_code": 2.0,
+      "recovery_seconds": 60.0,
+      "nominal_min_sinr_db": 15.0,
+      "interference_power_w": 0.0,
+      "unavailable_below_sinr_db": 0.0
+     }
+    }
+   ]
+  }
+ ],
+ "plan": [
+  {
+   "kind": "revision",
+   "revision_id": "51b2ead1f8814df8b050a596b0258551",
+   "head": "sim/sha256:ac86cb666b69b2fd2d099530c814cdda713a2ff009f36daa0b7865a4eae13442",
+   "resolved_at": "2026-10-08T18:46:02.125526+00:00",
+   "parent_id": null
+  },
+  {
+   "kind": "product",
+   "binding": "simulation.rf.receiver_track",
+   "product_ref": "simulation.rf.receiver_track_sample_series.v1@sha256:9280a48d25eb3f3bd34c4dcbea5ac723ee8ad088658e9477523db0b9343f8bbc",
+   "descriptor_id": "8b63d6f9e38244248e78c6ac7cde328a",
+   "type_id": "simulation.rf.receiver_track_sample_series.v1",
+   "access_kind": "sample_series/v1",
+   "access_target": "world-sample-store",
+   "decision": "selected",
+   "reason": null,
+   "applied_dimensions": [],
+   "ignored_dimensions": [],
+   "detail": {
+    "selected": 40
+   }
+  }
+ ],
+ "omissions": []
+}

@@ -214,3 +214,80 @@ test('without a known revision the timeline is read by head name', async () => {
   assert.equal(timeline.rows.length, 40);
   assert.ok(calls.every((c) => c.head === 'sim/x' && !('revisionId' in c)));
 });
+
+// GEN-313: the receiver response's thresholds, from a run published with them
+// (head sim/sha256:ac86cb66…, revision 51b2ead1…, world-demo after DWM-216).
+const WITH_THRESHOLDS = fixture('receiver-track-thresholds.select.json');
+
+test('a run published with thresholds draws nominal 15 dB and unavailable 0 dB', () => {
+  const timeline = timelineFrom(WITH_THRESHOLDS);
+  assert.deepEqual(timeline.thresholds, [
+    { name: 'nominal', db: 15 },
+    { name: 'unavailable', db: 0 },
+  ]);
+  const g = stripGeometry(timeline, { width: 480, height: 56 });
+  assert.deepEqual(
+    g.thresholds.map((t) => [t.name, t.db]),
+    [
+      ['nominal', 15],
+      ['unavailable', 0],
+    ],
+  );
+  // Each line sits where the SINR line would cross that level.
+  for (const t of g.thresholds) assert.equal(t.y, g.y(t.db));
+  assert.ok(g.thresholds[0].y < g.thresholds[1].y, 'nominal above unavailable');
+});
+
+test('the y range covers a threshold the SINR never reaches', () => {
+  const flat = {
+    ...TIMELINE,
+    rows: TIMELINE.rows.map((r) => ({ ...r, sinrDb: 20 })),
+    thresholds: [
+      { name: 'nominal', db: 15 },
+      { name: 'unavailable', db: 0 },
+    ],
+  };
+  const g = stripGeometry(flat, { width: 480, height: 56 });
+  assert.equal(g.sinrMinDb, 0);
+  assert.equal(g.sinrMaxDb, 20);
+  for (const t of g.thresholds) assert.ok(t.y >= 0 && t.y <= 56);
+});
+
+test('a run published before GEN-313 draws no threshold; a column that changes is not one line', () => {
+  assert.deepEqual(TIMELINE.thresholds, []);
+  const product = WITH_THRESHOLDS.products[0];
+  const varying = {
+    ...WITH_THRESHOLDS,
+    products: [
+      {
+        ...product,
+        values: product.values.map((row, i) => ({
+          ...row,
+          value: { ...row.value, nominal_min_sinr_db: i < 20 ? 15 : 12 },
+        })),
+      },
+    ],
+  };
+  assert.deepEqual(timelineFrom(varying).thresholds, [
+    { name: 'unavailable', db: 0 },
+  ]);
+  const partial = {
+    ...WITH_THRESHOLDS,
+    products: [
+      {
+        ...product,
+        values: product.values.map((row, i) =>
+          i === 3
+            ? {
+                ...row,
+                value: { ...row.value, unavailable_below_sinr_db: null },
+              }
+            : row,
+        ),
+      },
+    ],
+  };
+  assert.deepEqual(timelineFrom(partial).thresholds, [
+    { name: 'nominal', db: 15 },
+  ]);
+});
