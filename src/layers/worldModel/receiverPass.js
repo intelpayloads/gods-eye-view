@@ -148,6 +148,33 @@ export function segmentsOf(samples) {
  * has no track (or its values were withheld for size).
  */
 export function passesFromSelection(selection) {
+  return trackSeriesFromSelection(selection).map(
+    ({ identity, receiver, rows: samples }) => {
+      const name = receiverName(receiver, identity);
+      return {
+        id: `${RECEIVER_TRACK_BINDING}/pass/${identity}/${receiver}`,
+        identity,
+        receiver,
+        label: `${name} (simulated)`,
+        first: samples[0]?.validTime ?? null,
+        last: samples.at(-1)?.validTime ?? null,
+        samples: samples.length,
+        segments: segmentsOf(samples).map((segment) => ({
+          ...segment,
+          from: new Date(segment.from).toISOString(),
+          until: new Date(segment.until).toISOString(),
+        })),
+      };
+    },
+  );
+}
+
+/**
+ * `POST /select` answer -> the receiver track's rows, one series per
+ * receiver, in time order: `{ at, validTime, state, sinrDb, available,
+ * position }`. The run player (GEN-310) reads the same rows as the pass.
+ */
+export function trackSeriesFromSelection(selection) {
   const products = (selection?.products ?? []).filter(
     (product) =>
       product?.product_ref?.type_id?.startsWith(
@@ -167,34 +194,24 @@ export function passesFromSelection(selection) {
       const lon = finiteNumber(value.lon_deg);
       const lat = finiteNumber(value.lat_deg);
       const height = finiteNumber(value.height_m);
+      const sinrDb = finiteNumber(value.sinr_db);
       series.get(key).rows.push({
         at,
         validTime: row.valid_time,
         state: stateOf(value.state_code),
+        sinrDb: Number.isFinite(sinrDb) ? sinrDb : null,
+        available:
+          typeof value.available === 'boolean' ? value.available : null,
         position: [lon, lat, height].every(Number.isFinite)
           ? { lon, lat, height }
           : null,
       });
     }
   }
-  return [...series.values()].map(({ identity, receiver, rows }) => {
-    const samples = rows.sort((a, b) => a.at - b.at);
-    const name = receiverName(receiver, identity);
-    return {
-      id: `${RECEIVER_TRACK_BINDING}/pass/${identity}/${receiver}`,
-      identity,
-      receiver,
-      label: `${name} (simulated)`,
-      first: samples[0]?.validTime ?? null,
-      last: samples.at(-1)?.validTime ?? null,
-      samples: samples.length,
-      segments: segmentsOf(samples).map((segment) => ({
-        ...segment,
-        from: new Date(segment.from).toISOString(),
-        until: new Date(segment.until).toISOString(),
-      })),
-    };
-  });
+  return [...series.values()].map((entry) => ({
+    ...entry,
+    rows: entry.rows.sort((a, b) => a.at - b.at),
+  }));
 }
 
 /**

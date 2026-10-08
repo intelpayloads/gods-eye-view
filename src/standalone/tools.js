@@ -10,6 +10,7 @@ import {
   releaseContinuousRender,
 } from '../renderGovernor.js';
 import { startStandaloneChrome } from './startupChrome.js';
+import { mountRunPlayer } from '../ui/runPlayer.js';
 import { STANDALONE_FEATURES, resolveFeatures } from './features.js';
 
 export { STANDALONE_FEATURES } from './features.js';
@@ -46,6 +47,8 @@ export function createStandaloneTools({
       firstRun: enabled.firstRun,
     }),
   );
+  // A simulated run on screen plays through time (GEN-310).
+  defer(mountRunPlayer({ dataManager, container: viewer.container }));
   // Idle render governor: flips the scene into requestRenderMode whenever
   // nothing animates per frame. Installed AFTER every module above has had
   // its chance to register pre-install holds. (perf wave 2)

@@ -885,6 +885,11 @@ export function createWorldModelLayer({
       selection.clearSelection();
     },
 
+    /** The ProjectionSource this layer reads (the run player selects through it). */
+    getProjectionSource() {
+      return source;
+    },
+
     describeSource() {
       return typeof source.describe === 'function'
         ? source.describe()
