@@ -671,6 +671,61 @@ test('a binding withheld for a grant says so on the card, one line per grant (DW
   plain.layer.destroy(plain.viewer);
 });
 
+test('product rows moved to another run keep their own binding, so no item is in two rows (DWM-210)', async () => {
+  /** A source that serves only the requested bindings, as the backplane does. */
+  function filtering() {
+    const source = fixtureSource();
+    const all = source.getProjection;
+    source.getProjection = async (request) => {
+      const wanted = request.query?.requested_layers;
+      const projection = await all(request);
+      if (!wanted) return projection;
+      return {
+        ...projection,
+        points: projection.points.filter((p) => wanted.includes(p.binding)),
+        field_samples: projection.field_samples.filter((s) =>
+          wanted.includes(s.binding),
+        ),
+      };
+    };
+    return source;
+  }
+  const rows = ['world.aircraft', 'world.weather'].map((binding) => {
+    const source = filtering();
+    return {
+      binding,
+      source,
+      h: harness(source, { id: `world-product:${binding}`, layers: [binding] }),
+    };
+  });
+  for (const { h } of rows) {
+    // What openRun and a row's run chips send: a head, no layers.
+    assert.equal(h.layer.setParams({ head: 'sim/sha256:other' }), true);
+    await h.layer.update(h.viewer);
+  }
+  const held = rows.map(({ binding, source, h }) => {
+    assert.deepEqual(h.layer.getParams().layers, [binding]);
+    assert.deepEqual(source.calls.projections.at(-1).query.requested_layers, [
+      binding,
+    ]);
+    return new Set(h.sources[0].entities.values.map((e) => e.id));
+  });
+  assert.ok(held[0].size > 0 && held[1].size > 0, 'both rows draw');
+  assert.equal(
+    [...held[0]].some((itemId) => held[1].has(itemId)),
+    false,
+    'no item is held by two rows',
+  );
+
+  // The generic layer still opens a whole world: no filter of its own.
+  const generic = harness(fixtureSource());
+  generic.layer.setParams({ layers: ['world.aircraft'] });
+  generic.layer.setParams({ head: 'world/other' });
+  assert.equal(generic.layer.getParams().layers, null);
+  for (const { h } of rows) h.layer.destroy(h.viewer);
+  generic.layer.destroy(generic.viewer);
+});
+
 test('a synthetic third binding conforming to the same contracts renders as points with no layer change', async () => {
   const vessels = Array.from({ length: 3 }, (_, i) => ({
     id: `world.vessels/track:ais:mmsi:${i}`,

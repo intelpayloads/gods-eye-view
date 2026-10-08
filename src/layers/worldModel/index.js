@@ -576,7 +576,14 @@ export function createWorldModelLayer({
         return false;
       if (params.policyThresholdSeconds !== undefined)
         state.policyThresholdSeconds = Number(params.policyThresholdSeconds);
-      if (params.head !== undefined) controller.setWorld(params.head.trim());
+      if (params.head !== undefined) {
+        controller.setWorld(params.head.trim());
+        // setWorld drops the binding filter, which is right for the generic
+        // layer; a product row's binding is its identity, so it survives a
+        // move to another run. Lost, every row drew the whole run and one
+        // click selected the same item in two of them (DWM-210).
+        if (layers && params.layers === undefined) controller.setLayers(layers);
+      }
       if (params.modalities !== undefined)
         controller.setModalities(params.modalities);
       if (params.layers !== undefined) controller.setLayers(params.layers);
