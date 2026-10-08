@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import * as Cesium from 'cesium';
 import { createWorldModelLayer } from './index.js';
+import { PROVENANCE_CLOSED } from './selection.js';
 import { DEFAULT_DISPLAY_ASSUMPTIONS } from './view.js';
 
 const read = (name) =>
@@ -31,6 +32,7 @@ function harness(source, { camera = null, ...options } = {}) {
   let selected = null;
   let handler = null;
   let pickResult;
+  let cardHit = null;
   const viewer = {
     dataSources: {
       add(value) {
@@ -93,6 +95,7 @@ function harness(source, { camera = null, ...options } = {}) {
       clearSource(...args) {
         overlay.push(['clear', ...args]);
       },
+      hitTest: () => cardHit,
     },
     screenSpaceEventHandlerFactory: () => {
       handler = {
@@ -122,6 +125,10 @@ function harness(source, { camera = null, ...options } = {}) {
     selected: () => selected,
     pick(value) {
       pickResult = value;
+    },
+    /** The painted card a click lands on next; null for none. */
+    hitCard(entryId) {
+      cardHit = entryId ? { sourceId: 'world-model', entryId } : null;
     },
     cards: () => overlay.filter(([k]) => k === 'set'),
   };
@@ -527,7 +534,16 @@ test('selection publishes one protected card, then the admitted descriptor and l
   assert.deepEqual(source.calls.provenance, [
     `aircraft.track_state_set.v1@${fixture.points[0].semantic_ref.product_ref.content_id}`,
   ]);
+  // Fetched at once, folded until the card itself is clicked (DWM-209).
+  const folded = h.cards().at(-1)[2][0];
+  assert.equal(folded.details.at(-1), PROVENANCE_CLOSED);
+  assert.equal(folded.interactive, true);
+  assert.equal(folded.details.join('\n').includes('descriptor'), false);
+  h.hitCard(DLH);
+  h.handler().fn({ position: { x: 5, y: 5 } });
+  assert.equal(h.layer.getSelectedId(), DLH, 'a click on the card keeps it');
   const inspected = h.cards().at(-1)[2][0].details.join('\n');
+  assert.match(inspected, /▾ provenance · click the card to close\nknown /);
   assert.match(
     inspected,
     /descriptor [0-9a-f]{8} · admitted · aircraft\.track_state_set\.v1/,
@@ -540,6 +556,12 @@ test('selection publishes one protected card, then the admitted descriptor and l
   assert.match(inspected, /connector opensky-replay/);
   // the context store gets only the selection record, never the report
   assert.equal('descriptors' in h.store.get(DLH).properties, false);
+  // a refresh of the same selection stays open; the next click folds it
+  await h.layer.update(h.viewer);
+  assert.match(h.cards().at(-1)[2][0].details.join('\n'), /produced by/);
+  h.handler().fn({ position: { x: 5, y: 5 } });
+  assert.equal(h.cards().at(-1)[2][0].details.at(-1), PROVENANCE_CLOSED);
+  h.hitCard(null);
 
   // empty-space click clears
   h.pick(undefined);
@@ -558,11 +580,19 @@ test('selection publishes one protected card, then the admitted descriptor and l
   );
   await flush();
   await flush();
+  h.hitCard(NODE);
+  h.handler().fn({ position: { x: 3, y: 3 } });
+  h.hitCard(null);
   assert.match(
     h.cards().at(-1)[2][0].details.join('\n'),
     /via weather\.field_block\.v1@/,
   );
   h.layer.selectById(DLH);
+  assert.equal(
+    h.cards().at(-1)[2][0].details.at(-1),
+    PROVENANCE_CLOSED,
+    'a new selection starts folded',
+  );
   await flush();
   assert.equal(
     source.calls.provenance.length,
@@ -750,6 +780,7 @@ test('a synthetic third binding conforming to the same contracts renders as poin
   assert.match(card.details.join('\n'), /mmsi 1 · fix_quality gnss/);
   await flush();
   await flush();
+  assert.equal(h.cards().at(-1)[2][0].activate(), true, 'keyboard opens it');
   assert.match(
     h.cards().at(-1)[2][0].details.join('\n'),
     /provenance unavailable: no product registered/,

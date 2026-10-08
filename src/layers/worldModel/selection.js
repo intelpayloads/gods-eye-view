@@ -3,6 +3,7 @@ import {
   contextRecordFor,
   inspectionLines,
   selectionCardLines,
+  selectionProvenanceLines,
 } from './adapter.js';
 import { refString, sourceFeatures } from './source.js';
 
@@ -20,6 +21,10 @@ export const WORLD_MODEL_SELECTED_OVERLAY_OPTIONS = Object.freeze({
 /** Provenance reports kept per content-addressed ref (immutable, so cacheable). */
 export const PROVENANCE_CACHE_LIMIT = 32;
 
+/** The last line of a selected card: where its provenance is (DWM-209). */
+export const PROVENANCE_CLOSED = '▸ provenance · click the card';
+export const PROVENANCE_OPEN = '▾ provenance · click the card to close';
+
 const FALLBACK_ACCENT = '#00ffff';
 
 function cssColor(rgb) {
@@ -30,9 +35,10 @@ function cssColor(rgb) {
 
 /**
  * Selection for the world-model layer: click -> selected card + shared
- * context record. The card quotes the projection's numbers and grants; then,
- * when the source offers `getProvenance`, the item's ADMITTED descriptor and
- * its lineage are fetched by the item's own product ref and appended. The
+ * context record. The card quotes the projection's values, position and
+ * grants; its provenance -- the refs and, when the source offers
+ * `getProvenance`, the item's ADMITTED descriptor and lineage -- is fetched
+ * at once but stays folded until the card itself is clicked (DWM-209). The
  * context record carries semantic/source refs verbatim for inspection.
  */
 export function createSelection({
@@ -53,6 +59,8 @@ export function createSelection({
   const features = sourceFeatures(source);
   const provenance = new Map(); // ref -> report | Promise<report>
   let inspection = null; // { itemId, controller }
+  let open = false; // the selected card shows its provenance
+  let inspected = null; // { itemId, lines } once the report (or its failure) is in
 
   function contextFor(entry) {
     return contextRecordFor(entry.render, {
@@ -64,7 +72,22 @@ export function createSelection({
     });
   }
 
-  function cardEntry(entry, extraDetails = []) {
+  function provenanceDetails(entry) {
+    if (!open) return [PROVENANCE_CLOSED];
+    const report =
+      inspected?.itemId === entry.render.id
+        ? inspected.lines
+        : features.provenance
+          ? ['provenance loading…']
+          : [];
+    return [
+      PROVENANCE_OPEN,
+      ...selectionProvenanceLines(entry.render),
+      ...report,
+    ];
+  }
+
+  function cardEntry(entry) {
     const [title, ...details] = selectionCardLines(entry.render);
     return {
       id: entry.render.id,
@@ -76,9 +99,12 @@ export function createSelection({
       collisionGroup: 'ambient-card',
       priority: Number.MAX_SAFE_INTEGER,
       title,
-      details: [...details, ...extraDetails],
+      details: [...details, ...provenanceDetails(entry)],
       accent: cssColor(entry.render.colorRgb),
-      interactive: false,
+      // A click on the card (or keyboard activation) opens its provenance.
+      interactive: true,
+      accessibilityLabel: `${open ? 'Close' : 'Open'} provenance of ${title}`,
+      activate: () => toggleProvenance(),
       anchorRadiusPx: 8,
       minAnchorGapPx: 10,
       verticalOnly: true,
@@ -89,12 +115,21 @@ export function createSelection({
     };
   }
 
-  function publishCard(entry, extraDetails = []) {
+  function publishCard(entry) {
     overlayHost.setEntries(
       id,
-      [cardEntry(entry, extraDetails)],
+      [cardEntry(entry)],
       WORLD_MODEL_SELECTED_OVERLAY_OPTIONS,
     );
+  }
+
+  /** Open or close the selected card's provenance; false with no selection. */
+  function toggleProvenance() {
+    const entry = state.selectedId ? state.byId.get(state.selectedId) : null;
+    if (!entry) return false;
+    open = !open;
+    publishCard(entry);
+    return true;
   }
 
   function pickedOwnId(picked) {
@@ -110,6 +145,15 @@ export function createSelection({
     if (state.clickHandler || !state.viewer) return;
     const handler = screenSpaceEventHandlerFactory(state.viewer);
     handler.setInputAction((click) => {
+      // The cards canvas takes no pointer events, so a click on our own
+      // selected card is found by its painted rectangle.
+      const card = overlayHost.hitTest?.(click.position?.x, click.position?.y, {
+        sourceId: id,
+      });
+      if (card && card.entryId === state.selectedId) {
+        toggleProvenance();
+        return;
+      }
       const picked = state.viewer?.scene?.pick(click.position);
       const own = pickedOwnId(picked);
       if (own) {
@@ -190,16 +234,22 @@ export function createSelection({
         if (controller.signal.aborted || state.selectedId !== itemId) return;
         const current = state.byId.get(itemId);
         if (!current) return;
-        publishCard(current, inspectionLines(current.render.record, report));
+        inspected = {
+          itemId,
+          lines: inspectionLines(current.render.record, report),
+        };
+        publishCard(current);
         if (inspection?.controller === controller) inspection = null;
       },
       (error) => {
         if (controller.signal.aborted || state.selectedId !== itemId) return;
         const current = state.byId.get(itemId);
         if (!current) return;
-        publishCard(current, [
-          `provenance unavailable: ${error?.message || error}`,
-        ]);
+        inspected = {
+          itemId,
+          lines: [`provenance unavailable: ${error?.message || error}`],
+        };
+        publishCard(current);
         if (inspection?.controller === controller) inspection = null;
       },
     );
@@ -209,6 +259,11 @@ export function createSelection({
   function selectById(itemId) {
     const entry = state.byId.get(itemId);
     if (!entry) return false;
+    // A new selection starts folded; a refresh of the same one keeps its state.
+    if (itemId !== state.selectedId) {
+      open = false;
+      inspected = null;
+    }
     state.selectedId = itemId;
     publishCard(entry);
     try {

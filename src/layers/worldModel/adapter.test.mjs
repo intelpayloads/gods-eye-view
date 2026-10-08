@@ -16,6 +16,8 @@ import {
   packCardLines,
   pointRecordsFromProjection,
   selectionCardLines,
+  selectionProvenanceLines,
+  MAX_CARD_VALUES,
   shortRef,
   summarizeProjection,
   temperatureColor,
@@ -178,7 +180,7 @@ test('a 2-D point (no height declared, DWM-75) is drawn on the surface at 0, nev
   assert.match(lines.join('\n'), /^grant none needed$/m);
   assert.match(lines.join('\n'), /satellite N20 · confidence n/);
   assert.match(
-    lines.join('\n'),
+    selectionProvenanceLines(fire).join('\n'),
     /source\.firms\.viirs_noaa20_nrt\.v1@313f6326 row 3/,
   );
   for (const line of lines) assert.ok(line.length <= MAX_CARD_LINE_CHARS, line);
@@ -218,11 +220,15 @@ test('selection cards quote the grants, distinguish product-time age from query 
     lines.some((l) => l.startsWith('age at query')),
     false,
   );
-  assert.match(lines.join('\n'), /aircraft\.track_state_set\.v1@7b84ecd0/);
+  // Where it came from is folded behind the card's provenance (DWM-209).
+  const provenance = selectionProvenanceLines(point).join('\n');
+  assert.equal(lines.join('\n').includes('@7b84ecd0'), false);
+  assert.match(provenance, /aircraft\.track_state_set\.v1@7b84ecd0/);
   assert.match(
-    lines.join('\n'),
+    provenance,
     /source\.opensky\.state_vectors\.v1@452fc448 row 11/,
   );
+  assert.match(provenance, /^known /m);
 
   const marked = pointRecordsFromProjection({
     points: [
@@ -237,7 +243,7 @@ test('selection cards quote the grants, distinguish product-time age from query 
     /age at query 61 s · STALE \(view policy\)/,
   );
 
-  // a synthetic product with no callsign: identity is the title, properties are listed as they come
+  // a synthetic product with no callsign: identity is the title, then every property as it comes
   const vessel = pointRecordsFromProjection({
     points: [
       {
@@ -257,8 +263,12 @@ test('selection cards quote the grants, distinguish product-time age from query 
   }).records[0];
   const vlines = selectionCardLines(vessel);
   assert.equal(vlines[0], 'track:ais:mmsi:1');
-  assert.match(vlines.join('\n'), /mmsi 1 · fix_quality gnss/);
-  assert.equal(vlines.join('\n').includes('speed_kn'), false);
+  assert.equal(vlines[1], 'mmsi 1 · fix_quality gnss · speed_kn 9.50');
+  assert.equal(
+    vlines.some((l) => /\?|age at product time/.test(l)),
+    false,
+    'an unset status or age is left out, never printed as ?',
+  );
 
   const weather = fieldSampleRecordsFromProjection(fixture).records.find(
     (r) => r.id === NODE,
@@ -461,4 +471,46 @@ test('an omission that names a grant is ungranted, whichever field names it; oth
     },
   ]);
   assert.deepEqual(summarizeProjection(fixture).ungranted, []);
+});
+
+test('a selected item leads with its own values; tiny numbers keep their magnitude (DWM-209)', () => {
+  const receiver = pointRecordsFromProjection({
+    points: [
+      {
+        id: 'simulation.rf.receiver_track/satellite:norad:25544',
+        binding: 'simulation.rf.receiver_track',
+        position: { lon: 22.3, lat: 35.43, height_m: 423782.6 },
+        height: {
+          value_m: 423782.6,
+          source_field: 'height_m',
+          assumption: 'geodetic_height:declared-wgs84-ellipsoidal',
+        },
+        time: { valid_at: '2026-10-07T14:05:00+00:00' },
+        semantic_ref: { semantic_identity: 'satellite:norad:25544' },
+        properties: {
+          sinr_db: -2.7506,
+          available: false,
+          state_code: 2,
+          reason_code: 1,
+          interference_power_w: 1.8739e-18,
+        },
+      },
+    ],
+  }).records[0];
+  const lines = selectionCardLines(receiver);
+  assert.equal(lines[0], 'satellite:norad:25544');
+  const values = lines.findIndex((l) => l.startsWith('sinr_db -2.75'));
+  const where = lines.findIndex((l) => l.includes('height 423783 m'));
+  assert.ok(values === 1 && where > values, lines.join('\n'));
+  assert.match(lines.join('\n'), /interference_power_w 1\.87e-18/);
+  assert.match(lines.join('\n'), /^valid 2026-10-07T14:05:00\+00:00$/m);
+
+  // Past the budget the card says how many values it left out.
+  const many = Object.fromEntries(
+    Array.from({ length: MAX_CARD_VALUES + 3 }, (_, i) => [`v${i}`, i]),
+  );
+  const crowded = pointRecordsFromProjection({
+    points: [{ ...receiver.record, properties: many }],
+  }).records[0];
+  assert.match(selectionCardLines(crowded).join('\n'), /… 3 more values/);
 });
