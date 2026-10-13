@@ -87,8 +87,15 @@ export function createSelection({
     ];
   }
 
+  /** The descriptor header of the item's binding in the shown revision, once read (GEN-312). */
+  function headerOf(entry) {
+    return state.headers?.[entry.render.binding] ?? null;
+  }
+
   function cardEntry(entry) {
-    const [title, ...details] = selectionCardLines(entry.render);
+    const [title, ...details] = selectionCardLines(entry.render, {
+      header: headerOf(entry),
+    });
     return {
       id: entry.render.id,
       position: entry.cartesian,

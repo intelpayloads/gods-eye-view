@@ -11,6 +11,11 @@
  * came from, colour is keyed by the binding name, and the card reads the
  * item's own `semantic_identity`, `properties` and grants.
  */
+import {
+  RECEIVER_WORDED,
+  receiverCard,
+  receiverRawFragments,
+} from './rfCard.js';
 
 /**
  * Every display-only choice this adapter or the layer makes, named so an
@@ -366,10 +371,13 @@ export function packCardLines(fragments, max = MAX_CARD_LINE_CHARS) {
  * projection's own numbers and grants; nothing is recomputed. "age" is the
  * product's own (age at product time T); "age at query" is what the view's
  * temporal_age policy computed against the query's valid time.
+ * A receiver-track row leads with its state and reason in words, read from
+ * the product header's legends when `header` is given (GEN-312).
  * @param {object} renderRecord A record from the functions above.
+ * @param {{header?: object|null}} [options] The binding's descriptor metadata.
  * @returns {string[]}
  */
-export function selectionCardLines(renderRecord) {
+export function selectionCardLines(renderRecord, { header = null } = {}) {
   const item = renderRecord?.record || {};
   if (renderRecord?.kind === 'field-sample') {
     const time = item.time || {};
@@ -399,6 +407,7 @@ export function selectionCardLines(renderRecord) {
       : {};
   const identity =
     item.semantic_ref?.semantic_identity || renderRecord?.id || 'item';
+  const receiver = receiverCard(item, header);
   // Opportunistic: a callsign-like property leads the title when present.
   // Then the item's own values, all of them up to a budget, ahead of where
   // and when: they are what a click asks about (DWM-209).
@@ -406,12 +415,18 @@ export function selectionCardLines(renderRecord) {
   const lead = keys.includes('callsign') ? 'callsign' : null;
   const leadText = lead ? propertyText(props[lead]) : '';
   const values = keys
-    .filter((k) => k !== lead)
+    .filter((k) => k !== lead && !(receiver && RECEIVER_WORDED.includes(k)))
     .flatMap((k) => propertyFragments(k, props[k]));
   const surface = renderRecord?.surface === true;
   const age = Number(time.age_seconds);
+  const title = receiver
+    ? receiver.title
+    : leadText && leadText !== '—'
+      ? `${leadText} · ${identity}`
+      : identity;
   const lines = [
-    leadText && leadText !== '—' ? `${leadText} · ${identity}` : identity,
+    title,
+    ...(receiver ? [receiver.lead, ...packCardLines(receiver.measures)] : []),
     ...packCardLines(values.slice(0, MAX_CARD_VALUES)),
     values.length > MAX_CARD_VALUES
       ? `… ${values.length - MAX_CARD_VALUES} more values`
@@ -468,6 +483,8 @@ export function selectionProvenanceLines(renderRecord) {
       `product ${shortRef(item.semantic_ref?.product_ref)}`,
       `source ${shortRef(item.source_ref?.source)} row ${item.source_ref?.row_index ?? '?'}`,
     ]),
+    // The served values the card put in words (GEN-312).
+    ...packCardLines(receiverRawFragments(item)),
   ];
 }
 

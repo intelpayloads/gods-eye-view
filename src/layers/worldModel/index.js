@@ -36,6 +36,7 @@ import {
   createReceiverPasses,
   showsReceiverPass,
 } from './receiverPass.js';
+import { revisionHeaders } from './rfCard.js';
 export * from './adapter.js';
 export * from './controller.js';
 export * from './demand.js';
@@ -133,6 +134,8 @@ export function createWorldModelLayer({
     passSource: null,
     passes: [],
     passRevisionId: null,
+    headers: {}, // binding -> descriptor semantic.metadata of the shown revision (GEN-312)
+    headersRevisionId: null,
   };
   const simulationRuns = createSimulationRuns(source);
   const receiverPasses = createReceiverPasses(source);
@@ -241,6 +244,8 @@ export function createWorldModelLayer({
   function resetRendered() {
     state.byId = new Map();
     state.revisionId = null;
+    state.headers = {};
+    state.headersRevisionId = null;
     state.summary = null;
     state.perBinding = [];
     state.skipped = [];
@@ -390,6 +395,32 @@ export function createWorldModelLayer({
     }
   }
 
+  /**
+   * GEN-312: the shown revision's descriptor headers, read once per revision,
+   * so a receiver card names its state and reason from the product's legend.
+   * Only simulated items carry one; the base world is never asked.
+   */
+  async function refreshHeaders(revisionId, records) {
+    if (state.headersRevisionId === revisionId) return;
+    state.headersRevisionId = revisionId;
+    state.headers = {};
+    if (
+      !features.revision ||
+      !records.some((r) => String(r.binding).startsWith('simulation.'))
+    )
+      return;
+    try {
+      const headers = await revisionHeaders(source, revisionId);
+      if (state.headersRevisionId !== revisionId) return;
+      state.headers = headers;
+      selection.reselect();
+    } catch (error) {
+      if (state.headersRevisionId === revisionId)
+        state.headersRevisionId = null;
+      console.warn('[Data:WorldModel] revision headers unreadable:', error);
+    }
+  }
+
   /** Only the controller's apply callback reaches here: ordering is decided there. */
   function applyProjection(projection) {
     if (!state.enabled || !state.dataSource) return;
@@ -419,6 +450,10 @@ export function createWorldModelLayer({
     selection.refreshContextRegistrations();
     selection.reselect();
     refreshPasses(projection.revision_id);
+    refreshHeaders(projection.revision_id, [
+      ...points.records,
+      ...samples.records,
+    ]);
     console.log(
       `[Data:WorldModel] Rendered revision ${projection.revision_id.slice(0, 8)}: ` +
         (state.perBinding
