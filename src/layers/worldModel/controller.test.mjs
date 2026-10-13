@@ -361,3 +361,71 @@ test('policy changes travel with the request and are echoed back as demand', asy
   assert.equal(calls.projections.length, 3);
   c.stop();
 });
+
+test('a slow status never holds the projection back and is asked once per head revision (DWM-221)', async () => {
+  const clock = fakeClock();
+  const { source, calls } = fakeSource({ chain: ['rev-1'] });
+  const pending = [];
+  source.getStatus = ({ head, signal }) => {
+    calls.status++;
+    return new Promise((resolve, reject) => {
+      pending.push({ head, resolve, signal });
+      signal?.addEventListener('abort', () =>
+        reject(Object.assign(new Error('aborted'), { name: 'AbortError' })),
+      );
+    });
+  };
+  const c = controllerWith(source, clock);
+  const t1 = c.tick();
+  await flush();
+  assert.equal(
+    calls.projections.length,
+    1,
+    'projected without waiting on status',
+  );
+  calls.projections[0].resolve();
+  assert.equal(await t1, true);
+  assert.equal(c.getState().status, null);
+
+  const t2 = c.tick();
+  await flush();
+  calls.projections[1].resolve();
+  await t2;
+  assert.equal(
+    calls.status,
+    1,
+    'no second status while the first is in flight',
+  );
+  assert.equal(pending[0].signal.aborted, false, 'a tick does not abort it');
+
+  const status = {
+    head: { name: 'world/main', revision_id: 'rev-1' },
+    bindings: [],
+  };
+  pending[0].resolve(status);
+  await flush();
+  assert.deepEqual(c.getState().status, status);
+
+  const t3 = c.tick();
+  await flush();
+  calls.projections[2].resolve();
+  await t3;
+  assert.equal(
+    calls.status,
+    1,
+    'the head has not moved: status is not re-read',
+  );
+
+  source.chain = [
+    { id: 'rev-2', parent_id: 'rev-1', created_at: '2026-09-10T22:05:00Z' },
+    ...source.chain,
+  ];
+  const t4 = c.tick();
+  await flush();
+  calls.projections[3].resolve();
+  await t4;
+  assert.equal(calls.status, 2, 'the head moved: status is read again');
+
+  c.stop();
+  assert.equal(pending[1].signal.aborted, true, 'stop aborts it');
+});

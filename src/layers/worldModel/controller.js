@@ -80,6 +80,8 @@ export function createWorldViewController({
     chainCheckedAt: null,
     status: null,
     statusError: null,
+    statusFor: null,
+    statusRequest: null,
     projection: null,
     request: null,
     requestKey: null,
@@ -98,6 +100,53 @@ export function createWorldViewController({
     discarded: 0,
     listeners: new Set(),
   };
+
+  /**
+   * Status is facts beside the geometry, never a gate on it: a slow
+   * `/status` (minutes on a busy backplane, DWM-221) must not hold back the
+   * projection or be re-asked every tick. So it is read off the tick, one
+   * request at a time, and again only once the head has moved since the
+   * last answer. A tick never aborts it (the backplane would finish the
+   * work anyway); a world change, cancel or stop does.
+   */
+  function readStatus(head, revisionId) {
+    const lane = state.statusRequest;
+    if (lane && lane.head === head) return;
+    if (
+      state.status &&
+      state.statusFor?.head === head &&
+      state.statusFor.revisionId === revisionId
+    )
+      return;
+    lane?.controller.abort();
+    const controller = new AbortController();
+    const request = { head, controller };
+    state.statusRequest = request;
+    source.getStatus({ head, signal: controller.signal }).then(
+      (status) => {
+        if (state.statusRequest !== request) return;
+        state.statusRequest = null;
+        if (state.stopped || state.demand.head !== head) return;
+        state.status = status;
+        state.statusError = null;
+        state.statusFor = {
+          head,
+          revisionId: status?.head?.revision_id ?? revisionId,
+        };
+      },
+      (error) => {
+        if (state.statusRequest !== request) return;
+        state.statusRequest = null;
+        if (isAbort(error) || state.stopped) return;
+        state.statusError = error?.message || 'status unavailable';
+      },
+    );
+  }
+
+  function abortStatus() {
+    state.statusRequest?.controller.abort();
+    state.statusRequest = null;
+  }
 
   function abortInflight() {
     state.inflight?.controller.abort();
@@ -204,7 +253,7 @@ export function createWorldViewController({
     features,
 
     /**
-     * One host clock tick: read the chain (and status when offered), then
+     * One host clock tick: read the chain (and start a status read when offered), then
      * LIVE re-projects the current demand by the newest revision id with a
      * fresh wall-clock `valid_at`; PINNED only re-reads facts.
      * Never throws: transport failures land in `getState()`.
@@ -244,23 +293,8 @@ export function createWorldViewController({
             state.chainErrorCode === 'unreachable' ? 'unavailable' : 'error';
         }
       }
-      if (features.status) {
-        try {
-          const status = await source.getStatus({
-            head,
-            signal: tickController.signal,
-          });
-          if (tickController.signal.aborted || state.stopped) return false;
-          if (state.demand.head === head) {
-            state.status = status;
-            state.statusError = null;
-          }
-        } catch (error) {
-          if (isAbort(error) || tickController.signal.aborted || state.stopped)
-            return false;
-          state.statusError = error?.message || 'status unavailable';
-        }
-      }
+      if (features.status && chainOk)
+        readStatus(head, state.chain[0]?.id ?? null);
       if (state.demand.follow === 'live' && chainOk) {
         cancelTimer(); // this tick supersedes a pending debounce
         await issue({ signal: tickController.signal });
@@ -376,7 +410,9 @@ export function createWorldViewController({
     setWorld(head) {
       if (!head || head === state.demand.head) return;
       state.chain = [];
+      abortStatus();
       state.status = null;
+      state.statusFor = null;
       state.projection = null;
       state.request = null;
       state.load = 'loading';
@@ -406,6 +442,7 @@ export function createWorldViewController({
     /** Abort whatever is in flight or pending without stopping (the layer is disabled, not destroyed). */
     cancel() {
       abortInflight();
+      abortStatus();
       state.tickRequest?.abort();
       state.tickRequest = null;
       cancelTimer();
@@ -415,6 +452,7 @@ export function createWorldViewController({
     stop() {
       state.stopped = true;
       abortInflight();
+      abortStatus();
       state.tickRequest?.abort();
       state.tickRequest = null;
       cancelTimer();
