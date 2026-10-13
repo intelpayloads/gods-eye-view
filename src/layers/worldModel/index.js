@@ -1,6 +1,7 @@
 import * as Cesium from 'cesium';
 import {
   countByBinding,
+  lineRecordsFromProjection,
   fieldSampleRecordsFromProjection,
   pointRecordsFromProjection,
   summarizeProjection,
@@ -36,6 +37,8 @@ import {
   createReceiverPasses,
   showsReceiverPass,
 } from './receiverPass.js';
+import { revisionHeaders } from './rfCard.js';
+import { pulseRadiusM } from './rfStyle.js';
 export * from './adapter.js';
 export * from './controller.js';
 export * from './demand.js';
@@ -133,6 +136,8 @@ export function createWorldModelLayer({
     passSource: null,
     passes: [],
     passRevisionId: null,
+    headers: {}, // binding -> descriptor semantic.metadata of the shown revision (GEN-312)
+    headersRevisionId: null,
   };
   const simulationRuns = createSimulationRuns(source);
   const receiverPasses = createReceiverPasses(source);
@@ -241,6 +246,8 @@ export function createWorldModelLayer({
   function resetRendered() {
     state.byId = new Map();
     state.revisionId = null;
+    state.headers = {};
+    state.headersRevisionId = null;
     state.summary = null;
     state.perBinding = [];
     state.skipped = [];
@@ -250,12 +257,86 @@ export function createWorldModelLayer({
     state.selectedId = null;
   }
 
+  /** GEN-311: a projected line (an RF link) as a straight line-of-sight polyline. */
+  function lineGraphics(render) {
+    const color = new Cesium.Color(...render.colorRgb, render.display.alpha);
+    return {
+      positions: render.positions.map((p) =>
+        Cesium.Cartesian3.fromDegrees(p.lon, p.lat, p.height),
+      ),
+      width: render.display.widthPx,
+      // A radio path is a chord through space, not a great-circle arc.
+      arcType: Cesium.ArcType.NONE,
+      material: render.display.dashed
+        ? new Cesium.PolylineDashMaterialProperty({ color, dashLength: 12 })
+        : color,
+    };
+  }
+
+  /** GEN-311: the jammer site's label and, while active, a pulsing ring. */
+  function emitterGraphics(render) {
+    const display = render.display;
+    const graphics = {
+      label: {
+        text: render.label,
+        font: '12px sans-serif',
+        fillColor: new Cesium.Color(...render.colorRgb, display.alpha),
+        outlineColor: OUTLINE_COLOR,
+        outlineWidth: 2,
+        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+        pixelOffset: new Cesium.Cartesian2(0, -18),
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+      },
+    };
+    if (display.pulse) {
+      // Display-only: the radius is wall-clock animation, not a range. Both
+      // axes read ONE value per frame: two clock reads a moment apart made
+      // the minor axis exceed the major one, which Cesium refuses.
+      let frame = -1;
+      let radiusM = display.pulse.minRadiusM;
+      const radius = new Cesium.CallbackProperty(() => {
+        const current = state.viewer?.scene?.frameState?.frameNumber ?? 0;
+        if (current !== frame) {
+          frame = current;
+          radiusM = pulseRadiusM(display, performance.now() / 1000);
+        }
+        return radiusM;
+      }, false);
+      graphics.ellipse = {
+        semiMajorAxis: radius,
+        semiMinorAxis: radius,
+        height: render.height,
+        fill: false,
+        outline: true,
+        outlineColor: new Cesium.Color(...render.colorRgb, 0.8),
+        outlineWidth: 2,
+      };
+    }
+    return graphics;
+  }
+
   function buildEntity(render, revisionId) {
     const cartesian = Cesium.Cartesian3.fromDegrees(
       render.longitude,
       render.latitude,
       render.height,
     );
+    if (render.kind === 'line') {
+      const entity = new Cesium.Entity({
+        id: render.id,
+        name: `${render.id} · ${render.label}`,
+        position: cartesian,
+        polyline: lineGraphics(render),
+        properties: {
+          kind: render.kind,
+          binding: render.binding,
+          revision_id: revisionId,
+          display: render.display,
+          record: render.record,
+        },
+      });
+      return { entity, render, cartesian };
+    }
     const isSample = render.kind === 'field-sample';
     const point = isSample
       ? {
@@ -291,6 +372,7 @@ export function createWorldModelLayer({
       name: render.id,
       position: cartesian,
       point,
+      ...(render.display.kind === 'emitter' ? emitterGraphics(render) : {}),
       properties: {
         kind: render.kind,
         binding: render.binding,
@@ -384,9 +466,37 @@ export function createWorldModelLayer({
       // A newer projection (or leaving the run) superseded this read.
       if (state.passRevisionId !== revisionId || !state.enabled) return;
       drawPasses(passes);
+      // The pass names the receiver; a card already open takes the name.
+      selection.reselect();
     } catch (error) {
       if (state.passRevisionId === revisionId) state.passRevisionId = null;
       console.warn('[Data:WorldModel] receiver pass unreadable:', error);
+    }
+  }
+
+  /**
+   * GEN-312: the shown revision's descriptor headers, read once per revision,
+   * so a receiver card names its state and reason from the product's legend.
+   * Only simulated items carry one; the base world is never asked.
+   */
+  async function refreshHeaders(revisionId, records) {
+    if (state.headersRevisionId === revisionId) return;
+    state.headersRevisionId = revisionId;
+    state.headers = {};
+    if (
+      !features.revision ||
+      !records.some((r) => String(r.binding).startsWith('simulation.'))
+    )
+      return;
+    try {
+      const headers = await revisionHeaders(source, revisionId);
+      if (state.headersRevisionId !== revisionId) return;
+      state.headers = headers;
+      selection.reselect();
+    } catch (error) {
+      if (state.headersRevisionId === revisionId)
+        state.headersRevisionId = null;
+      console.warn('[Data:WorldModel] revision headers unreadable:', error);
     }
   }
 
@@ -395,8 +505,10 @@ export function createWorldModelLayer({
     if (!state.enabled || !state.dataSource) return;
     const points = pointRecordsFromProjection(projection);
     const samples = fieldSampleRecordsFromProjection(projection);
+    const lines = lineRecordsFromProjection(projection);
+    const rendered = [...points.records, ...samples.records, ...lines.records];
     const byId = new Map();
-    for (const render of [...points.records, ...samples.records]) {
+    for (const render of rendered) {
       byId.set(render.id, buildEntity(render, projection.revision_id));
     }
     const entities = state.dataSource.entities;
@@ -411,20 +523,27 @@ export function createWorldModelLayer({
     state.byId = byId;
     state.revisionId = projection.revision_id;
     state.summary = summarizeProjection(projection);
-    state.perBinding = countByBinding([...points.records, ...samples.records]);
-    state.skipped = [...points.skipped, ...samples.skipped];
+    state.perBinding = countByBinding(rendered);
+    state.skipped = [...points.skipped, ...samples.skipped, ...lines.skipped];
     state.count = byId.size;
     state.lastUpdate = now();
     state.rendered = true;
     selection.refreshContextRegistrations();
     selection.reselect();
     refreshPasses(projection.revision_id);
+    refreshHeaders(projection.revision_id, rendered);
     console.log(
       `[Data:WorldModel] Rendered revision ${projection.revision_id.slice(0, 8)}: ` +
         (state.perBinding
           .map(
             (b) =>
-              `${b.binding} ${b.points ? `${b.points} points` : ''}${b.points && b.samples ? ' + ' : ''}${b.samples ? `${b.samples} samples` : ''}`,
+              `${b.binding} ${[
+                b.points ? `${b.points} points` : '',
+                b.samples ? `${b.samples} samples` : '',
+                b.lines ? `${b.lines} lines` : '',
+              ]
+                .filter(Boolean)
+                .join(' + ')}`,
           )
           .join(', ') || 'nothing') +
         (state.summary.withheld

@@ -497,13 +497,19 @@ test('a selected item leads with its own values; tiny numbers keep their magnitu
       },
     ],
   }).records[0];
+  // A receiver row leads with its state in words (GEN-312), then its measures.
   const lines = selectionCardLines(receiver);
-  assert.equal(lines[0], 'satellite:norad:25544');
-  const values = lines.findIndex((l) => l.startsWith('sinr_db -2.75'));
+  assert.equal(lines[0], 'satellite:norad:25544 (simulated)');
+  const values = lines.findIndex((l) => l.startsWith('SINR -2.8 dB'));
   const where = lines.findIndex((l) => l.includes('height 423783 m'));
-  assert.ok(values === 1 && where > values, lines.join('\n'));
-  assert.match(lines.join('\n'), /interference_power_w 1\.87e-18/);
+  assert.ok(values === 2 && where > values, lines.join('\n'));
+  assert.match(lines.join('\n'), /interference -177\.3 dBW/);
   assert.match(lines.join('\n'), /^valid 2026-10-07T14:05:00\+00:00$/m);
+  // The served watts keep their magnitude where the raw values live.
+  assert.match(
+    selectionProvenanceLines(receiver).join('\n'),
+    /interference_power_w 1\.8739e-18/,
+  );
 
   // Past the budget the card says how many values it left out.
   const many = Object.fromEntries(

@@ -21,6 +21,7 @@
  * Pure and DOM-free: `ui/runPlayer.js` draws what this module computes.
  */
 import { RECEIVER_STATES } from './receiverPass.js';
+import { revisionHeaders } from './rfCard.js';
 
 export const EFFECT_FAMILIES = Object.freeze([
   Object.freeze({
@@ -65,7 +66,9 @@ function bytes(n) {
 }
 
 function metres(n) {
-  return Number.isFinite(n) ? `${n < 10 ? n.toFixed(1) : Math.round(n)} m` : null;
+  return Number.isFinite(n)
+    ? `${n < 10 ? n.toFixed(1) : Math.round(n)} m`
+    : null;
 }
 
 /** What the row says happened to the mission, in words; null when the row does not say. */
@@ -198,16 +201,6 @@ export function compareLanes(contested, nominal) {
   return differences;
 }
 
-/** The descriptors' header metadata of one revision, by binding; {} when the source cannot say. */
-async function headersOf(source, at) {
-  if (typeof source?.getRevision !== 'function' || !at.revisionId) return {};
-  const revision = await source.getRevision({ revisionId: at.revisionId });
-  const out = {};
-  for (const [binding, descriptor] of Object.entries(revision?.descriptors ?? {}))
-    out[binding] = descriptor?.semantic?.metadata ?? null;
-  return out;
-}
-
 /**
  * A run's effects per revision (read once each; a failed read is retried).
  * Resolves to `{lanes, card}`, with no lanes when the run has no effects.
@@ -215,7 +208,9 @@ async function headersOf(source, at) {
 export function createRunEffects(source) {
   const cache = new Map();
   async function load(at) {
-    const headers = await headersOf(source, at).catch(() => ({}));
+    const headers = await revisionHeaders(source, at.revisionId).catch(
+      () => ({}),
+    );
     const lanes = [];
     const byFamily = {};
     for (const entry of EFFECT_FAMILIES) {
@@ -251,9 +246,9 @@ export function createRunEffects(source) {
  * the effects' own stored ones, every one of them, never a resampled grid.
  */
 export function effectsTimeline(lanes) {
-  const epochs = [...new Set(lanes.flatMap((lane) => lane.cells.map((c) => c.at)))].sort(
-    (a, b) => a - b,
-  );
+  const epochs = [
+    ...new Set(lanes.flatMap((lane) => lane.cells.map((c) => c.at))),
+  ].sort((a, b) => a - b);
   if (!epochs.length) return null;
   const gaps = new Map();
   for (let i = 1; i < epochs.length; i++) {
@@ -291,8 +286,12 @@ export function cellsInForce(lane, ms) {
 export function effectsBannerText(lanes, ms) {
   return lanes
     .map((lane) => {
-      const names = [...new Set(cellsInForce(lane, ms).map((c) => c.stateName))];
-      return names.length ? `${lane.label.toUpperCase()} ${names.join('/')}` : null;
+      const names = [
+        ...new Set(cellsInForce(lane, ms).map((c) => c.stateName)),
+      ];
+      return names.length
+        ? `${lane.label.toUpperCase()} ${names.join('/')}`
+        : null;
     })
     .filter(Boolean)
     .join(' · ');
@@ -306,13 +305,20 @@ export function effectsBannerText(lanes, ms) {
  * @param {Array<{lane: object, label: string, run: string}>} rows Lanes in draw order.
  * @param {{x: (ms: number) => number, cadenceMs: number, subRowHeight?: number, gap?: number}} scale
  */
-export function lanesGeometry(rows, { x, cadenceMs, subRowHeight = 8, gap = 4 }) {
+export function lanesGeometry(
+  rows,
+  { x, cadenceMs, subRowHeight = 8, gap = 4 },
+) {
   const out = [];
   let y = 0;
   for (const { lane, label, run } of rows) {
     const height = lane.depth * subRowHeight;
-    const epochs = [...new Set(lane.cells.map((c) => c.at))].sort((a, b) => a - b);
-    const next = new Map(epochs.map((at, i) => [at, epochs[i + 1] ?? at + cadenceMs]));
+    const epochs = [...new Set(lane.cells.map((c) => c.at))].sort(
+      (a, b) => a - b,
+    );
+    const next = new Map(
+      epochs.map((at, i) => [at, epochs[i + 1] ?? at + cadenceMs]),
+    );
     out.push({
       label,
       run,
@@ -323,7 +329,10 @@ export function lanesGeometry(rows, { x, cadenceMs, subRowHeight = 8, gap = 4 })
         cell,
         x: x(cell.at),
         y: y + cell.stack * subRowHeight,
-        width: Math.max(2, x(Math.min(next.get(cell.at), cell.at + cadenceMs)) - x(cell.at) - 1),
+        width: Math.max(
+          2,
+          x(Math.min(next.get(cell.at), cell.at + cadenceMs)) - x(cell.at) - 1,
+        ),
         height: subRowHeight - 1,
       })),
     });

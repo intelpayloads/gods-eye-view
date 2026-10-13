@@ -87,8 +87,18 @@ export function createSelection({
     ];
   }
 
+  /** The descriptor header of the item's binding in the shown revision, once read (GEN-312). */
+  function headerOf(entry) {
+    return state.headers?.[entry.render.binding] ?? null;
+  }
+
   function cardEntry(entry) {
-    const [title, ...details] = selectionCardLines(entry.render);
+    const identity = entry.render.record?.semantic_ref?.semantic_identity;
+    const [title, ...details] = selectionCardLines(entry.render, {
+      header: headerOf(entry),
+      // The receiver's pass, when drawn, carries the run's name for it.
+      name: state.passes?.find((p) => p.identity === identity)?.label ?? null,
+    });
     return {
       id: entry.render.id,
       position: entry.cartesian,

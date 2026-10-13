@@ -11,6 +11,12 @@
  * came from, colour is keyed by the binding name, and the card reads the
  * item's own `semantic_identity`, `properties` and grants.
  */
+import {
+  RECEIVER_WORDED,
+  receiverCard,
+  receiverRawFragments,
+} from './rfCard.js';
+import { EMITTER_BINDING, emitterStyle, linkStyle } from './rfStyle.js';
 
 /**
  * Every display-only choice this adapter or the layer makes, named so an
@@ -149,6 +155,11 @@ export function pointRecordsFromProjection(projection) {
       continue;
     }
     const stale = point?.time?.stale === true;
+    // The jammer's site looks like one (GEN-311); its numbers are untouched.
+    const emitter =
+      point.binding === EMITTER_BINDING
+        ? emitterStyle(point.properties, point.semantic_ref?.semantic_identity)
+        : null;
     records.push({
       id,
       kind: 'point',
@@ -158,9 +169,66 @@ export function pointRecordsFromProjection(projection) {
       height: surface ? 0 : height,
       surface,
       stale,
-      colorRgb: bindingColor(point.binding),
-      display: stale ? DISPLAY_CHOICES['point-stale'] : DISPLAY_CHOICES.point,
+      colorRgb: emitter ? emitter.colorRgb : bindingColor(point.binding),
+      display: emitter
+        ? emitter.display
+        : stale
+          ? DISPLAY_CHOICES['point-stale']
+          : DISPLAY_CHOICES.point,
+      ...(emitter ? { label: emitter.label } : {}),
       record: point,
+    });
+  }
+  return { records, skipped };
+}
+
+/**
+ * Lines -> render records (DWM-198: a LineString entity projects as a
+ * `lines` item, the point's keys with `positions`). Every vertex is kept as
+ * served; one without a finite position skips the whole line rather than
+ * bending it. An RF link is styled by its own `reason` (GEN-311).
+ * @param {object} projection neutral-v1 projection
+ * @returns {{records: Array<object>, skipped: Array<{id: string, reason: string}>}}
+ */
+export function lineRecordsFromProjection(projection) {
+  const records = [];
+  const skipped = [];
+  for (const line of projection?.lines || []) {
+    const id = typeof line?.id === 'string' ? line.id : '';
+    if (!id) {
+      skipped.push({ id: '', reason: 'missing-id' });
+      continue;
+    }
+    const vertices = (Array.isArray(line.positions) ? line.positions : []).map(
+      (p) => ({
+        lon: numberOrNaN(p?.lon),
+        lat: numberOrNaN(p?.lat),
+        height: numberOrNaN(p?.height_m),
+      }),
+    );
+    if (
+      vertices.length < 2 ||
+      !vertices.every((v) => isFinite3(v.lon, v.lat, v.height))
+    ) {
+      skipped.push({ id, reason: 'non-finite-position' });
+      continue;
+    }
+    const binding = typeof line.binding === 'string' ? line.binding : '';
+    const rf = linkStyle(line.properties);
+    // The card anchors at the receiver end, where the effect lands.
+    const [anchor] = vertices.slice(-1);
+    records.push({
+      id,
+      kind: 'line',
+      binding,
+      positions: vertices,
+      longitude: anchor.lon,
+      latitude: anchor.lat,
+      height: anchor.height,
+      colorRgb: rf.colorRgb,
+      display: rf.display,
+      label: rf.label,
+      record: line,
     });
   }
   return { records, skipped };
@@ -215,6 +283,7 @@ export function countByBinding(records) {
     const key = record.binding || '?';
     const entry = counts.get(key) || { points: 0, samples: 0 };
     if (record.kind === 'field-sample') entry.samples++;
+    else if (record.kind === 'line') entry.lines = (entry.lines || 0) + 1;
     else entry.points++;
     counts.set(key, entry);
   }
@@ -366,10 +435,17 @@ export function packCardLines(fragments, max = MAX_CARD_LINE_CHARS) {
  * projection's own numbers and grants; nothing is recomputed. "age" is the
  * product's own (age at product time T); "age at query" is what the view's
  * temporal_age policy computed against the query's valid time.
+ * A receiver-track row leads with its state and reason in words, read from
+ * the product header's legends when `header` is given (GEN-312).
  * @param {object} renderRecord A record from the functions above.
+ * @param {{header?: object|null, name?: string|null}} [options] The binding's descriptor
+ *   metadata, and the run's name for the item (a receiver pass label).
  * @returns {string[]}
  */
-export function selectionCardLines(renderRecord) {
+export function selectionCardLines(
+  renderRecord,
+  { header = null, name = null } = {},
+) {
   const item = renderRecord?.record || {};
   if (renderRecord?.kind === 'field-sample') {
     const time = item.time || {};
@@ -399,6 +475,7 @@ export function selectionCardLines(renderRecord) {
       : {};
   const identity =
     item.semantic_ref?.semantic_identity || renderRecord?.id || 'item';
+  const receiver = receiverCard(item, header, name);
   // Opportunistic: a callsign-like property leads the title when present.
   // Then the item's own values, all of them up to a budget, ahead of where
   // and when: they are what a click asks about (DWM-209).
@@ -406,12 +483,22 @@ export function selectionCardLines(renderRecord) {
   const lead = keys.includes('callsign') ? 'callsign' : null;
   const leadText = lead ? propertyText(props[lead]) : '';
   const values = keys
-    .filter((k) => k !== lead)
+    .filter((k) => k !== lead && !(receiver && RECEIVER_WORDED.includes(k)))
     .flatMap((k) => propertyFragments(k, props[k]));
   const surface = renderRecord?.surface === true;
   const age = Number(time.age_seconds);
+  const title = receiver
+    ? receiver.title
+    : leadText && leadText !== '—'
+      ? `${leadText} · ${identity}`
+      : identity;
   const lines = [
-    leadText && leadText !== '—' ? `${leadText} · ${identity}` : identity,
+    title,
+    ...(receiver ? [receiver.lead, ...packCardLines(receiver.measures)] : []),
+    // A link says what its path is doing, in words (GEN-311).
+    renderRecord?.kind === 'line' && renderRecord.label
+      ? renderRecord.label
+      : '',
     ...packCardLines(values.slice(0, MAX_CARD_VALUES)),
     values.length > MAX_CARD_VALUES
       ? `… ${values.length - MAX_CARD_VALUES} more values`
@@ -468,6 +555,8 @@ export function selectionProvenanceLines(renderRecord) {
       `product ${shortRef(item.semantic_ref?.product_ref)}`,
       `source ${shortRef(item.source_ref?.source)} row ${item.source_ref?.row_index ?? '?'}`,
     ]),
+    // The served values the card put in words (GEN-312).
+    ...packCardLines(receiverRawFragments(item)),
   ];
 }
 
