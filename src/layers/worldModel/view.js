@@ -22,6 +22,9 @@ export const DEFAULT_DISPLAY_ASSUMPTIONS = Object.freeze({
   // A height the producer declares above the WGS84 ellipsoid, read as one
   // (a simulated run's geodetic columns).
   geodetic_height: 'declared-wgs84-ellipsoidal',
+  // A field plane's declared height above the WGS84 ellipsoid (a run's RF
+  // J/S coverage, GEN-307), drawn at that height.
+  field_plane_height: 'declared-wgs84-ellipsoidal',
 });
 
 export const DEFAULT_PREDICATES = Object.freeze({ pressure_hpa: 850 });

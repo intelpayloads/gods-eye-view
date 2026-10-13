@@ -1,6 +1,7 @@
 import * as Cesium from 'cesium';
 import {
   countByBinding,
+  fieldLegends,
   lineRecordsFromProjection,
   fieldSampleRecordsFromProjection,
   pointRecordsFromProjection,
@@ -136,6 +137,7 @@ export function createWorldModelLayer({
     passSource: null,
     passes: [],
     passRevisionId: null,
+    legends: [], // colour legends of the rendered fields (GEN-307)
     headers: {}, // binding -> descriptor semantic.metadata of the shown revision (GEN-312)
     headersRevisionId: null,
   };
@@ -245,6 +247,7 @@ export function createWorldModelLayer({
 
   function resetRendered() {
     state.byId = new Map();
+    state.legends = [];
     state.revisionId = null;
     state.headers = {};
     state.headersRevisionId = null;
@@ -350,7 +353,10 @@ export function createWorldModelLayer({
           // pressure-level map annotation at height 0, so keep it on the
           // ground and visible through terrain up close -- and behind the
           // Earth from space. Its numbers are untouched.
-          heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+          // A height plane (GEN-307) stays at its own height.
+          ...(render.display.clampToGround
+            ? { heightReference: Cesium.HeightReference.CLAMP_TO_GROUND }
+            : {}),
           disableDepthTestDistance: render.display.depthTestBeyondM,
         }
       : {
@@ -524,6 +530,7 @@ export function createWorldModelLayer({
     state.revisionId = projection.revision_id;
     state.summary = summarizeProjection(projection);
     state.perBinding = countByBinding(rendered);
+    state.legends = fieldLegends(rendered);
     state.skipped = [...points.skipped, ...samples.skipped, ...lines.skipped];
     state.count = byId.size;
     state.lastUpdate = now();
@@ -665,6 +672,12 @@ export function createWorldModelLayer({
       const group = groups.find((g) => g.label === o.binding);
       if (group) group.lines.push(...lines);
       else groups.push({ label: o.binding, lines });
+    }
+    for (const legend of state.legends) {
+      if (layers && !layers.includes(legend.label)) continue;
+      const group = groups.find((g) => g.label === legend.label);
+      if (group) group.lines.push(...legend.lines);
+      else groups.push({ label: legend.label, lines: [...legend.lines] });
     }
     return features.status || groups.length ? groups : null;
   }
