@@ -50,6 +50,95 @@ export function worldConfigLines({ status, heads, error, discovery }) {
 }
 
 /**
+ * The block's refresh, without the DOM. `/status` can take minutes on a busy
+ * backplane (DWM-221), so it is never what the block waits on to say what it
+ * is connected to, and never re-asked while a read is out:
+ *  - `GET /heads` (cheap) every refresh: the head and its revision show at
+ *    once, and a moved head is how a new status read is decided;
+ *  - one `GET /status` at a time, again only once the head has moved; in
+ *    between, the last answer is shown with its age carried forward.
+ * A source without `getHeads` re-reads status each refresh, one at a time.
+ * Returns `refresh()`: a promise of this refresh's lines landing.
+ */
+export function createWorldConfigRefresh({
+  source,
+  head = HEAD,
+  discovery = () => ({ count: 0, error: null }),
+  render,
+  signal,
+  now = () => Date.now(),
+}) {
+  let last = null; // { status, heads, readAt }
+  let reading = null;
+  const show = (heads) => {
+    const status = last.status;
+    const age = status.head?.age_seconds;
+    render(
+      worldConfigLines({
+        status: {
+          ...status,
+          head: {
+            ...status.head,
+            age_seconds: Number.isFinite(age)
+              ? age + (now() - last.readAt) / 1000
+              : age,
+          },
+        },
+        heads: heads ?? last.heads,
+        discovery: discovery(),
+      }),
+    );
+  };
+  const down = (error) =>
+    render(
+      worldConfigLines({
+        status: null,
+        error: error?.message || String(error),
+      }),
+    );
+  const readStatus = (heads) => {
+    reading ??= source
+      .getStatus({ head, signal })
+      .then(
+        (status) => {
+          last = { status, heads, readAt: now() };
+          if (!signal?.aborted) show(heads);
+        },
+        (error) => {
+          if (!signal?.aborted && !last) down(error);
+        },
+      )
+      .finally(() => {
+        reading = null;
+      });
+    return reading;
+  };
+  return async () => {
+    if (typeof source.getHeads !== 'function') return readStatus({});
+    let heads;
+    try {
+      heads = await source.getHeads({ signal });
+    } catch (error) {
+      if (!signal?.aborted) down(error);
+      return;
+    }
+    if (signal?.aborted) return;
+    const revisionId = heads?.[head];
+    const moved = !last || last.status?.head?.revision_id !== revisionId;
+    if (last) show(heads);
+    else
+      render({
+        state: 'pending',
+        lines: [
+          `${head} · rev ${String(revisionId ?? '—').slice(0, 8)}`,
+          'reading world facts…',
+        ],
+      });
+    if (moved) return readStatus(heads);
+  };
+}
+
+/**
  * Mount the block before `before` inside its parent. Returns `{ refresh,
  * remove }`: `refresh` re-reads now (the product count is known only once
  * discovery finishes), `remove` stops the timer and takes the block out.
@@ -94,26 +183,13 @@ export function mountWorldConfig({
       }),
     );
   };
-  const refresh = async () => {
-    try {
-      const [status, heads] = await Promise.all([
-        source.getStatus({ head, signal: controller.signal }),
-        typeof source.getHeads === 'function'
-          ? source.getHeads({ signal: controller.signal })
-          : {},
-      ]);
-      if (!controller.signal.aborted)
-        render(worldConfigLines({ status, heads, discovery: discovery() }));
-    } catch (error) {
-      if (!controller.signal.aborted)
-        render(
-          worldConfigLines({
-            status: null,
-            error: error?.message || String(error),
-          }),
-        );
-    }
-  };
+  const refresh = createWorldConfigRefresh({
+    source,
+    head,
+    discovery,
+    render,
+    signal: controller.signal,
+  });
   render({ state: 'pending', lines: ['connecting…'] });
   void refresh();
   const timer = setInterval(refresh, refreshMs);
