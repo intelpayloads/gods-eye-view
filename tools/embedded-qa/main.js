@@ -15,6 +15,7 @@ import status from '../../src/layers/worldModel/fixtures/experiment-002.status.j
 import effectsPair from '../../src/layers/worldModel/fixtures/run-effects.pair.json';
 import issTrack from '../../src/layers/worldModel/fixtures/receiver-track-thresholds.select.json';
 import issEmitters from '../../src/layers/worldModel/fixtures/run-emitters.select.json';
+import issGeometry from '../../src/layers/worldModel/fixtures/run-geometry.iss.json';
 
 // GEN-299: both cases of Foundation's ground-rf-mission run, mission effects only
 // (the runs World Model holds before DWM-218), served beside Experiment 002.
@@ -28,11 +29,10 @@ const byRevision = new Map(
   [...runs.values()].map((run) => [run.revision_id, run]),
 );
 
-// GEN-311/312: the ISS East-Med run (GEN-303) as God's Eye projects it at one
-// instant: the receiver and the jammer site from the retained selections, and
-// the link between them. The retained fixtures hold no link rows, so the QA
-// link is derived for display only: silent jammer -> `inactive`, power at the
-// receiver -> `free_space` with that power, else `below_horizon_mask`.
+// GEN-307/311/312: the ISS East-Med run (GEN-303) as God's Eye projects it
+// at one instant: the receiver and the jammer site from the retained
+// selections, and the link and J/S coverage plane from the run's own archive
+// (run-geometry.iss.json, from World Model's gen303-coverage-run fixture).
 const ISS_RUN = Object.freeze({
   head: 'sim/qa-iss-jammer',
   revisionId: issTrack.revision_id,
@@ -48,6 +48,7 @@ const issRevision = {
     'simulation.rf.receiver_track',
     'simulation.rf.emitters',
     'simulation.rf.links',
+    'simulation.rf.coverage',
   ],
   descriptors: {
     'simulation.rf.receiver_track': {
@@ -102,43 +103,47 @@ function issProjection(validAt, layers = null) {
       properties: sited.value,
     });
   }
-  if (track && sited) {
-    const power = track.value.interference_power_w;
-    const reason = !sited.value.active
-      ? 'inactive'
-      : power > 0
-        ? 'free_space'
-        : 'below_horizon_mask';
+  const link = issGeometry.links.find((r) => sameInstant(r.epoch, validAt));
+  if (link) {
+    const { geometry, values, entity_id, epoch, ...rest } = link;
     lines.push({
-      id: 'simulation.rf.links/link:foundation:synthetic-ground-emitter:iss-receiver',
+      id: `simulation.rf.links/${entity_id}`,
       binding: 'simulation.rf.links',
-      positions: [
-        { lon: sited.lon, lat: sited.lat, height_m: 0 },
-        {
-          lon: track.value.lon_deg,
-          lat: track.value.lat_deg,
-          height_m: track.value.height_m,
-        },
-      ],
-      time: { valid_at: track.valid_time },
-      semantic_ref: {
-        semantic_identity:
-          'link:foundation:synthetic-ground-emitter:iss-receiver',
-      },
-      properties: {
-        reason,
-        active: sited.value.active,
-        received_power_w: reason === 'free_space' ? power : 0,
-      },
+      positions: geometry.coordinates.map(([lon, lat, height_m]) => ({
+        lon,
+        lat,
+        height_m,
+      })),
+      time: { valid_at: epoch },
+      semantic_ref: { semantic_identity: entity_id },
+      properties: { ...rest, ...values },
     });
   }
+  // The plane in force: the last one at or before the instant.
+  const at = Date.parse(validAt);
+  const plane = issGeometry.coverage
+    .filter((p) => Date.parse(p.valid_time) <= at)
+    .at(-1);
+  const fieldSamples = (plane?.nodes ?? []).map(([lat, lon, value]) => ({
+    id: `simulation.rf.coverage/js_db/424000m/${lat.toFixed(3)}/${lon.toFixed(3)}`,
+    binding: 'simulation.rf.coverage',
+    position: { lon, lat, height_m: plane.height_m },
+    native: { lon, lat, lon_convention: '-180..180', frame: {} },
+    frame: 'WGS84-map-overlay',
+    value,
+    units: issGeometry.units,
+    variable: issGeometry.variable,
+    height_m: plane.height_m,
+    vertical: 'height_m',
+    time: { valid_at: plane.valid_time, run_at: null, lag_seconds: null },
+  }));
   // Like World Model: only the layers asked for.
   const asked = (item) => !layers || layers.includes(item.binding);
   return {
     revision_id: ISS_RUN.revisionId,
     points: points.filter(asked),
     lines: lines.filter(asked),
-    field_samples: [],
+    field_samples: fieldSamples.filter(asked),
     omissions: [],
   };
 }
@@ -150,13 +155,14 @@ function issStatus() {
     ...structuredClone(status),
     head: { name: ISS_RUN.head },
     bindings: [
-      'simulation.rf.receiver_track',
-      'simulation.rf.emitters',
-      'simulation.rf.links',
-    ].map((binding) => ({
+      ['simulation.rf.receiver_track', 'positioned_entities/v1'],
+      ['simulation.rf.emitters', 'positioned_entities/v1'],
+      ['simulation.rf.links', 'positioned_entities/v1'],
+      ['simulation.rf.coverage', 'field_samples/v1'],
+    ].map(([binding, kind]) => ({
       binding,
       modality: 'simulated',
-      representations: [{ kind: 'positioned_entities/v1' }],
+      representations: [{ kind }],
       valid,
     })),
   };
@@ -290,7 +296,7 @@ window.__embeddedQa = {
       compare: { head: nominal.head, revisionId: nominal.revision_id },
     });
   },
-  /** GEN-311/312: open the ISS jammer run at an instant (default 14:05Z, jammer on). */
+  /** GEN-307/311/312: open the ISS jammer run at an instant (default 14:05Z, jammer on). */
   async openJammerRun(validAt = '2026-10-07T14:05:00Z') {
     return app.openRun(ISS_RUN.head, {
       revisionId: ISS_RUN.revisionId,

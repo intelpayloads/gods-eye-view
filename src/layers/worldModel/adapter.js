@@ -57,6 +57,19 @@ export const DISPLAY_CHOICES = Object.freeze({
     heightOffsetM: 0,
     colour: 'kelvin-ramp',
   }),
+  // A field on a plane at a declared height (chunked_field/v2, e.g. the RF
+  // J/S coverage at the receiver's height, GEN-307) is drawn AT that height:
+  // not clamped, and depth-tested so the Earth hides the far side of it.
+  'field-sample-plane': Object.freeze({
+    kind: 'field-sample',
+    pixelSize: 6,
+    outline: false,
+    scaleByDistance: Object.freeze([1.5e6, 1.0, 2.0e7, 0.35]),
+    clampToGround: false,
+    depthTestBeyondM: 0,
+    heightOffsetM: 0,
+    colour: 'by-variable-ramp',
+  }),
 });
 
 /** Kelvin range the display ramp spans; values outside are clamped for colour only. */
@@ -67,6 +80,35 @@ const RAMP_STOPS = Object.freeze([
   Object.freeze([0.98, 0.9, 0.25]), // mid: yellow
   Object.freeze([1.0, 0.24, 0.12]), // warm: red
 ]);
+
+/**
+ * J/S in dB, a diverging scale centred on 0 dB (GEN-307): above 0 the jammer
+ * is stronger than the signal. Values outside are clamped for colour only.
+ */
+export const JS_RAMP_DB = Object.freeze({ min: -10, max: 10 });
+
+const JS_STOPS = Object.freeze([
+  Object.freeze([0.18, 0.45, 1.0]), // signal stronger: blue
+  Object.freeze([0.94, 0.94, 0.94]), // 0 dB: white
+  Object.freeze([1.0, 0.18, 0.12]), // jammer stronger: red
+]);
+
+/** Display colour for a J/S value; the sample's value/units stay the numbers. */
+export function jsColor(db, ramp = JS_RAMP_DB) {
+  if (!Number.isFinite(db)) return [0.6, 0.6, 0.6];
+  const [a, b, local] =
+    db < 0
+      ? [JS_STOPS[1], JS_STOPS[0], Math.min(1, db / ramp.min)]
+      : [JS_STOPS[1], JS_STOPS[2], Math.min(1, db / ramp.max)];
+  return [0, 1, 2].map((i) => a[i] + (b[i] - a[i]) * local);
+}
+
+/** Which ramp a field sample takes, from its own variable and units. */
+export function fieldRamp(sample) {
+  const units = String(sample?.units ?? '').toLowerCase();
+  const variable = String(sample?.variable ?? '').toLowerCase();
+  return units === 'db' && variable.startsWith('js') ? 'js-db' : 'kelvin';
+}
 
 /** Small palette for point bindings; a binding's colour is stable across sessions (hash), never a provider rule. */
 export const BINDING_PALETTE = Object.freeze([
@@ -259,6 +301,9 @@ export function fieldSampleRecordsFromProjection(projection) {
       skipped.push({ id, reason: 'non-finite-value' });
       continue;
     }
+    // A height plane says so: its vertical is height_m, not a pressure level.
+    const plane = sample.vertical === 'height_m' || 'height_m' in sample;
+    const ramp = fieldRamp(sample);
     records.push({
       id,
       kind: 'field-sample',
@@ -268,8 +313,10 @@ export function fieldSampleRecordsFromProjection(projection) {
       height,
       value,
       units: typeof sample.units === 'string' ? sample.units : '',
-      colorRgb: temperatureColor(value),
-      display: DISPLAY_CHOICES['field-sample'],
+      plane,
+      ramp,
+      colorRgb: ramp === 'js-db' ? jsColor(value) : temperatureColor(value),
+      display: DISPLAY_CHOICES[plane ? 'field-sample-plane' : 'field-sample'],
       record: sample,
     });
   }
@@ -290,6 +337,26 @@ export function countByBinding(records) {
   return [...counts.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([binding, entry]) => ({ binding, ...entry }));
+}
+
+/**
+ * The colour legends the rendered fields need, one group per binding, in the
+ * panel's facts shape. Only a ramp other than the familiar temperature one
+ * is explained (GEN-307).
+ */
+export function fieldLegends(records) {
+  const bindings = new Set(
+    records
+      .filter((r) => r.kind === 'field-sample' && r.ramp === 'js-db')
+      .map((r) => r.binding),
+  );
+  return [...bindings].sort().map((binding) => ({
+    label: binding,
+    lines: [
+      'J/S colour: blue signal stronger · white 0 dB · red jammer stronger',
+      `${JS_RAMP_DB.min}…+${JS_RAMP_DB.max} dB, clamped for colour only; masked nodes undrawn`,
+    ],
+  }));
 }
 
 /** Counts and the explanatory lists a status row or inspector shows. */
@@ -450,10 +517,23 @@ export function selectionCardLines(
   if (renderRecord?.kind === 'field-sample') {
     const time = item.time || {};
     const native = item.native || {};
+    const js = renderRecord.ramp === 'js-db';
+    const value = Number(item.value);
     return [
-      `${formatNumber(Number(item.value), 2)} ${item.units || ''} ${item.variable || 'field'} @ ${formatNumber(Number(item.pressure_hpa))} hPa`.trim(),
+      renderRecord.plane
+        ? `${formatNumber(value, 2)} ${item.units || ''} ${item.variable || 'field'} @ ${formatNumber(Number(item.height_m))} m`.trim()
+        : `${formatNumber(value, 2)} ${item.units || ''} ${item.variable || 'field'} @ ${formatNumber(Number(item.pressure_hpa))} hPa`.trim(),
+      js && Number.isFinite(value)
+        ? value > 0
+          ? 'jammer stronger than the signal'
+          : value < 0
+            ? 'signal stronger than the jammer'
+            : 'jammer equals the signal'
+        : '',
       ...packCardLines([
-        'pressure level, not altitude',
+        renderRecord.plane
+          ? 'plane above the WGS84 ellipsoid'
+          : 'pressure level, not altitude',
         `drawn at ${formatNumber(renderRecord.height)} m (${item.frame || 'map overlay'})`,
       ]),
       ...packCardLines([
@@ -465,7 +545,7 @@ export function selectionCardLines(
         `cycle ${time.run_at || '?'}`,
         `lag ${formatNumber(Number(time.lag_seconds))} s`,
       ]),
-    ];
+    ].filter((line) => line !== '');
   }
   const time = item.time || {};
   const height = item.height || {};
