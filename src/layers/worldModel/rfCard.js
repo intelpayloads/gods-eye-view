@@ -64,9 +64,10 @@ function sinrText(db) {
  * What the card says about one receiver-track item.
  * @param {object} item A projected item (`properties`, `binding`, `semantic_ref`).
  * @param {object|null} header The binding's descriptor `semantic.metadata`, if read.
+ * @param {string|null} [name] The run's own name for this receiver (its pass label, "ISS (simulated)").
  * @returns {{title: string, lead: string, measures: string[]}|null} null for a non-receiver item.
  */
-export function receiverCard(item, header = null) {
+export function receiverCard(item, header = null, name = null) {
   const props = item?.properties;
   if (!isReceiverRow(props)) return null;
   const identity = item?.semantic_ref?.semantic_identity || 'receiver';
@@ -84,7 +85,11 @@ export function receiverCard(item, header = null) {
     lead = `state ${props.state_code ?? '?'} · reason ${props.reason_code ?? '?'} (no legend in the product header)`;
   }
   return {
-    title: simulated ? `${identity} (simulated)` : identity,
+    title: name
+      ? `${name} · ${identity}`
+      : simulated
+        ? `${identity} (simulated)`
+        : identity,
     lead,
     measures: [sinrText(props.sinr_db), dbwText(props.interference_power_w)],
   };

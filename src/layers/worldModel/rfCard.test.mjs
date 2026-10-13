@@ -57,6 +57,14 @@ test('at 14:05Z on the ISS run the card leads with Unavailable and why, in words
   assert.equal(measures, 'SINR -2.7 dB · interference -177.3 dBW');
 });
 
+test("with the run's name for the receiver the title leads with it", () => {
+  const [title] = card(itemAt('2026-10-07T14:05:00'), {
+    header,
+    name: 'ISS (simulated)',
+  });
+  assert.equal(title, 'ISS (simulated) · satellite:norad:25544');
+});
+
 test('before the jammer the receiver is nominal with no interference', () => {
   const lines = card(itemAt('2026-10-07T13:56:00'), { header });
   assert.equal(lines[1], 'Nominal — nominal threshold met');

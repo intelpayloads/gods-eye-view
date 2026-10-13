@@ -332,6 +332,7 @@
       "src/layers/worldModel/index.js",
       "src/layers/worldModel/receiverPass.js",
       "src/layers/worldModel/rfCard.js",
+      "src/layers/worldModel/rfStyle.js",
       "src/layers/worldModel/runClock.js",
       "src/layers/worldModel/runEffects.js",
       "src/layers/worldModel/runFocus.js",

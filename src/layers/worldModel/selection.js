@@ -93,8 +93,11 @@ export function createSelection({
   }
 
   function cardEntry(entry) {
+    const identity = entry.render.record?.semantic_ref?.semantic_identity;
     const [title, ...details] = selectionCardLines(entry.render, {
       header: headerOf(entry),
+      // The receiver's pass, when drawn, carries the run's name for it.
+      name: state.passes?.find((p) => p.identity === identity)?.label ?? null,
     });
     return {
       id: entry.render.id,
