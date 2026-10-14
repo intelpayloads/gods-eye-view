@@ -291,3 +291,24 @@ test('a run published before GEN-313 draws no threshold; a column that changes i
     { name: 'nominal', db: 15 },
   ]);
 });
+
+test('the draft is the track alone, one select shared with the full read', async () => {
+  const calls = [];
+  const reader = createRunTimelines({
+    async select({ query }) {
+      calls.push(query.requested_layers[0]);
+      return query.requested_layers[0] === 'simulation.rf.receiver_track'
+        ? TRACK
+        : { products: [] };
+    },
+  });
+  const draft = await reader.readDraft({ revisionId: 'rev' });
+  assert.deepEqual(calls, ['simulation.rf.receiver_track']);
+  assert.equal(draft.rows.length, 40);
+  assert.ok(draft.rows.every((r) => r.jammerActive === null));
+  const full = await reader.read({ revisionId: 'rev' });
+  assert.equal(full.rows.length, 40);
+  assert.equal(calls.filter((c) => c === 'simulation.rf.receiver_track').length, 1);
+  assert.equal(calls.length, 41);
+  assert.equal(await createRunTimelines({}).readDraft({ revisionId: 'rev' }), null);
+});

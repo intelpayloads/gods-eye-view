@@ -233,11 +233,30 @@ async function inBatches(items, size, read) {
 /**
  * Timelines per revision (one read each; a failed read is retried). A
  * source without `select` has no timeline.
+ *
+ * `readDraft` is the timeline from the one track select, every
+ * `jammerActive` null: enough to play. `read` adds the jammer flags, one
+ * emitter select per epoch, so a long run takes many round trips; the player
+ * plays the draft and shades the strip when they land.
  */
 export function createRunTimelines(source) {
   const cache = new Map(); // revisionId (or head) -> Promise<timeline|null>
-  async function load(at) {
-    const track = await source.select({ ...at, query: passQuery() });
+  const tracks = new Map(); // revisionId (or head) -> Promise<track selection>
+  function keyOf({ revisionId = null, head = null } = {}) {
+    if (typeof source?.select !== 'function' || !(revisionId || head))
+      return null;
+    return revisionId ?? `head:${head}`;
+  }
+  function trackOf(key, at) {
+    if (!tracks.has(key)) {
+      const pending = source.select({ ...at, query: passQuery() });
+      tracks.set(key, pending);
+      pending.catch(() => tracks.delete(key));
+    }
+    return tracks.get(key);
+  }
+  async function load(key, at) {
+    const track = await trackOf(key, at);
     const draft = timelineFrom(track);
     if (!draft) return null;
     const flags = await inBatches(
@@ -252,18 +271,25 @@ export function createRunTimelines(source) {
     );
     return timelineFrom(track, new Map(flags));
   }
+  const atOf = ({ revisionId = null, head = null }) =>
+    revisionId ? { revisionId } : { head };
   return {
     /** By revision; by head name when the revision is not known. */
-    async read({ revisionId = null, head = null } = {}) {
-      if (typeof source?.select !== 'function' || !(revisionId || head))
-        return null;
-      const key = revisionId ?? `head:${head}`;
+    async read(at = {}) {
+      const key = keyOf(at);
+      if (!key) return null;
       if (!cache.has(key)) {
-        const pending = load(revisionId ? { revisionId } : { head });
+        const pending = load(key, atOf(at));
         cache.set(key, pending);
         pending.catch(() => cache.delete(key));
       }
       return cache.get(key);
+    },
+    /** The track alone, without the jammer flags; shares its select with `read`. */
+    async readDraft(at = {}) {
+      const key = keyOf(at);
+      if (!key) return null;
+      return timelineFrom(await trackOf(key, atOf(at)));
     },
   };
 }

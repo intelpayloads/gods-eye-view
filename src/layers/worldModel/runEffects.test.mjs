@@ -172,3 +172,25 @@ test('a run with effects and no track still plays, at the effects\' own epochs',
   assert.ok(geometry.rows[0].height > geometry.rows[1].height, 'the stacked comms lane is taller');
   assert.ok(geometry.rows.every((row, i) => i === 0 || row.y > geometry.rows[i - 1].y));
 });
+
+test('the three families are read side by side, and a run without effects never reads its revision', async () => {
+  let inFlight = 0;
+  let most = 0;
+  const calls = [];
+  const effects = createRunEffects({
+    async select() {
+      inFlight++;
+      most = Math.max(most, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      inFlight--;
+      return { products: [] };
+    },
+    async getRevision({ revisionId }) {
+      calls.push(revisionId);
+      return { descriptors: {} };
+    },
+  });
+  assert.deepEqual(await effects.read({ revisionId: 'geometry-only' }), { lanes: [], card: null });
+  assert.equal(most, 3);
+  assert.deepEqual(calls, [], 'no lanes, so the revision (tens of MB) is not read');
+});
