@@ -15,7 +15,9 @@ import {
   createReceiverPasses,
   passQuery,
   passesFromSelection,
+  positionAt,
   receiverName,
+  relinked,
   segmentsOf,
   showsReceiverPass,
 } from './receiverPass.js';
@@ -215,4 +217,58 @@ test('the label is the receiver name, else the identity', () => {
     receiverName('', 'satellite:norad:25544'),
     'satellite:norad:25544',
   );
+});
+
+test('a step places the receiver on its pass: a stored epoch exactly, between two epochs on the chord', () => {
+  const [pass] = passesFromSelection(SELECTION);
+  assert.equal(pass.track.length, 40);
+  const [a, b] = pass.track;
+  const atA = positionAt(pass.track, a.at);
+  assert.deepEqual(atA, { ...a.position, state: a.state });
+  const mid = positionAt(pass.track, (a.at + b.at) / 2);
+  assert.ok(Math.abs(mid.lat - (a.position.lat + b.position.lat) / 2) < 1e-9);
+  assert.ok(Math.abs(mid.height - (a.position.height + b.position.height) / 2) < 1e-6);
+  assert.equal(mid.state, a.state);
+  // The last epoch is on the pass; a moment after it, or before the first, is not.
+  const last = pass.track.at(-1);
+  assert.deepEqual(positionAt(pass.track, last.at), { ...last.position, state: last.state });
+  assert.equal(positionAt(pass.track, last.at + 1), null);
+  assert.equal(positionAt(pass.track, a.at - 1), null);
+});
+
+test('the placed receiver carries the stored state of the epoch it has reached', () => {
+  const [pass] = passesFromSelection(SELECTION);
+  const at = (hms) => positionAt(pass.track, Date.parse(`2026-10-07T${hms}Z`));
+  assert.equal(RECEIVER_STATES[at('14:00:00').state].name, 'nominal');
+  assert.equal(RECEIVER_STATES[at('14:06:15').state].name, 'unavailable');
+  assert.equal(RECEIVER_STATES[at('14:12:00').state].name, 'nominal');
+});
+
+test('positionAt never bridges a gap and goes the short way across the antimeridian', () => {
+  const p = (lon, lat = 0, height = 400000) => ({ lon, lat, height });
+  const gap = [
+    { at: 0, state: 0, position: p(10) },
+    { at: 30, state: 0, position: null },
+    { at: 60, state: 0, position: p(12) },
+  ];
+  assert.equal(positionAt(gap, 15), null);
+  assert.equal(positionAt(gap, 30), null);
+  assert.deepEqual(positionAt(gap, 60), { ...p(12), state: 0 });
+  const dateline = [
+    { at: 0, state: 0, position: p(179) },
+    { at: 10, state: 0, position: p(-179) },
+  ];
+  assert.ok(Math.abs(Math.abs(positionAt(dateline, 5).lon) - 180) < 1e-9);
+  assert.ok(Math.abs(positionAt(dateline, 2.5).lon - 179.5) < 1e-9);
+  assert.equal(positionAt([], 0), null);
+  assert.equal(positionAt(dateline, Number.NaN), null);
+});
+
+test('a link to the receiver follows it; a link that ends elsewhere is left alone', () => {
+  const site = { lon: 33, lat: 35, height: 0 };
+  const iss = { lon: 20, lat: 30, height: 420000 };
+  const next = { lon: 21, lat: 31, height: 421000, state: 0 };
+  assert.deepEqual(relinked([site, iss], iss, next), [site, { lon: 21, lat: 31, height: 421000 }]);
+  assert.equal(relinked([site, { lon: 50, lat: 30, height: 420000 }], iss, next), null);
+  assert.equal(relinked([], iss, next), null);
 });

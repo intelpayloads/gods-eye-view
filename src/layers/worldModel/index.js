@@ -36,10 +36,12 @@ import {
   PASS_DISPLAY,
   RECEIVER_TRACK_BINDING,
   createReceiverPasses,
+  positionAt,
+  relinked,
   showsReceiverPass,
 } from './receiverPass.js';
 import { revisionHeaders } from './rfCard.js';
-import { pulseRadiusM } from './rfStyle.js';
+import { LINK_BINDING, pulseRadiusM } from './rfStyle.js';
 export * from './adapter.js';
 export * from './controller.js';
 export * from './demand.js';
@@ -450,6 +452,52 @@ export function createWorldModelLayer({
     }
   }
 
+  /**
+   * Move each run receiver to `validAt` along its pass, and the receiver end
+   * of every link drawn to it. A step lands here at once; the projection for
+   * that instant follows and replaces everything, so this only keeps the
+   * marker from lagging behind (or, at playback speed, never moving) while
+   * World Model answers.
+   */
+  function placeReceivers(validAt) {
+    const ms = Date.parse(validAt ?? '');
+    // A pass read for another revision (the previous run) must not move this one's receiver.
+    if (!Number.isFinite(ms) || !state.passes.length) return;
+    if (state.passRevisionId !== state.revisionId) return;
+    const moved = [];
+    for (const entry of state.byId.values()) {
+      if (entry.render.binding !== RECEIVER_TRACK_BINDING) continue;
+      const identity = entry.render.record?.semantic_ref?.semantic_identity;
+      const pass = state.passes.find((p) => p.identity === identity);
+      const to = pass && positionAt(pass.track, ms);
+      if (!to) continue;
+      const from = entry.at ?? {
+        lon: entry.render.longitude,
+        lat: entry.render.latitude,
+        height: entry.render.height,
+      };
+      entry.at = to;
+      entry.entity.position = new Cesium.ConstantPositionProperty(
+        Cesium.Cartesian3.fromDegrees(to.lon, to.lat, to.height),
+      );
+      moved.push({ from, to });
+    }
+    if (!moved.length) return;
+    for (const entry of state.byId.values()) {
+      if (entry.render.binding !== LINK_BINDING || !entry.entity.polyline) continue;
+      const positions = entry.positions ?? entry.render.positions;
+      for (const { from, to } of moved) {
+        const next = relinked(positions, from, to);
+        if (!next) continue;
+        entry.positions = next;
+        entry.entity.polyline.positions = new Cesium.ConstantProperty(
+          next.map((p) => Cesium.Cartesian3.fromDegrees(p.lon, p.lat, p.height)),
+        );
+        break;
+      }
+    }
+  }
+
   function clearPasses() {
     state.passRevisionId = null;
     if (state.passes.length || state.passSource?.entities.values.length)
@@ -472,6 +520,7 @@ export function createWorldModelLayer({
       // A newer projection (or leaving the run) superseded this read.
       if (state.passRevisionId !== revisionId || !state.enabled) return;
       drawPasses(passes);
+      placeReceivers(controller.getDemand().validAt);
       // The pass names the receiver; a card already open takes the name.
       selection.reselect();
     } catch (error) {
@@ -535,6 +584,8 @@ export function createWorldModelLayer({
     state.count = byId.size;
     state.lastUpdate = now();
     state.rendered = true;
+    // Steps taken since this projection was issued are already on screen.
+    placeReceivers(controller.getDemand().validAt);
     selection.refreshContextRegistrations();
     selection.reselect();
     refreshPasses(projection.revision_id);
@@ -841,6 +892,7 @@ export function createWorldModelLayer({
           params.validAt !== undefined ? params.validAt : demand.validAt,
           params.knownAsOf !== undefined ? params.knownAsOf : demand.knownAsOf,
         );
+        if (params.validAt) placeReceivers(params.validAt);
       }
       if (params.bbox !== undefined)
         controller.setViewport(demandBbox(params.bbox));
