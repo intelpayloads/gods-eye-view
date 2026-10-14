@@ -159,6 +159,8 @@ export function passesFromSelection(selection) {
         first: samples[0]?.validTime ?? null,
         last: samples.at(-1)?.validTime ?? null,
         samples: samples.length,
+        // Every stored epoch, so a step can place the marker without a projection.
+        track: samples.map(({ at, state, position }) => ({ at, state, position })),
         segments: segmentsOf(samples).map((segment) => ({
           ...segment,
           from: new Date(segment.from).toISOString(),
@@ -167,6 +169,52 @@ export function passesFromSelection(selection) {
       };
     },
   );
+}
+
+/**
+ * Where a pass puts its receiver at `ms`: the stored epoch itself, or a
+ * straight line between the two epochs around it (the same chord the pass
+ * draws). Null outside the run, and across a gap, which is never bridged.
+ * A step moves the marker with this at once; the projection for that instant
+ * still lands and is the record.
+ */
+export function positionAt(track, ms) {
+  if (!Array.isArray(track) || !track.length || !Number.isFinite(ms)) return null;
+  if (ms < track[0].at || ms > track.at(-1).at) return null;
+  let i = 0;
+  while (i < track.length - 1 && track[i + 1].at <= ms) i++;
+  const a = track[i];
+  if (a.at === ms || i === track.length - 1) return a.position ? { ...a.position, state: a.state } : null;
+  const b = track[i + 1];
+  if (!a.position || !b.position) return null;
+  const f = (ms - a.at) / (b.at - a.at);
+  // Across the antimeridian, go the short way round.
+  let dLon = b.position.lon - a.position.lon;
+  if (dLon > 180) dLon -= 360;
+  else if (dLon < -180) dLon += 360;
+  let lon = a.position.lon + f * dLon;
+  if (lon > 180) lon -= 360;
+  else if (lon < -180) lon += 360;
+  return {
+    lon,
+    lat: a.position.lat + f * (b.position.lat - a.position.lat),
+    height: a.position.height + f * (b.position.height - a.position.height),
+    state: a.state,
+  };
+}
+
+/**
+ * A link drawn to the receiver at `from` (its last vertex), redrawn to `to`;
+ * null when the link ends elsewhere, e.g. at another receiver.
+ */
+export function relinked(positions, from, to) {
+  const end = positions?.at(-1);
+  if (!end || !from || !to) return null;
+  const same =
+    Math.abs(end.lon - from.lon) < 1e-7 &&
+    Math.abs(end.lat - from.lat) < 1e-7 &&
+    Math.abs(end.height - from.height) < 0.5;
+  return same ? [...positions.slice(0, -1), { lon: to.lon, lat: to.lat, height: to.height }] : null;
 }
 
 /**
