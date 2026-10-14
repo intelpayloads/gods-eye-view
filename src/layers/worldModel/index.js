@@ -40,7 +40,6 @@ import {
   relinked,
   showsReceiverPass,
 } from './receiverPass.js';
-import { revisionHeaders } from './rfCard.js';
 import { LINK_BINDING, pulseRadiusM } from './rfStyle.js';
 export * from './adapter.js';
 export * from './controller.js';
@@ -140,8 +139,7 @@ export function createWorldModelLayer({
     passes: [],
     passRevisionId: null,
     legends: [], // colour legends of the rendered fields (GEN-307)
-    headers: {}, // binding -> descriptor semantic.metadata of the shown revision (GEN-312)
-    headersRevisionId: null,
+    headers: {}, // binding -> descriptor semantic.metadata, from the projection (GEN-312, DWM-229)
   };
   const simulationRuns = createSimulationRuns(source);
   const receiverPasses = createReceiverPasses(source);
@@ -252,7 +250,6 @@ export function createWorldModelLayer({
     state.legends = [];
     state.revisionId = null;
     state.headers = {};
-    state.headersRevisionId = null;
     state.summary = null;
     state.perBinding = [];
     state.skipped = [];
@@ -484,14 +481,17 @@ export function createWorldModelLayer({
     }
     if (!moved.length) return;
     for (const entry of state.byId.values()) {
-      if (entry.render.binding !== LINK_BINDING || !entry.entity.polyline) continue;
+      if (entry.render.binding !== LINK_BINDING || !entry.entity.polyline)
+        continue;
       const positions = entry.positions ?? entry.render.positions;
       for (const { from, to } of moved) {
         const next = relinked(positions, from, to);
         if (!next) continue;
         entry.positions = next;
         entry.entity.polyline.positions = new Cesium.ConstantProperty(
-          next.map((p) => Cesium.Cartesian3.fromDegrees(p.lon, p.lat, p.height)),
+          next.map((p) =>
+            Cesium.Cartesian3.fromDegrees(p.lon, p.lat, p.height),
+          ),
         );
         break;
       }
@@ -529,32 +529,6 @@ export function createWorldModelLayer({
     }
   }
 
-  /**
-   * GEN-312: the shown revision's descriptor headers, read once per revision,
-   * so a receiver card names its state and reason from the product's legend.
-   * Only simulated items carry one; the base world is never asked.
-   */
-  async function refreshHeaders(revisionId, records) {
-    if (state.headersRevisionId === revisionId) return;
-    state.headersRevisionId = revisionId;
-    state.headers = {};
-    if (
-      !features.revision ||
-      !records.some((r) => String(r.binding).startsWith('simulation.'))
-    )
-      return;
-    try {
-      const headers = await revisionHeaders(source, revisionId);
-      if (state.headersRevisionId !== revisionId) return;
-      state.headers = headers;
-      selection.reselect();
-    } catch (error) {
-      if (state.headersRevisionId === revisionId)
-        state.headersRevisionId = null;
-      console.warn('[Data:WorldModel] revision headers unreadable:', error);
-    }
-  }
-
   /** Only the controller's apply callback reaches here: ordering is decided there. */
   function applyProjection(projection) {
     if (!state.enabled || !state.dataSource) return;
@@ -577,6 +551,9 @@ export function createWorldModelLayer({
 
     state.byId = byId;
     state.revisionId = projection.revision_id;
+    // GEN-312: a receiver card names its state and reason from its product's
+    // legend, which the projection carries per binding (DWM-229).
+    state.headers = projection.semantic_metadata ?? {};
     state.summary = summarizeProjection(projection);
     state.perBinding = countByBinding(rendered);
     state.legends = fieldLegends(rendered);
@@ -589,7 +566,6 @@ export function createWorldModelLayer({
     selection.refreshContextRegistrations();
     selection.reselect();
     refreshPasses(projection.revision_id);
-    refreshHeaders(projection.revision_id, rendered);
     console.log(
       `[Data:WorldModel] Rendered revision ${projection.revision_id.slice(0, 8)}: ` +
         (state.perBinding

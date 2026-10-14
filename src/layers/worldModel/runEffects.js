@@ -21,7 +21,6 @@
  * Pure and DOM-free: `ui/runPlayer.js` draws what this module computes.
  */
 import { RECEIVER_STATES } from './receiverPass.js';
-import { revisionHeaders } from './rfCard.js';
 
 export const EFFECT_FAMILIES = Object.freeze([
   Object.freeze({
@@ -208,26 +207,20 @@ export function compareLanes(contested, nominal) {
 export function createRunEffects(source) {
   const cache = new Map();
   async function load(at) {
-    // The families side by side. The revision's descriptors (the lanes' legends) are the
-    // whole revision, tens of MB on a busy world, so they are read only when a lane exists.
+    // The families side by side; each selection carries its lane's legend.
     const selections = await Promise.all(
       EFFECT_FAMILIES.map((entry) =>
         source.select({ ...at, query: effectsQuery(entry.binding) }),
       ),
     );
-    const any = selections.some((selection) =>
-      (selection?.products ?? []).some(
-        (product) => Array.isArray(product?.values) && product.values.length,
-      ),
-    );
-    const headers = any
-      ? await revisionHeaders(source, at.revisionId).catch(() => ({}))
-      : {};
     const lanes = [];
     const byFamily = {};
     for (const [index, entry] of EFFECT_FAMILIES.entries()) {
       const selection = selections[index];
-      const metadata = headers[entry.binding] ?? null;
+      // The legend travels with the selection (DWM-229).
+      const metadata =
+        (selection?.products ?? []).find((p) => p?.binding === entry.binding)
+          ?.semantic_metadata ?? null;
       const lane = laneFrom(entry, selection, metadata);
       if (!lane) continue;
       lanes.push(lane);
