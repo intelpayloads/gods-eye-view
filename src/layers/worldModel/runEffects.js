@@ -208,16 +208,25 @@ export function compareLanes(contested, nominal) {
 export function createRunEffects(source) {
   const cache = new Map();
   async function load(at) {
-    const headers = await revisionHeaders(source, at.revisionId).catch(
-      () => ({}),
+    // The families side by side. The revision's descriptors (the lanes' legends) are the
+    // whole revision, tens of MB on a busy world, so they are read only when a lane exists.
+    const selections = await Promise.all(
+      EFFECT_FAMILIES.map((entry) =>
+        source.select({ ...at, query: effectsQuery(entry.binding) }),
+      ),
     );
+    const any = selections.some((selection) =>
+      (selection?.products ?? []).some(
+        (product) => Array.isArray(product?.values) && product.values.length,
+      ),
+    );
+    const headers = any
+      ? await revisionHeaders(source, at.revisionId).catch(() => ({}))
+      : {};
     const lanes = [];
     const byFamily = {};
-    for (const entry of EFFECT_FAMILIES) {
-      const selection = await source.select({
-        ...at,
-        query: effectsQuery(entry.binding),
-      });
+    for (const [index, entry] of EFFECT_FAMILIES.entries()) {
+      const selection = selections[index];
       const metadata = headers[entry.binding] ?? null;
       const lane = laneFrom(entry, selection, metadata);
       if (!lane) continue;

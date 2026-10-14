@@ -319,3 +319,44 @@ test("one revision by id: its bindings and the descriptors that carry its produc
   );
   await assert.rejects(source.getRevision({}), TypeError);
 });
+
+test('a revision is read once and shared; one caller giving up does not cancel it for another', async () => {
+  const revision = { id: 'rev-9', descriptors: {} };
+  const calls = [];
+  let release;
+  const gate = new Promise((resolve) => (release = resolve));
+  const source = createHttpProjectionSource({
+    baseUrl: '/x',
+    fetchImpl: async (url) => {
+      calls.push(url);
+      await gate;
+      return { ok: true, status: 200, json: async () => revision, text: async () => JSON.stringify(revision) };
+    },
+  });
+  const abort = new AbortController();
+  const leaving = source.getRevision({ revisionId: 'rev-9', signal: abort.signal });
+  const staying = source.getRevision({ revisionId: 'rev-9' });
+  abort.abort();
+  await assert.rejects(leaving, (e) => e.name === 'AbortError');
+  release();
+  assert.deepEqual(await staying, revision);
+  assert.deepEqual(await source.getRevision({ revisionId: 'rev-9' }), revision);
+  assert.deepEqual(calls, ['/x/revisions/rev-9']);
+});
+
+test('a failed revision read is not kept: the next call reads again', async () => {
+  let fail = true;
+  const calls = [];
+  const source = createHttpProjectionSource({
+    baseUrl: '/x',
+    fetchImpl: async (url) => {
+      calls.push(url);
+      const body = fail ? { id: 'other' } : { id: 'rev-9' };
+      return { ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) };
+    },
+  });
+  await assert.rejects(source.getRevision({ revisionId: 'rev-9' }), (e) => e.code === 'malformed');
+  fail = false;
+  assert.equal((await source.getRevision({ revisionId: 'rev-9' })).id, 'rev-9');
+  assert.equal(calls.length, 2);
+});

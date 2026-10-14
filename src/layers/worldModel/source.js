@@ -182,6 +182,26 @@ function searchOf(params) {
  *   request so a host can attach `Authorization` / caller context.
  * @param {string} [options.head] Default head name (world/main).
  */
+/** `promise`, or the signal's abort if that comes first (the promise itself runs on). */
+function untilAborted(promise, signal) {
+  if (!signal) return promise;
+  if (signal.aborted) return Promise.reject(signal.reason);
+  return new Promise((resolve, reject) => {
+    const onAbort = () => reject(signal.reason);
+    signal.addEventListener('abort', onAbort, { once: true });
+    promise.then(
+      (value) => {
+        signal.removeEventListener('abort', onAbort);
+        resolve(value);
+      },
+      (error) => {
+        signal.removeEventListener('abort', onAbort);
+        reject(error);
+      },
+    );
+  });
+}
+
 export function createHttpProjectionSource({
   baseUrl,
   fetchImpl = (...args) => globalThis.fetch(...args),
@@ -192,6 +212,7 @@ export function createHttpProjectionSource({
     throw new TypeError('createHttpProjectionSource requires a baseUrl');
   }
   const root = baseUrl.trim().replace(/\/+$/, '');
+  const revisions = new Map(); // revisionId -> Promise<revision>, shared by every caller
 
   async function request(path, { method = 'GET', body, signal } = {}) {
     signal?.throwIfAborted();
@@ -338,19 +359,26 @@ export function createHttpProjectionSource({
     async getRevision({ revisionId, signal } = {}) {
       if (typeof revisionId !== 'string' || !revisionId)
         throw new TypeError('getRevision requires a revisionId');
-      const payload = await request(
-        `/revisions/${encodeURIComponent(revisionId)}`,
-        {
-          signal,
-        },
-      );
-      if (payload?.id !== revisionId) {
-        throw new ProjectionSourceError(
-          'malformed',
-          `Revision ${payload?.id} does not match the requested ${revisionId}`,
-        );
+      // A revision never changes, and its body carries every descriptor (tens of MB on a
+      // busy world): read once and shared, so the run player and a card do not each fetch it.
+      // The shared read is not tied to one caller's signal; a caller's abort only ends its wait.
+      if (!revisions.has(revisionId)) {
+        const pending = request(
+          `/revisions/${encodeURIComponent(revisionId)}`,
+          {},
+        ).then((payload) => {
+          if (payload?.id !== revisionId) {
+            throw new ProjectionSourceError(
+              'malformed',
+              `Revision ${payload?.id} does not match the requested ${revisionId}`,
+            );
+          }
+          return payload;
+        });
+        revisions.set(revisionId, pending);
+        pending.catch(() => revisions.delete(revisionId));
       }
-      return payload;
+      return untilAborted(revisions.get(revisionId), signal);
     },
     async getStatus({ head: name = head, signal } = {}) {
       return request(`/status${searchOf({ head: name })}`, { signal });

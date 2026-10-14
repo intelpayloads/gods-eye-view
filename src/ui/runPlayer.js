@@ -563,8 +563,10 @@ export function mountRunPlayer({ dataManager, container }) {
       const revisionId = run.revisionId ?? (await revisionOf(run));
       if (state.key !== key) return;
       const at = { revisionId, head: run.head };
+      const reader = readerFor(run.source);
+      // The track alone plays; the jammer flags (one read per epoch) shade the strip when they land.
       const [track, effects, compared] = await Promise.all([
-        readerFor(run.source).read(at),
+        reader.readDraft(at),
         effectsReaderFor(run.source).read(at),
         run.compare
           ? effectsReaderFor(run.source).read(run.compare)
@@ -590,6 +592,19 @@ export function mountRunPlayer({ dataManager, container }) {
         state.lastApplied = run.validAt;
       }
       drawStrip();
+      if (track) {
+        reader
+          .read(at)
+          .then((full) => {
+            if (state.key !== key || !full || state.timeline !== timeline) return;
+            state.timeline = full;
+            drawStrip();
+            render();
+          })
+          .catch((error) =>
+            console.warn('[RunPlayer] jammer windows unreadable:', error),
+          );
+      }
     } catch (error) {
       if (state.key !== key) return;
       state.loading = 'failed';
