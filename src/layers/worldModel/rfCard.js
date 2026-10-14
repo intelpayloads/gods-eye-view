@@ -104,18 +104,3 @@ export function receiverRawFragments(item) {
       `${k} ${props[k] === null || props[k] === undefined ? '—' : props[k]}`,
   );
 }
-
-/**
- * One revision's descriptor headers by binding (`semantic.metadata`); {} when
- * the source cannot serve a revision.
- */
-export async function revisionHeaders(source, revisionId) {
-  if (typeof source?.getRevision !== 'function' || !revisionId) return {};
-  const revision = await source.getRevision({ revisionId });
-  const out = {};
-  for (const [binding, descriptor] of Object.entries(
-    revision?.descriptors ?? {},
-  ))
-    out[binding] = descriptor?.semantic?.metadata ?? null;
-  return out;
-}

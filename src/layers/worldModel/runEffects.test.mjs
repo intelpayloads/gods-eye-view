@@ -18,24 +18,34 @@ const pair = JSON.parse(
 const [comms, collection, navigation] = EFFECT_FAMILIES;
 const at = (iso) => Date.parse(iso);
 
-/** A source holding both runs: select by revision, and the revision's descriptors. */
-function pairSource({ revisions = true } = {}) {
+/**
+ * A source holding both runs, selected by revision. With `legends` each product
+ * carries its binding and descriptor `semantic.metadata`, as World Model serves
+ * them since DWM-229; without, it answers as an older backplane did.
+ */
+function pairSource({ legends = true } = {}) {
   const runs = Object.values(pair).filter((run) => run.revision_id);
   const byRevision = new Map(runs.map((run) => [run.revision_id, run]));
   const calls = [];
   return {
     calls,
     async select({ revisionId, query }) {
-      calls.push(['select', revisionId, query.requested_layers[0]]);
+      const binding = query.requested_layers[0];
+      calls.push(['select', revisionId, binding]);
       const run = byRevision.get(revisionId);
-      return run.selections[query.requested_layers[0]] ?? { products: [] };
+      const selection = run.selections[binding] ?? { products: [] };
+      if (!legends) return selection;
+      const semantic_metadata =
+        run.revision.descriptors[binding]?.semantic?.metadata ?? null;
+      return {
+        ...selection,
+        products: selection.products.map((p) => ({
+          ...p,
+          binding,
+          semantic_metadata,
+        })),
+      };
     },
-    ...(revisions && {
-      async getRevision({ revisionId }) {
-        calls.push(['revision', revisionId]);
-        return byRevision.get(revisionId).revision;
-      },
-    }),
   };
 }
 
@@ -127,7 +137,7 @@ test('contested against nominal: the cells whose state differs, and only those',
   assert.deepEqual(compareLanes(nominal, nominal), []);
 });
 
-test('a run is read once per revision, with its headers when the source can say', async () => {
+test('a run is read once per revision, its legends from the selections alone', async () => {
   const source = pairSource();
   const effects = createRunEffects(source);
   const first = await effects.read({ revisionId: pair.contested.revision_id });
@@ -135,12 +145,13 @@ test('a run is read once per revision, with its headers when the source can say'
   assert.equal(first, again);
   assert.deepEqual(first.lanes.map((l) => l.family), ['communications', 'collection', 'navigation']);
   assert.equal(first.card.uncalibrated, true);
-  assert.equal(source.calls.filter(([kind]) => kind === 'select').length, 3);
+  assert.deepEqual(new Set(source.calls.map(([kind]) => kind)), new Set(['select']));
+  assert.equal(source.calls.length, 3);
   assert.equal(first.lanes[0].cells.find((c) => c.opportunity === 'exchange-2').reason, 'below_unavailable_threshold');
 });
 
-test('without revision headers the lanes still draw, and there is no card', async () => {
-  const effects = createRunEffects(pairSource({ revisions: false }));
+test('without legends on the selection the lanes still draw, and there is no card', async () => {
+  const effects = createRunEffects(pairSource({ legends: false }));
   const read = await effects.read({ revisionId: pair.nominal.revision_id });
   assert.equal(read.lanes.length, 3);
   assert.equal(read.card, null);
@@ -173,7 +184,7 @@ test('a run with effects and no track still plays, at the effects\' own epochs',
   assert.ok(geometry.rows.every((row, i) => i === 0 || row.y > geometry.rows[i - 1].y));
 });
 
-test('the three families are read side by side, and a run without effects never reads its revision', async () => {
+test('the three families are read side by side, and no revision is ever read', async () => {
   let inFlight = 0;
   let most = 0;
   const calls = [];
@@ -192,5 +203,5 @@ test('the three families are read side by side, and a run without effects never 
   });
   assert.deepEqual(await effects.read({ revisionId: 'geometry-only' }), { lanes: [], card: null });
   assert.equal(most, 3);
-  assert.deepEqual(calls, [], 'no lanes, so the revision (tens of MB) is not read');
+  assert.deepEqual(calls, [], 'the revision (tens of MB) is never read');
 });

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { selectionCardLines, selectionProvenanceLines } from './adapter.js';
-import { dbwText, receiverCard, revisionHeaders } from './rfCard.js';
+import { dbwText, receiverCard } from './rfCard.js';
 
 // The ISS run's receiver track, as World Model serves it (GEN-303).
 const track = JSON.parse(
@@ -123,15 +123,4 @@ test('interference power reads in dBW; zero and missing are said, not computed',
   assert.equal(dbwText(1e-15), 'interference -150.0 dBW');
   assert.equal(dbwText(0), 'no interference');
   assert.equal(dbwText(null), 'interference unknown');
-});
-
-test('revision headers are read by binding, and {} when the source cannot say', async () => {
-  const source = { getRevision: async () => pair.contested.revision };
-  const headers = await revisionHeaders(source, pair.contested.revision_id);
-  assert.deepEqual(
-    headers['simulation.rf.communications'].state_codes,
-    metadata.state_codes,
-  );
-  assert.deepEqual(await revisionHeaders({}, 'x'), {});
-  assert.deepEqual(await revisionHeaders(source, null), {});
 });
