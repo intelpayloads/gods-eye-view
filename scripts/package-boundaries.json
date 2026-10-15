@@ -325,6 +325,7 @@
       "src/layers/vessels/store.js",
       "src/layers/vessels/testing.js",
       "src/layers/vessels/tracking.js",
+      "src/layers/vessels/worldSource.js",
       "src/layers/weather/source.js",
       "src/layers/worldModel/adapter.js",
       "src/layers/worldModel/controller.js",

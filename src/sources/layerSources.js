@@ -24,7 +24,8 @@
  * (DWM-30, the three `world.fires.viirs_*` bindings merged into one
  * snapshot; nothing delegates: the provider source has one method),
  * satellites (DWM-185, the `world.satellites.elements_<group>` element sets
- * read through the ProjectionSource's `select`, propagated by the layer).
+ * read through the ProjectionSource's `select`, propagated by the layer),
+ * vessels (DWM-233, `world.vessels`; trails delegate).
  *
  * Configuration validates each 'world' row at once (a registered adapter, a
  * ProjectionSource, a factory that returns a source); each slot then builds
@@ -55,6 +56,10 @@ import {
   ELEMENT_SET_TYPE,
   createWorldSatelliteSource,
 } from '../layers/satellites/worldSource.js';
+import {
+  VESSEL_BINDING,
+  createWorldVesselSource,
+} from '../layers/vessels/worldSource.js';
 
 /** Layer ids (and the cockpit weather effect) whose data source is switchable. */
 export const LAYER_SOURCE_KEYS = Object.freeze([
@@ -82,6 +87,7 @@ export const WORLD_LAYER_SOURCES = Object.freeze({
   military: createWorldMilitarySource,
   'local-firms': createWorldFirmsSource,
   satellites: createWorldSatelliteSource,
+  'ais-live-vessels': createWorldVesselSource,
 });
 
 /**
@@ -96,6 +102,7 @@ export const WORLD_LAYER_CLAIMS = Object.freeze({
   military: Object.freeze({ bindings: [MILITARY_BINDING] }),
   'local-firms': Object.freeze({ bindings: [...FIRE_BINDINGS] }),
   satellites: Object.freeze({ types: [ELEMENT_SET_TYPE] }),
+  'ais-live-vessels': Object.freeze({ bindings: [VESSEL_BINDING] }),
 });
 
 /** The world layer that draws a `/status` binding entry, or null. */

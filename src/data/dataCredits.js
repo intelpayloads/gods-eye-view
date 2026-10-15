@@ -49,6 +49,16 @@ export const DATA_CREDITS = [
       '<a href="https://aisstream.io" target="_blank" rel="noopener">AISStream.io</a>',
   },
   {
+    key: 'digitraffic',
+    html:
+      'Vessels via the world model (AIS): ' +
+      '<a href="https://www.digitraffic.fi/en/" target="_blank" rel="noopener">Fintraffic / digitraffic.fi</a>, CC BY 4.0',
+  },
+  {
+    key: 'nga-wpi',
+    html: 'Ports via the world model: NGA World Port Index (Pub. 150), public domain',
+  },
+  {
     key: 'celestrak',
     html:
       'Satellites (TLEs): CelesTrak ' +
