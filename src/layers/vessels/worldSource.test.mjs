@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   createWorldVesselSource,
+  shipTypeLabel,
   VESSEL_BINDING,
   VESSEL_PRODUCT_TYPE,
 } from './worldSource.js';
@@ -142,4 +143,34 @@ test('trails delegate to the provider source, or are unsupported', async () => {
     ),
     /unavailable from the world model/,
   );
+});
+
+test('a register-named vessel carries its name, IMO, type and destination', async () => {
+  const projectionSource = sourceAnswering([
+    point({
+      mmsi: 230000001,
+      vessel_name: 'STOC BALTIC ',
+      imo: 9000001,
+      ship_type: 80,
+      destination: 'FIHEL',
+    }),
+  ]);
+  const [record] = (
+    await createWorldVesselSource({
+      projectionSource,
+      head: 'world/main',
+      now: () => NOW,
+    }).getSnapshot()
+  ).records;
+  assert.equal(record.name, 'STOC BALTIC');
+  assert.equal(record.imo, '9000001');
+  assert.equal(record.type, 'Tanker');
+  assert.equal(record.destination, 'FIHEL');
+});
+
+test('ship type codes read as the coarse label; an unknown code is blank', () => {
+  assert.equal(shipTypeLabel(70), 'Cargo');
+  assert.equal(shipTypeLabel(52), 'Tug');
+  assert.equal(shipTypeLabel(0), '');
+  assert.equal(shipTypeLabel(null), '');
 });

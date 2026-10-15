@@ -14,10 +14,12 @@
  * `heading_deg`). Here they become null: as numbers the layer would point a
  * moored ship due north and extrapolate it at 52 m/s.
  *
- * The positions feed carries no name, IMO, type or destination (those are a
- * second Digitraffic endpoint the world model does not ingest yet), so a
- * vessel is labelled by its MMSI, as the provider path does for a row with no
- * name. `getTrack` delegates to the slot's provider source until retained
+ * Name, IMO, type and destination come from Digitraffic's vessel register,
+ * which the world model reads by MMSI beside the positions (`acquire.lookup`,
+ * DWM-234). A vessel the register does not list once has none, and is
+ * labelled by its MMSI, as the provider path does for a row with no name.
+ * `ship_type` is the ITU-R M.1371 code; the layer shows the coarse label the
+ * provider path does. `getTrack` delegates to the slot's provider source until retained
  * tracks exist; without one it reports `unsupported`, which the layer treats
  * as "no trail".
  */
@@ -49,6 +51,43 @@ function available(value, unavailable) {
   return n == null || n >= unavailable ? null : n;
 }
 
+/** ITU-R M.1371 ship type code -> the label a card shows, '' when unknown. */
+export function shipTypeLabel(code) {
+  const n = finite(code);
+  if (n == null) return '';
+  const exact = {
+    30: 'Fishing',
+    31: 'Towing',
+    32: 'Towing',
+    33: 'Dredging',
+    34: 'Diving',
+    35: 'Military',
+    36: 'Sailing',
+    37: 'Pleasure craft',
+    50: 'Pilot',
+    51: 'Search and rescue',
+    52: 'Tug',
+    53: 'Port tender',
+    55: 'Law enforcement',
+    58: 'Medical transport',
+  }[n];
+  if (exact) return exact;
+  const decade = {
+    2: 'Wing in ground',
+    4: 'High-speed craft',
+    6: 'Passenger',
+    7: 'Cargo',
+    8: 'Tanker',
+    9: 'Other',
+  }[Math.floor(n / 10)];
+  return decade ?? '';
+}
+
+/** A trimmed text property, '' when absent. */
+function text(value) {
+  return value == null ? '' : String(value).trim();
+}
+
 /** The MMSI a projected point identifies: the identity's last segment. */
 function mmsiOf(point) {
   const identity = point?.semantic_ref?.semantic_identity;
@@ -73,10 +112,10 @@ function recordOf(point) {
     reference: id,
     latitude,
     longitude,
-    name: id,
-    imo: '',
-    type: '',
-    destination: '',
+    name: text(properties.vessel_name) || id,
+    imo: finite(properties.imo) ? String(properties.imo) : '',
+    type: shipTypeLabel(properties.ship_type),
+    destination: text(properties.destination),
     speedMps: speedKts == null ? null : speedKts * KNOT_MPS,
     courseDeg: available(properties.cog_deg, 360),
     headingDeg: available(properties.heading_deg, 360),
