@@ -57,7 +57,7 @@ import {
   createWorldSatelliteSource,
 } from '../layers/satellites/worldSource.js';
 import {
-  VESSEL_BINDING,
+  VESSEL_BINDINGS,
   createWorldVesselSource,
 } from '../layers/vessels/worldSource.js';
 
@@ -102,7 +102,7 @@ export const WORLD_LAYER_CLAIMS = Object.freeze({
   military: Object.freeze({ bindings: [MILITARY_BINDING] }),
   'local-firms': Object.freeze({ bindings: [...FIRE_BINDINGS] }),
   satellites: Object.freeze({ types: [ELEMENT_SET_TYPE] }),
-  'ais-live-vessels': Object.freeze({ bindings: [VESSEL_BINDING] }),
+  'ais-live-vessels': Object.freeze({ bindings: [...VESSEL_BINDINGS] }),
 });
 
 /** The world layer that draws a `/status` binding entry, or null. */

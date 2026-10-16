@@ -3,6 +3,8 @@ import test from 'node:test';
 import {
   createWorldVesselSource,
   shipTypeLabel,
+  VESSEL_BINDINGS,
+  VESSEL_GLOBAL_BINDING,
   VESSEL_BINDING,
   VESSEL_PRODUCT_TYPE,
 } from './worldSource.js';
@@ -61,7 +63,7 @@ test('one demand names the vessel binding at the wall clock and grants no height
   const [demand] = projectionSource.demands;
   assert.equal(demand.head, 'world/main');
   assert.deepEqual(demand.query.type_filter, [VESSEL_PRODUCT_TYPE]);
-  assert.deepEqual(demand.query.requested_layers, [VESSEL_BINDING]);
+  assert.deepEqual(demand.query.requested_layers, [...VESSEL_BINDINGS]);
   assert.ok(demand.query.valid_at.startsWith('2026-10-15T02:05'));
   assert.deepEqual(demand.projectionSpec.display_assumptions, {});
 });
@@ -173,4 +175,30 @@ test('ship type codes read as the coarse label; an unknown code is blank', () =>
   assert.equal(shipTypeLabel(52), 'Tug');
   assert.equal(shipTypeLabel(0), '');
   assert.equal(shipTypeLabel(null), '');
+});
+
+test('a ship both sources hear is one record: the newer position, the name kept', async () => {
+  const baltic = point({
+    mmsi: 230000001,
+    vessel_name: 'STOC BALTIC',
+    sampledAt: '2026-10-15T02:03:00Z',
+  });
+  const global = {
+    ...point({ mmsi: 230000001, lon: 25.5, sampledAt: '2026-10-15T02:04:30Z' }),
+    binding: VESSEL_GLOBAL_BINDING,
+  };
+  const elsewhere = {
+    ...point({ mmsi: 247000002, vessel_name: 'MALTA STAR', lat: 36.1 }),
+    binding: VESSEL_GLOBAL_BINDING,
+  };
+  const { records } = await createWorldVesselSource({
+    projectionSource: sourceAnswering([baltic, global, elsewhere]),
+    head: 'world/main',
+    now: () => NOW,
+  }).getSnapshot();
+  assert.equal(records.length, 2);
+  const ship = records.find((r) => r.id === '230000001');
+  assert.equal(ship.longitude, 25.5, 'the newer position');
+  assert.equal(ship.name, 'STOC BALTIC', 'the name the newer record lacked');
+  assert.equal(records.find((r) => r.id === '247000002').name, 'MALTA STAR');
 });
