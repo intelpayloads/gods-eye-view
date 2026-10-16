@@ -19,13 +19,14 @@
  * DWM-234). A vessel the register does not list once has none, and is
  * labelled by its MMSI, as the provider path does for a row with no name.
  * `ship_type` is the ITU-R M.1371 code; the layer shows the coarse label the
- * provider path does. `getTrack` delegates to the slot's provider source until retained
+ * provider path does. Ships come from two bindings: Digitraffic's Baltic
+ * `world.vessels` and AISStream's worldwide `world.vessels_global` (DWM-235),
+ * one record per MMSI. `getTrack` delegates to the slot's provider source until retained
  * tracks exist; without one it reports `unsupported`, which the layer treats
  * as "no trail".
  */
 import { wallClockValidAt } from '../worldModel/demand.js';
 import {
-  admitRecords,
   coordinates,
   epoch,
   finite,
@@ -34,8 +35,15 @@ import {
 
 export const VESSEL_PRODUCT_TYPE = 'vessel.track_state_set.v1';
 export const VESSEL_BINDING = 'world.vessels';
-export const WORLD_VESSEL_SOURCE_LABEL = 'World model (Digitraffic AIS)';
-export const WORLD_VESSEL_COVERAGE = `world model snapshot (${VESSEL_BINDING})`;
+/** AISStream's worldwide window (World Model DWM-235), beside Digitraffic's Baltic. */
+export const VESSEL_GLOBAL_BINDING = 'world.vessels_global';
+export const VESSEL_BINDINGS = Object.freeze([
+  VESSEL_BINDING,
+  VESSEL_GLOBAL_BINDING,
+]);
+export const WORLD_VESSEL_SOURCE_LABEL =
+  'World model (Digitraffic + AISStream AIS)';
+export const WORLD_VESSEL_COVERAGE = `world model snapshot (${VESSEL_BINDINGS.join(', ')})`;
 /** A snapshot whose newest position is older than this is stale. */
 const STALE_AFTER_MS = 300000;
 const KNOT_MPS = 0.514444;
@@ -124,6 +132,34 @@ function recordOf(point) {
   };
 }
 
+/**
+ * One record per vessel: a ship both sources hear is one MMSI in two bindings,
+ * and the layer keys on the MMSI. The newer position wins; a name the newer
+ * record lacks is kept from the older one.
+ */
+function newestPerVessel(records) {
+  const byId = new Map();
+  for (const record of records) {
+    const held = byId.get(record.id);
+    if (!held) {
+      byId.set(record.id, record);
+      continue;
+    }
+    const newer =
+      (record.observedAtMs ?? -Infinity) > (held.observedAtMs ?? -Infinity)
+        ? record
+        : held;
+    const older = newer === record ? held : record;
+    byId.set(
+      record.id,
+      newer.name === newer.id && older.name !== older.id
+        ? { ...newer, name: older.name }
+        : newer,
+    );
+  }
+  return [...byId.values()];
+}
+
 /** The snapshot time: the newest position the admitted records carry. */
 function newest(records) {
   let latest = null;
@@ -164,7 +200,7 @@ export function createWorldVesselSource({
         head,
         query: {
           type_filter: [VESSEL_PRODUCT_TYPE],
-          requested_layers: [VESSEL_BINDING],
+          requested_layers: [...VESSEL_BINDINGS],
           valid_at: wallClockValidAt(now()),
         },
         projectionSpec: { display_assumptions: {} },
@@ -176,11 +212,21 @@ export function createWorldVesselSource({
           'malformed',
           'Malformed world-model projection: no points array',
         );
-      const admitted = admitRecords(
-        projection.points,
-        recordOf,
-        'world-model vessel',
-      );
+      // Merged before admission: `admitRecords` keeps the FIRST row per id,
+      // which for a ship in both bindings is whichever came first, not the
+      // newer position, and would count the other as rejected.
+      const normalized = projection.points.map(recordOf);
+      const valid = normalized.filter(Boolean);
+      if (normalized.length && !valid.length)
+        throw new LiveSourceError(
+          'malformed',
+          'Malformed world-model vessel rows',
+        );
+      const admitted = {
+        records: newestPerVessel(valid),
+        complete: valid.length === normalized.length,
+        rejectedCount: normalized.length - valid.length,
+      };
       const observedAtMs = newest(admitted.records);
       const ageMs =
         observedAtMs == null ? null : Math.max(0, now() - observedAtMs);
