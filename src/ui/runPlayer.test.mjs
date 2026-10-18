@@ -52,10 +52,24 @@ test('a pinned layer gives its revision, and the host\'s focus adds the comparis
   assert.equal(run.revisionId, 'rev-1');
   assert.deepEqual(run.compare, focus.compare);
   assert.equal(run.headAdvanced, true);
-  // A focus on another head does not leak into the run on screen.
-  const other = runOnScreen([layer('track', { head: RUN })], { ...focus, head: 'sim/other' });
-  assert.equal(other.compare, null);
-  assert.equal(other.revisionId, null);
+});
+
+test('the opened run stays the run when a row left on an older run is switched on (GEN-341)', () => {
+  const opened = 'sim/sha256:opened';
+  const focus = { head: opened, revisionId: 'rev-1', headAdvanced: false, source, compare: { head: 'sim/n', revisionId: 'rev-n' } };
+  const run = runOnScreen(
+    [
+      layer('stale-track', { head: RUN, layers: ['simulation.rf.receiver_track'] }),
+      layer('effects', { head: opened }, false),
+    ],
+    focus,
+  );
+  assert.equal(run.head, opened);
+  assert.equal(run.revisionId, 'rev-1');
+  assert.deepEqual(run.compare, focus.compare);
+  assert.deepEqual(run.layerIds, ['effects'], 'only the opened run\'s layers follow its clock');
+  // Without a focus the same rows give the older run, as before.
+  assert.equal(runOnScreen([layer('stale-track', { head: RUN })]).head, RUN);
 });
 
 test('a focused run with no layer on screen (mission effects only) is still the run', () => {

@@ -35,6 +35,8 @@ function managerFor(status, { refuse = false } = {}) {
     async setEnabled(id, on) {
       layers.get(id).enabled = on;
     },
+    isEnabled: (id) => layers.get(id).enabled,
+    getLayerParams: (id) => ({ ...layers.get(id).params }),
   };
 }
 
@@ -73,6 +75,21 @@ test('opening a run points every row the run has a product for at the run, and o
       simulated.some((b) => b.binding === binding),
     ),
   );
+});
+
+test("a row the run has no product for, left on another run, is switched off (GEN-341)", async () => {
+  const manager = managerFor(runStatus);
+  const stale = productLayerId('simulation.rf.from_another_run');
+  const unrelated = productLayerId('simulation.rf.on_this_run_already');
+  manager.layers.set(stale, { params: { head: 'sim/sha256:older' }, enabled: true });
+  manager.layers.set(unrelated, { params: { head: runHead }, enabled: true });
+  manager.layers.set('earthquakes', { params: { head: 'sim/sha256:older' }, enabled: true });
+  const result = await openRun({ manager, source: source(runStatus), head: runHead });
+  assert.deepEqual(result.closed, [stale]);
+  assert.equal(manager.layers.get(stale).enabled, false);
+  assert.equal(manager.layers.get(unrelated).enabled, true, 'a row already on this run stays');
+  assert.equal(manager.layers.get('earthquakes').enabled, true, 'only product rows are closed');
+  assert.ok(result.opened.every(({ layerId }) => manager.layers.get(layerId).enabled));
 });
 
 test('a requested time wins, and a product with nothing to draw is named rather than dropped', async () => {
