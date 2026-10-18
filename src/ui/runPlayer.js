@@ -142,57 +142,66 @@ function worldModelLayers(dataManager) {
 }
 
 /**
- * The run on screen: the head of an enabled world-model layer on a `sim/`
- * head (the receiver track's layer first) and every layer on that head.
- * The revision is the player's to resolve: the layer's drawn revision can
- * still be the head it just left -- unless the layer is pinned to the one a
- * receipt named. A run the host opened (`focus`) that put no layer on screen,
- * such as one with mission effects only, is on screen too (GEN-299).
+ * The run on screen. A run the host opened (`focus`) is the run while it is
+ * set, whatever other rows show (GEN-341): a row left on an older `sim/` head
+ * and switched back on must not swap the player to that run. Its layers are
+ * the ones on the focused head; a run that put no layer on screen, such as
+ * one with mission effects only, is on screen too (GEN-299). Without a focus,
+ * the run is the head of an enabled world-model layer on a `sim/` head (the
+ * receiver track's layer first). The revision is the player's to resolve: the
+ * layer's drawn revision can still be the head it just left -- unless the
+ * layer is pinned to the one a receipt named.
  */
 export function runOnScreen(layers, focus = null) {
-  const run = layerRun(layers);
-  if (run) {
-    const focused = focus?.head === run.head ? focus : null;
+  if (focus?.head && focus.source) {
+    const lead = leadOn(layers, focus.head);
     return {
-      ...run,
-      revisionId: run.revisionId ?? focused?.revisionId ?? null,
-      compare: focused?.compare ?? null,
-      headAdvanced: focused?.headAdvanced ?? false,
+      head: focus.head,
+      validAt: lead?.params.validAt ?? null,
+      source: lead?.module.getProjectionSource() ?? focus.source,
+      layerIds: layerIdsOn(layers, focus.head),
+      revisionId: pinnedRevision(lead) ?? focus.revisionId ?? null,
+      compare: focus.compare ?? null,
+      headAdvanced: focus.headAdvanced ?? false,
     };
   }
-  if (!focus?.head || !focus.source) return null;
-  return {
-    head: focus.head,
-    validAt: null,
-    source: focus.source,
-    layerIds: [],
-    revisionId: focus.revisionId,
-    compare: focus.compare,
-    headAdvanced: focus.headAdvanced,
-  };
-}
-
-function layerRun(layers) {
-  const onRun = layers.filter(
+  const first = layers.find(
     (layer) =>
       layer.entry.enabled && layer.params.head?.startsWith(SIM_HEAD_PREFIX),
   );
-  if (!onRun.length) return null;
-  const lead =
-    onRun.find((layer) =>
-      (layer.params.layers ?? []).includes(RECEIVER_TRACK_BINDING),
-    ) ?? onRun[0];
-  const head = lead.params.head;
+  if (!first) return null;
+  const lead = leadOn(layers, first.params.head);
   return {
-    head,
+    head: lead.params.head,
     validAt: lead.params.validAt ?? null,
-    revisionId:
-      lead.params.follow === 'pinned' ? (lead.params.revisionId ?? null) : null,
     source: lead.module.getProjectionSource(),
-    layerIds: layers
-      .filter((layer) => layer.params.head === head)
-      .map((layer) => layer.id),
+    layerIds: layerIdsOn(layers, lead.params.head),
+    revisionId: pinnedRevision(lead),
+    compare: null,
+    headAdvanced: false,
   };
+}
+
+/** The enabled layer on `head` the clock reads: the receiver track's first. */
+function leadOn(layers, head) {
+  const on = layers.filter(
+    (layer) => layer.entry.enabled && layer.params.head === head,
+  );
+  return (
+    on.find((layer) =>
+      (layer.params.layers ?? []).includes(RECEIVER_TRACK_BINDING),
+    ) ??
+    on[0] ??
+    null
+  );
+}
+
+function layerIdsOn(layers, head) {
+  return layers.filter((layer) => layer.params.head === head).map((layer) => layer.id);
+}
+
+function pinnedRevision(layer) {
+  return layer?.params.follow === 'pinned' ? (layer.params.revisionId ?? null) : null;
 }
 
 /**

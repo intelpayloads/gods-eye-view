@@ -20,10 +20,18 @@
  * other case of the same pair (`compare`, the nominal run): the run player
  * then shows both runs' mission effects and where they differ. A comparison
  * that cannot be opened is reported, and the run still opens.
+ *
+ * A row the run has no product for, still showing another run, is switched
+ * off (GEN-341): the globe never draws two runs at once, and the host is told
+ * which rows were closed.
  */
 import { focusRun } from '../layers/worldModel/runFocus.js';
 import { SIM_HEAD_PREFIX } from '../layers/worldModel/simulationRuns.js';
-import { DRAWABLE_REPRESENTATIONS, productLayerId } from './worldProducts.js';
+import {
+  DRAWABLE_REPRESENTATIONS,
+  PRODUCT_LAYER_PREFIX,
+  productLayerId,
+} from './worldProducts.js';
 
 export const RUN_OPEN_ERROR_CODES = Object.freeze([
   'revision-not-on-head',
@@ -53,6 +61,7 @@ const REVISION_CHAIN_LIMIT = 50;
  * @returns {Promise<{head: string, revisionId: string|null, headAdvanced: boolean,
  *   interval: {start: string, end: string}|null, compareError: string|null,
  *   opened: Array<{binding: string, layerId: string, validAt: string|null}>,
+ *   closed: string[],
  *   undrawable: Array<{binding: string, reason: string}>}>}
  */
 export async function openRun({
@@ -106,6 +115,7 @@ export async function openRun({
     await manager.setEnabled(layerId, true);
     opened.push({ binding: entry.binding, layerId, validAt: at });
   }
+  const closed = await closeOtherRuns(manager, head, opened);
   let compareError = null;
   let comparison = null;
   if (compare?.head) {
@@ -126,8 +136,29 @@ export async function openRun({
     interval: intervalOf(simulated),
     compareError,
     opened,
+    closed,
     undrawable,
   };
+}
+
+/** Switch off every enabled product row left on another `sim/` head; their ids. */
+async function closeOtherRuns(manager, head, opened) {
+  const openedIds = new Set(opened.map((o) => o.layerId));
+  const closed = [];
+  for (const layerId of manager.layers.keys()) {
+    if (
+      openedIds.has(layerId) ||
+      !layerId.startsWith(PRODUCT_LAYER_PREFIX) ||
+      !manager.isEnabled(layerId)
+    )
+      continue;
+    const rowHead = manager.getLayerParams(layerId)?.head;
+    if (typeof rowHead !== 'string' || !rowHead.startsWith(SIM_HEAD_PREFIX) || rowHead === head)
+      continue;
+    await manager.setEnabled(layerId, false);
+    closed.push(layerId);
+  }
+  return closed;
 }
 
 /** A receipt's revision must be on its head; whether the head has moved past it. */
