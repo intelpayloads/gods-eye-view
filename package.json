@@ -17,6 +17,18 @@
   "engines": {
     "node": ">=24.14.0 <25 || >=26 <27"
   },
+  "files": [
+    "src",
+    "public",
+    "server",
+    "build",
+    "LICENSE",
+    "README.md",
+    "DATA_SOURCES.md",
+    "!**/*.test.mjs",
+    "!**/*.test.js",
+    "!src/**/fixtures/**"
+  ],
   "keywords": [
     "cesium",
     "3d-globe",
