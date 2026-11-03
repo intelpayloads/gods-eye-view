@@ -25,11 +25,12 @@ export function renderApplicationMarkup(assetBaseUrl) {
 /**
  * Add the chrome's external stylesheets (web and icon fonts) to `document`'s
  * <head> unless the host already loads them. Returns a function removing the
- * links this call added.
+ * links this call added. `hrefs` replaces the default list (GEN-367): `[]` or
+ * null adds none, for a host that serves the font faces itself.
  */
-export function attachApplicationStylesheets(document) {
+export function attachApplicationStylesheets(document, hrefs = APPLICATION_STYLESHEETS) {
   const added = [];
-  for (const href of APPLICATION_STYLESHEETS) {
+  for (const href of hrefs ?? []) {
     const present = [
       ...document.head.querySelectorAll('link[rel="stylesheet"]'),
     ].some((link) => link.getAttribute('href') === href);

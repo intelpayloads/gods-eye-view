@@ -161,6 +161,42 @@ test('a host basemap is validated: a {z}/{x}/{y} template and a 0-22 zoom, or re
     assert.throws(() => normalizeBasemap({ tileUrl: '/{z}/{x}/{y}', maxZoom }), /0-22/);
 });
 
+test('a host can replace the font stylesheets, or add none, and the default is unchanged (GEN-367)', async () => {
+  const { attachApplicationStylesheets, APPLICATION_STYLESHEETS } =
+    await import('./chrome.js');
+  const fakeDocument = () => {
+    const links = [];
+    return {
+      links,
+      head: {
+        querySelectorAll: () => [...links],
+        appendChild: (link) => links.push(link),
+      },
+      createElement: () => {
+        const link = { dataset: {}, remove: () => links.splice(links.indexOf(link), 1) };
+        link.getAttribute = (name) => (name === 'href' ? link.href : null);
+        return link;
+      },
+    };
+  };
+  for (const none of [[], null]) {
+    const document = fakeDocument();
+    attachApplicationStylesheets(document, none)();
+    assert.equal(document.links.length, 0, `${JSON.stringify(none)} adds no link`);
+  }
+  const own = fakeDocument();
+  const detach = attachApplicationStylesheets(own, ['/fonts/gev.css']);
+  assert.deepEqual(own.links.map((l) => l.href), ['/fonts/gev.css']);
+  detach();
+  assert.equal(own.links.length, 0);
+  const byDefault = fakeDocument();
+  attachApplicationStylesheets(byDefault);
+  assert.deepEqual(byDefault.links.map((l) => l.href), [...APPLICATION_STYLESHEETS]);
+  const undefinedOption = fakeDocument();
+  attachApplicationStylesheets(undefinedOption, undefined);
+  assert.deepEqual(undefinedOption.links.map((l) => l.href), [...APPLICATION_STYLESHEETS]);
+});
+
 test('stylesheet scoping keeps application state classes on body and targets under the root', () => {
   assert.equal(scopeSelector(':root'), '.gods-eye-root');
   assert.equal(scopeSelector('html'), '.gods-eye-root');

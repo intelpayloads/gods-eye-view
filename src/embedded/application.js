@@ -92,6 +92,11 @@ export const EMBEDDED_FEATURES = Object.freeze({
  * @param {object} [options.worldModel] Extra world-model layer options (head, predicates, modalities, displayAssumptions, policyThresholdSeconds, updateInterval, debounceMs).
  * @param {object|null} [options.initialCamera] `{lon, lat, heightM?, rangeM, headingDeg, pitchDeg}`.
  * @param {object} [options.features] Opt in to `voice`, `keySetup`, `firstRun`.
+ * @param {string[]|null} [options.stylesheets] The font stylesheets the chrome adds to
+ *   `<head>` (GEN-367). Default (omitted): Google Fonts for Inter, JetBrains Mono,
+ *   Material Symbols Outlined and Material Icons Round, as today. `[]` or null adds none: the host serves those faces
+ *   itself (font-family names `Inter`, `JetBrains Mono`, `Material Symbols Outlined`),
+ *   so the embed loads no external stylesheet. An array of hrefs replaces the list.
  * @param {{tileUrl: string, attribution?: string, maxZoom?: number}|null} [options.basemap]
  *   A host-supplied raster basemap (GEN-367): a `{z}/{x}/{y}` template, either an https
  *   URL or a same-origin path such as `/tiles/{z}/{x}/{y}.png`, with an optional
@@ -113,6 +118,7 @@ export function createEmbeddedApplication(options = {}) {
     initialCamera = null,
     features = {},
     basemap = null,
+    stylesheets = undefined,
   } = options;
   const hostBasemap = normalizeBasemap(basemap);
   if (!root || typeof root.appendChild !== 'function')
@@ -168,7 +174,7 @@ export function createEmbeddedApplication(options = {}) {
         }),
       );
       defer(configureHostElement(root));
-      defer(attachApplicationStylesheets(document));
+      defer(attachApplicationStylesheets(document, stylesheets));
       root.classList.add(ROOT_CLASS);
       root.innerHTML = renderApplicationMarkup(assetBaseUrl);
       applyPresentation(root, ROOT_CLASS);
