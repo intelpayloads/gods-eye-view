@@ -25,6 +25,9 @@
     "LICENSE",
     "README.md",
     "DATA_SOURCES.md",
+    "scripts/google-server-key.mjs",
+    "scripts/pinokio-environment.mjs",
+    "style.css",
     "!**/*.test.mjs",
     "!**/*.test.js",
     "!src/**/fixtures/**"
