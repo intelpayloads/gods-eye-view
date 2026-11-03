@@ -104,7 +104,8 @@ export class MapStackController {
     this.cesiumToken = String(cesiumToken || '').trim();
     this._onChange = onChange;
     this._onError = onError;
-    this._activeId = googleTileset ? initialStack : this._keylessDefault();
+    // With a host basemap nothing external is the default, even with a tileset passed.
+    this._activeId = googleTileset && !this.basemap ? initialStack : this._keylessDefault();
     this._imageryLayer = null;
     this._activeImageryProvider = null;
     this._removeImageryErrorListener = null;
@@ -134,7 +135,7 @@ export class MapStackController {
     this._switchGen = 0;
 
     if (!this.getStack(this._activeId) || !this.isStackAvailable(this._activeId)) {
-      this._activeId = googleTileset ? 'photoreal' : this._keylessDefault();
+      this._activeId = this.isStackAvailable('photoreal') ? 'photoreal' : this._keylessDefault();
     }
   }
 
@@ -206,9 +207,10 @@ export class MapStackController {
   isStackAvailable(id) {
     const stack = this.getStack(id);
     if (!stack) return false;
-    if (stack.kind === 'photoreal') return !!this.googleTileset;
-    // A host basemap is the offline posture: only `osm` (drawing the host tiles) may be picked.
+    // A host basemap is the offline posture: only `osm` (drawing the host tiles) may be
+    // picked, whatever keys or tileset the host also passed (photoreal included).
     if (this.basemap) return stack.kind === 'osm';
+    if (stack.kind === 'photoreal') return !!this.googleTileset;
     if (stack.requiresIon) return !!this.cesiumToken;
     return true;
   }
@@ -266,7 +268,7 @@ export class MapStackController {
       const message = error?.message || String(error);
       this._lastError = message;
       this._onError?.(message, stack);
-      if (this.googleTileset) {
+      if (this.isStackAvailable('photoreal')) {
         await this._activatePhotoreal(gen);
         if (gen !== this._switchGen) return this.getState();
         this._activeId = 'photoreal';
@@ -326,7 +328,8 @@ export class MapStackController {
 
     if (this.googleTileset) this.googleTileset.show = false;
     this.viewer.scene.globe.show = true;
-    await this._setWorldTerrainEnabled(!!this.cesiumToken, gen);
+    // Cesium World Terrain is an ion fetch: never under a host basemap, token or not.
+    await this._setWorldTerrainEnabled(!!this.cesiumToken && !this.basemap, gen);
     return resolution;
   }
 

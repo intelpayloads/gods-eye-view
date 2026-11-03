@@ -3,7 +3,7 @@ import { createApplicationViewer } from '../app/viewer.js';
 import { registerDataCredits } from '../data/dataCredits.js';
 import { configureCreditKeyboardAccess } from '../creditKeyboard.js';
 import { MapStackController } from '../mapStackController.js';
-import { loadPhotorealisticTileset } from '../mapStartup.js';
+import { loadStartupTileset } from '../mapStartup.js';
 import { initLogoGaze } from '../logoGaze.js';
 import { uninstallRenderGovernor } from '../renderGovernor.js';
 import { describeError } from './errors.js';
@@ -44,13 +44,15 @@ export async function createStandaloneScene({
   });
   registerDataCredits(viewer);
   configureCreditKeyboardAccess(document);
+  // A host basemap (GEN-367) loads no photorealistic tileset, keys or not.
   loaderStatus.textContent =
-    googleApiKey || cesiumToken
+    (googleApiKey || cesiumToken) && !basemap
       ? 'Loading Google 3D Tiles...'
       : 'Loading the keyless globe...';
-  const photoreal = await loadPhotorealisticTileset(Cesium, {
+  const photoreal = await loadStartupTileset(Cesium, {
     googleApiKey,
     cesiumToken,
+    basemap,
   });
   const tileset = photoreal.tileset;
   // A provider can finish after cancellation; retain ownership of its result.

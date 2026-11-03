@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   loadPhotorealisticTileset,
+  loadStartupTileset,
   selectMapStartupRoute,
 } from './mapStartup.js';
 
@@ -101,4 +102,25 @@ test('failed direct and ion requests preserve the keyless OSM fallback', async (
   assert.equal(result.errors.length, 2);
   assert.equal(Cesium.calls.length, 2);
   assert.equal(Cesium.GoogleMaps.defaultApiKey, undefined);
+});
+
+test('a host basemap loads no photoreal tileset and sets no ion token or Google key (GEN-367)', async () => {
+  const Cesium = fakeCesium([{ id: 'tileset' }]);
+  const result = await loadStartupTileset(Cesium, {
+    googleApiKey: 'google',
+    cesiumToken: 'ion',
+    basemap: { tileUrl: '/tiles/{z}/{x}/{y}.png' },
+  });
+  assert.deepEqual(result, { tileset: null, route: 'osm', errors: [] });
+  assert.equal(Cesium.calls.length, 0);
+  assert.equal(Cesium.Ion.defaultAccessToken, undefined);
+  assert.equal(Cesium.GoogleMaps.defaultApiKey, undefined);
+});
+
+test('without a host basemap the startup tileset is the photoreal load, unchanged', async () => {
+  const Cesium = fakeCesium([{ id: 'tileset' }]);
+  const result = await loadStartupTileset(Cesium, { googleApiKey: 'google' });
+  assert.equal(result.route, 'google-direct');
+  assert.deepEqual(result.tileset, { id: 'tileset' });
+  assert.equal(Cesium.calls.length, 1);
 });
