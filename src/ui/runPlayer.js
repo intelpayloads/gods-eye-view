@@ -142,6 +142,54 @@ function worldModelLayers(dataManager) {
 }
 
 /**
+ * The run player's model notes: what the effects model card says about the run
+ * on screen, as `{text, warn}` items (GEN-367). `calibrationStatus` comes from the
+ * run's product headers, i.e. World Model data any writer can set, so a note is
+ * only ever text: `renderNotes` puts it in a text node, never parses it as HTML.
+ */
+export function modelNotes(effects, run) {
+  const notes = [];
+  const card = effects?.card;
+  if (effects?.lanes?.length) {
+    if (!card)
+      notes.push({ text: "Effects model unknown: the run's headers could not be read.", warn: true });
+    else {
+      const statuses = [...new Set(card.models.map((m) => String(m.calibrationStatus)))].join(', ');
+      notes.push(
+        card.uncalibrated
+          ? { text: `Effects models ${statuses}, not validated`, warn: true }
+          : { text: `Effects models ${statuses}`, warn: false },
+      );
+      if (card.assumptions.length)
+        notes.push({ text: `${card.assumptions.length} assumptions (hover)`, warn: false });
+    }
+  }
+  if (run?.headAdvanced)
+    notes.push({ text: 'This head has a newer revision; showing the published one.', warn: true });
+  return notes;
+}
+
+/**
+ * Replace `element`'s content with `notes` joined by " · ": a warning is a
+ * `span.rp-warn`, the rest plain text. Built with text nodes and textContent only.
+ */
+export function renderNotes(element, notes) {
+  const doc = element.ownerDocument;
+  element.replaceChildren();
+  notes.forEach((note, index) => {
+    if (index > 0) element.append(doc.createTextNode(' · '));
+    if (!note.warn) {
+      element.append(doc.createTextNode(note.text));
+      return;
+    }
+    const span = doc.createElement('span');
+    span.className = 'rp-warn';
+    span.textContent = note.text;
+    element.append(span);
+  });
+}
+
+/**
  * The run on screen. A run the host opened (`focus`) is the run while it is
  * set, whatever other rows show (GEN-341): a row left on an older `sim/` head
  * and switched back on must not swap the player to that run. Its layers are
@@ -473,25 +521,10 @@ export function mountRunPlayer({ dataManager, container }) {
   function renderModel() {
     const model = $('.rp-model');
     const card = state.effects?.card;
-    const notes = [];
-    if (state.effects?.lanes.length) {
-      if (!card)
-        notes.push('<span class="rp-warn">Effects model unknown: the run\'s headers could not be read.</span>');
-      else {
-        const statuses = [...new Set(card.models.map((m) => m.calibrationStatus))].join(', ');
-        notes.push(
-          card.uncalibrated
-            ? `<span class="rp-warn">Effects models ${statuses}, not validated</span>`
-            : `Effects models ${statuses}`,
-        );
-        if (card.assumptions.length) notes.push(`${card.assumptions.length} assumptions (hover)`);
-        model.title = card.assumptions.join('\n');
-      }
-    }
-    if (state.run?.headAdvanced)
-      notes.push('<span class="rp-warn">This head has a newer revision; showing the published one.</span>');
+    if (state.effects?.lanes.length && card) model.title = card.assumptions.join('\n');
+    const notes = modelNotes(state.effects, state.run);
     model.hidden = !notes.length;
-    model.innerHTML = notes.join(' · ');
+    renderNotes(model, notes);
   }
 
   function render() {
