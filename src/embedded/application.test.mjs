@@ -141,6 +141,26 @@ test('font stylesheets are added once and only the added links are removed', asy
   assert.equal(links.length, 1, 'the host-owned link stays');
 });
 
+test('a host basemap is validated: a {z}/{x}/{y} template and a 0-22 zoom, or refused (GEN-367)', async () => {
+  const { normalizeBasemap } = await import('./options.js');
+  assert.equal(normalizeBasemap(null), null);
+  assert.equal(normalizeBasemap(undefined), null);
+  assert.deepEqual(
+    normalizeBasemap({ tileUrl: ' /tiles/{z}/{x}/{y}.png ', attribution: '© OSM', maxZoom: 14 }),
+    { tileUrl: '/tiles/{z}/{x}/{y}.png', attribution: '© OSM', maxZoom: 14 },
+  );
+  assert.deepEqual(normalizeBasemap({ tileUrl: 'https://t.example/{z}/{x}/{y}.png' }), {
+    tileUrl: 'https://t.example/{z}/{x}/{y}.png',
+    attribution: '',
+    maxZoom: 19,
+  });
+  assert.ok(Object.isFrozen(normalizeBasemap({ tileUrl: '/{z}/{x}/{y}' })));
+  for (const bad of [{}, { tileUrl: '' }, { tileUrl: '/tiles/{z}/{x}.png' }, { tileUrl: 42 }])
+    assert.throws(() => normalizeBasemap(bad), /\{z\}\/\{x\}\/\{y\} template/);
+  for (const maxZoom of [-1, 23, 1.5, 'high'])
+    assert.throws(() => normalizeBasemap({ tileUrl: '/{z}/{x}/{y}', maxZoom }), /0-22/);
+});
+
 test('stylesheet scoping keeps application state classes on body and targets under the root', () => {
   assert.equal(scopeSelector(':root'), '.gods-eye-root');
   assert.equal(scopeSelector('html'), '.gods-eye-root');

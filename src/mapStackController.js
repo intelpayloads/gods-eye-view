@@ -90,16 +90,21 @@ export class MapStackController {
   constructor(viewer, {
     googleTileset = null,
     cesiumToken = '',
+    basemap = null,
     initialStack = 'photoreal',
     onChange = null,
     onError = null,
   } = {}) {
     this.viewer = viewer;
+    // Host basemap ({tileUrl, attribution, maxZoom}): the offline posture. The `osm`
+    // stack draws the host's OSM-derived tiles instead of tile.openstreetmap.org, and
+    // every other external stack is unavailable (see isStackAvailable).
+    this.basemap = basemap || null;
     this.googleTileset = googleTileset;
     this.cesiumToken = String(cesiumToken || '').trim();
     this._onChange = onChange;
     this._onError = onError;
-    this._activeId = googleTileset ? initialStack : 'esri-imagery';
+    this._activeId = googleTileset ? initialStack : this._keylessDefault();
     this._imageryLayer = null;
     this._activeImageryProvider = null;
     this._removeImageryErrorListener = null;
@@ -129,8 +134,12 @@ export class MapStackController {
     this._switchGen = 0;
 
     if (!this.getStack(this._activeId) || !this.isStackAvailable(this._activeId)) {
-      this._activeId = googleTileset ? 'photoreal' : 'esri-imagery';
+      this._activeId = googleTileset ? 'photoreal' : this._keylessDefault();
     }
+  }
+
+  _keylessDefault() {
+    return this.basemap ? 'osm' : 'esri-imagery';
   }
 
   getStacks() {
@@ -155,6 +164,8 @@ export class MapStackController {
    * @returns {string}
    */
   _unavailableReason(stack) {
+    if (this.basemap && stack?.kind !== 'osm')
+      return 'Offline: only the configured basemap is available';
     if (stack?.requiresIon) return keySetupRequirement('cesium-ion');
     if (stack?.kind === 'photoreal') return photorealUnavailableReason(this._hasPhotorealCredentials());
     return `${stack?.label || 'This map stack'} is unavailable`;
@@ -196,6 +207,8 @@ export class MapStackController {
     const stack = this.getStack(id);
     if (!stack) return false;
     if (stack.kind === 'photoreal') return !!this.googleTileset;
+    // A host basemap is the offline posture: only `osm` (drawing the host tiles) may be picked.
+    if (this.basemap) return stack.kind === 'osm';
     if (stack.requiresIon) return !!this.cesiumToken;
     return true;
   }
@@ -354,7 +367,15 @@ export class MapStackController {
     let provider;
     let effectiveStackId = stack.id;
     let fallbackMessage = null;
-    if (stack.kind === 'ion') {
+    if (stack.kind === 'osm' && this.basemap) {
+      provider = new Cesium.UrlTemplateImageryProvider({
+        url: this.basemap.tileUrl,
+        maximumLevel: this.basemap.maxZoom,
+        credit: this.basemap.attribution
+          ? new Cesium.Credit(this.basemap.attribution, true)
+          : undefined,
+      });
+    } else if (stack.kind === 'ion') {
       provider = await Cesium.createWorldImageryAsync({ style: stack.style });
     } else if (stack.kind === 'esri-imagery') {
       try {
@@ -479,6 +500,11 @@ export class MapStackController {
    */
   async _getKeylessTerrainProvider() {
     if (this._reearthTerrainProvider) return this._reearthTerrainProvider;
+    if (this.basemap) {
+      // Offline posture: no Re:Earth fetch at all, flat ellipsoid terrain.
+      this._reearthTerrainProvider = new Cesium.EllipsoidTerrainProvider();
+      return this._reearthTerrainProvider;
+    }
     try {
       this._reearthTerrainProvider = await Cesium.CesiumTerrainProvider.fromUrl(REEARTH_TERRAIN_URL);
     } catch (error) {
