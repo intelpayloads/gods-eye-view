@@ -13,7 +13,7 @@
  *
  *   getHeads({ signal })                          -> Promise<{ [head]: revisionId }>
  *   getProvenance({ ref, follow, depth, signal })  -> Promise<ProvenanceReport>
- *   getStatus({ head, signal })                    -> Promise<Status>   (facts, never a verdict)
+ *   getStatus({ head, modality, signal })          -> Promise<Status>   (facts, never a verdict; modality keeps only its bindings)
  *   getRevision({ revisionId, signal })            -> Promise<Revision> (its bindings and their descriptors, GEN-299)
  *   select({ revisionId | head, query, signal })   -> Promise<Selection>
  *       `POST /select` with values: products the projection does not draw
@@ -380,8 +380,8 @@ export function createHttpProjectionSource({
       }
       return untilAborted(revisions.get(revisionId), signal);
     },
-    async getStatus({ head: name = head, signal } = {}) {
-      return request(`/status${searchOf({ head: name })}`, { signal });
+    async getStatus({ head: name = head, modality, signal } = {}) {
+      return request(`/status${searchOf({ head: name, modality })}`, { signal });
     },
     async select({ revisionId, head: name, query = {}, signal } = {}) {
       const byId = typeof revisionId === 'string' && revisionId;

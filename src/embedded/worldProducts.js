@@ -117,7 +117,11 @@ export async function discoverWorldProducts(
   );
   const [main, ...statuses] = await Promise.all([
     mainStatus,
-    ...runs.map((simHead) => source.getStatus({ head: simHead, signal })),
+    // A run head carries its base's bindings too; only its own simulated ones are
+    // rows, so ask for those alone (DWM-281). An older backplane ignores the filter.
+    ...runs.map((simHead) =>
+      source.getStatus({ head: simHead, modality: 'simulated', signal }),
+    ),
   ]);
   for (const product of productsOf(main, head, claims)) add(product);
   runs.forEach((simHead, index) => {

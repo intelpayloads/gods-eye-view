@@ -40,15 +40,26 @@ function managerFor(status, { refuse = false } = {}) {
   };
 }
 
-const source = (status) => ({ getStatus: async () => status });
+const source = (status, asked = []) => ({
+  getStatus: async (args) => {
+    asked.push(args);
+    return status;
+  },
+});
 
 test('opening a run points every row the run has a product for at the run, and only those', async () => {
   const manager = managerFor(runStatus);
+  const asked = [];
   const result = await openRun({
     manager,
-    source: source(runStatus),
+    source: source(runStatus, asked),
     head: runHead,
   });
+  // The run's own products are its simulated bindings; ask for those alone (DWM-281).
+  assert.deepEqual(
+    asked.map(({ head, modality }) => [head, modality]),
+    [[runHead, 'simulated']],
+  );
   const simulated = runStatus.bindings.filter(
     (b) => b.modality === 'simulated',
   );

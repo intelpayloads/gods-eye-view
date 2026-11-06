@@ -162,8 +162,10 @@ test('every head is read at once, so a world with several runs is not slower to 
   let inFlight = 0;
   let most = 0;
   const base = source();
+  const asked = [];
   const counting = {
     async getStatus(args) {
+      asked.push([args.head, args.modality]);
       inFlight += 1;
       most = Math.max(most, inFlight);
       await new Promise((resolve) => setTimeout(resolve, 5));
@@ -183,6 +185,14 @@ test('every head is read at once, so a world with several runs is not slower to 
     'the fixture holds a run, so the rule is not vacuous',
   );
   assert.ok(most > 1, `status reads ran one at a time (${most} in flight)`);
+  // A run head is asked for its own simulated bindings only; world/main for all (DWM-281).
+  for (const [head, modality] of asked)
+    assert.equal(
+      modality,
+      head.startsWith('sim/') ? 'simulated' : undefined,
+      `${head} asked for ${modality}`,
+    );
+  assert.equal(asked.length, runs.length + 1);
 });
 
 test('the World Model block says when product rows did not load, not that there are none', () => {

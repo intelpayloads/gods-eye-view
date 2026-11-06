@@ -32,8 +32,8 @@ function serving(calls = []) {
       calls.push('heads');
       return HEADS;
     },
-    async getStatus({ head }) {
-      calls.push(head);
+    async getStatus({ head, modality }) {
+      calls.push(`${head} ${modality}`);
       return STATUS;
     },
   };
@@ -67,13 +67,13 @@ test('a head with nothing simulated to draw is not a run', () => {
   assert.equal(runOf(RUN_HEAD, 'r', observedOnly), null);
 });
 
-test('runs are read from sim/ heads only, and a head is re-read only when it moves', async () => {
+test('runs are read from sim/ heads only, for their simulated bindings, and a head is re-read only when it moves', async () => {
   const calls = [];
   const runs = createSimulationRuns(serving(calls));
   const [run] = await runs.read();
   assert.equal(run.head, RUN_HEAD);
   await runs.read();
-  assert.deepEqual(calls, ['heads', RUN_HEAD, 'heads']);
+  assert.deepEqual(calls, ['heads', `${RUN_HEAD} simulated`, 'heads']);
 });
 
 test('a source without heads or status has no runs', async () => {

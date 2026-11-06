@@ -107,6 +107,9 @@ test('optional reads: heads, provenance by ref, status', async () => {
     '/w/status?head=world%2Fmain': {
       body: { head: { name: 'world/main' }, bindings: [] },
     },
+    '/w/status?head=sim%2Frun-1&modality=simulated': {
+      body: { head: { name: 'sim/run-1' }, modality: 'simulated', bindings: [] },
+    },
   });
   const source = createHttpProjectionSource({ baseUrl: '/w', fetchImpl });
   assert.deepEqual(await source.getHeads(), { 'world/main': 'rev-1' });
@@ -125,7 +128,12 @@ test('optional reads: heads, provenance by ref, status', async () => {
     report,
   );
   assert.equal((await source.getStatus()).head.name, 'world/main');
-  assert.equal(calls.length, 4);
+  assert.equal(
+    (await source.getStatus({ head: 'sim/run-1', modality: 'simulated' }))
+      .modality,
+    'simulated',
+  );
+  assert.equal(calls.length, 5);
   assert.equal(
     refString({ type_id: 't.v1', content_id: 'sha256:aa' }),
     't.v1@sha256:aa',

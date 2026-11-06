@@ -66,7 +66,11 @@ export function createSimulationRuns(source) {
         let entry = cache.get(head);
         if (!entry || entry.revisionId !== revisionId) {
           signal?.throwIfAborted();
-          const status = await source.getStatus({ head, signal });
+          const status = await source.getStatus({
+            head,
+            modality: 'simulated',
+            signal,
+          });
           entry = { revisionId, run: runOf(head, revisionId, status) };
           cache.set(head, entry);
         }

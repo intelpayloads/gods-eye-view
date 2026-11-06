@@ -80,7 +80,11 @@ export async function openRun({
   if (!manager?.layers)
     throw new Error('openRun: the application is not running');
   const { headAdvanced } = await checkRevision(source, head, revisionId, signal);
-  const status = await source.getStatus({ head, signal });
+  const status = await source.getStatus({
+    head,
+    modality: 'simulated',
+    signal,
+  });
   const simulated = (status?.bindings ?? []).filter(
     (entry) =>
       entry?.modality === 'simulated' && typeof entry.binding === 'string',
