@@ -144,6 +144,72 @@ test('only a run head is opened, and a row that refuses the head fails loudly', 
   );
 });
 
+// --- GEN-394: a run whose rows start-up never made ---------------------------------------------
+
+/** The host's addRow: registers the row discovery would have made, and records it. */
+const addingTo = (manager, added = []) => (product) => {
+  added.push(product);
+  manager.layers.set(productLayerId(product.binding), { params: {}, enabled: false });
+};
+
+test('a run with no rows yet gets them, whether discovery timed out or the run is newer than the page', async () => {
+  const drawable = runStatus.bindings.filter(
+    (b) =>
+      b.modality === 'simulated' &&
+      b.representations.some((r) => DRAWABLE_REPRESENTATIONS.includes(r.kind)),
+  );
+  assert.ok(drawable.length > 0);
+  const timedOut = managerFor({ bindings: [] });
+  const olderPage = managerFor({ bindings: [] });
+  olderPage.layers.set(productLayerId('simulation.rf.from_an_older_run'), {
+    params: { head: 'sim/sha256:older' },
+    enabled: false,
+  });
+  for (const manager of [timedOut, olderPage]) {
+    const added = [];
+    const result = await openRun({
+      manager,
+      source: source(runStatus),
+      head: runHead,
+      addRow: addingTo(manager, added),
+    });
+    assert.deepEqual(
+      added.map((p) => [p.binding, p.head, p.modality]),
+      drawable.map((b) => [b.binding, runHead, 'simulated']),
+    );
+    assert.deepEqual(result.undrawable, []);
+    for (const b of drawable) {
+      const row = manager.layers.get(productLayerId(b.binding));
+      assert.equal(row.enabled, true);
+      assert.equal(row.params.head, runHead);
+    }
+  }
+});
+
+test('a product with nothing to draw never gets a row, and without addRow a missing row is reported', async () => {
+  const rf = {
+    binding: 'simulation.rf.navigation',
+    modality: 'simulated',
+    representations: [{ kind: 'numeric_samples/v1' }],
+    valid: { earliest: '2026-08-12T01:59:00Z' },
+  };
+  const status = { ...runStatus, bindings: [...runStatus.bindings, rf] };
+  const manager = managerFor({ bindings: [] });
+  const added = [];
+  const result = await openRun({
+    manager,
+    source: source(status),
+    head: runHead,
+    addRow: addingTo(manager, added),
+  });
+  assert.ok(added.every((p) => p.binding !== rf.binding));
+  assert.deepEqual(result.undrawable, [{ binding: rf.binding, reason: 'no position to draw' }]);
+
+  const bare = await openRun({ manager: managerFor({ bindings: [] }), source: source(runStatus), head: runHead });
+  assert.deepEqual(bare.opened, []);
+  assert.ok(bare.undrawable.length > 0 && bare.undrawable.every((u) => u.reason === 'no panel row'));
+});
+
 // --- GEN-299: the receipt's revision, exactly ---------------------------------------------------
 
 const chainOf = (...ids) => ({
