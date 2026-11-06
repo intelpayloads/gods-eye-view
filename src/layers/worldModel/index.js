@@ -27,8 +27,8 @@ import {
 import {
   SIM_HEAD_PREFIX,
   STEP_SECONDS,
-  createSimulationRuns,
   leaveRunParams,
+  sharedSimulationRuns,
   stepRunParams,
   viewRunParams,
 } from './simulationRuns.js';
@@ -141,7 +141,8 @@ export function createWorldModelLayer({
     legends: [], // colour legends of the rendered fields (GEN-307)
     headers: {}, // binding -> descriptor semantic.metadata, from the projection (GEN-312, DWM-229)
   };
-  const simulationRuns = createSimulationRuns(source);
+  // Shared with every other row on this source: a run head is read once per world.
+  const simulationRuns = sharedSimulationRuns(source);
   const receiverPasses = createReceiverPasses(source);
   const controller = createWorldViewController({
     source,
