@@ -57,7 +57,7 @@ export function trackedDisplayPositionForCamera(entity, time, result) {
     : entity?.position?.getValue(time, result);
 }
 
-function acquireStableTrackedZoom(controller, entity) {
+function acquireStableTrackedZoom(controller, entity, minimumRangeM = MIN_TRACKED_RANGE_M) {
   if (!controller) return () => {};
   let state = ZOOM_INERTIA_STATES.get(controller);
   if (!state) {
@@ -72,7 +72,7 @@ function acquireStableTrackedZoom(controller, entity) {
   controller.inertiaZoom = 0;
   controller.minimumZoomDistance = Math.max(
     state.originalMinimumZoomDistance,
-    MIN_TRACKED_RANGE_M,
+    minimumRangeM,
   );
   return () => {
     const current = ZOOM_INERTIA_STATES.get(controller);
@@ -136,9 +136,17 @@ export function clampTrackedCameraPosition(
  * @param {Cesium.Viewer} viewer Active viewer.
  * @param {Cesium.Entity} entity Newly tracked entity.
  * @param {Cesium.Cartesian3} viewFrom Desired camera offset in the tracked frame.
+ * @param {{minimumRangeM?: number}} [options] The closest the camera may come
+ *   (also, under terrain collision, its least height above the ground): an
+ *   aircraft's 150 m by default; a small drone near the ground needs less.
  * @returns {(() => void)|undefined} Disposer for this one tracked-frame owner.
  */
-export function applyTrackedCameraFrame(viewer, entity, viewFrom) {
+export function applyTrackedCameraFrame(
+  viewer,
+  entity,
+  viewFrom,
+  { minimumRangeM = MIN_TRACKED_RANGE_M } = {},
+) {
   if (!viewer || !entity || !viewFrom) return;
   let attempts = 0;
   const trackedTransform = new Cesium.Matrix4();
@@ -150,6 +158,7 @@ export function applyTrackedCameraFrame(viewer, entity, viewFrom) {
   const restoreZoomInertia = acquireStableTrackedZoom(
     viewer.scene.screenSpaceCameraController,
     entity,
+    minimumRangeM,
   );
   let stopped = false;
   let remove = null;
@@ -208,7 +217,7 @@ export function applyTrackedCameraFrame(viewer, entity, viewFrom) {
     // Normal frames are intentionally read-only: EntityView is the sole
     // continuous camera writer. Only a programmatic zoom that bypasses the
     // controller's minimumZoomDistance needs correction.
-    if (clampTrackedCameraPosition(viewer.camera, previousCameraPosition)) {
+    if (clampTrackedCameraPosition(viewer.camera, previousCameraPosition, minimumRangeM)) {
       Cesium.Cartesian3.clone(viewer.camera.position, cameraOffset);
       viewer.camera.lookAtTransform(viewer.camera.transform, cameraOffset);
     }

@@ -41,11 +41,21 @@ import {
   showsReceiverPass,
 } from './receiverPass.js';
 import { LINK_BINDING, pulseRadiusM } from './rfStyle.js';
+import { displayMsAt, isDisplayClock, pausedAt } from './displayClock.js';
+import {
+  DRONE_DISPLAY_FACT,
+  UAS_TRACK_BINDING,
+  createUasTracks,
+  showsUasTrack,
+} from './uasTrack.js';
+import { createDroneView, droneDrawn } from './droneView.js';
 export * from './adapter.js';
 export * from './controller.js';
 export * from './demand.js';
 export * from './selection.js';
 export * from './receiverPass.js';
+export * from './uasTrack.js';
+export * from './displayClock.js';
 export * from './source.js';
 export * from './view.js';
 
@@ -56,6 +66,12 @@ const LABEL_OFFSET = new Cesium.Cartesian2(12, 0);
 
 /** Run chips a simulated product row shows at most (newest first). */
 const MAX_RUN_CHIPS = 4;
+
+/** A paused display clock at a query time; none without one (GEN-395). */
+function clockAt(validAt) {
+  const ms = Date.parse(validAt ?? '');
+  return Number.isFinite(ms) ? pausedAt(ms, performance.now()) : null;
+}
 
 /** `sim/sha256:3d9ea495…` -> `3d9ea495`. */
 function runLabel(head) {
@@ -140,10 +156,21 @@ export function createWorldModelLayer({
     passRevisionId: null,
     legends: [], // colour legends of the rendered fields (GEN-307)
     headers: {}, // binding -> descriptor semantic.metadata, from the projection (GEN-312, DWM-229)
+    // GEN-395: where drawn things are between stored epochs; the run player drives it.
+    displayClock: clockAt(validAt),
+    displayFrame: { frame: null, ms: null },
+    droneRevisionId: null,
   };
   // Shared with every other row on this source: a run head is read once per world.
   const simulationRuns = sharedSimulationRuns(source);
   const receiverPasses = createReceiverPasses(source);
+  const uasTracks = createUasTracks(source);
+  const drones = createDroneView({
+    id,
+    source,
+    displayMs,
+    onFollowChange: () => notifyRowControls(),
+  });
   const controller = createWorldViewController({
     source,
     initial: {
@@ -180,7 +207,7 @@ export function createWorldModelLayer({
       label: `RUN ${runLabel(run.head)}`,
       active: run.head === demand.head,
       state: run.head === demand.head ? 'active' : 'idle',
-      title: `Simulated run ${run.head}, ${run.earliest} – ${run.latest}: stored epochs only, never interpolated`,
+      title: `Simulated run ${run.head}, ${run.earliest} – ${run.latest}: values at stored epochs only; a drawn drone moves between them as display interpolation`,
       params: viewRunParams(run),
     }));
     const run = runs.find((r) => r.head === demand.head);
@@ -230,7 +257,7 @@ export function createWorldModelLayer({
           .slice(0, 8)} @ ${at.slice(11, 19)}Z`,
         active: true,
         state: 'active',
-        title: `Viewing simulated run ${demand.head} at ${at}: stored epochs only, never interpolated — click to return to ${head}`,
+        title: `Viewing simulated run ${demand.head} at ${at}: values at stored epochs only; a drawn drone moves between them as display interpolation — click to return to ${head}`,
         params: leaveRunParams(head),
       },
     ];
@@ -434,8 +461,13 @@ export function createWorldModelLayer({
       if (render.binding !== RECEIVER_TRACK_BINDING) continue;
       const identity = render.record?.semantic_ref?.semantic_identity;
       const pass = state.passes.find((p) => p.identity === identity);
+      const revisionId = state.revisionId;
       entity.label = pass
         ? new Cesium.LabelGraphics({
+            show: new Cesium.CallbackProperty(
+              () => !droneDrawn(source, revisionId, identity),
+              false,
+            ),
             text: pass.label,
             font: '13px sans-serif',
             fillColor: Cesium.Color.WHITE,
@@ -451,51 +483,140 @@ export function createWorldModelLayer({
   }
 
   /**
-   * Move each run receiver to `validAt` along its pass, and the receiver end
-   * of every link drawn to it. A step lands here at once; the projection for
-   * that instant follows and replaces everything, so this only keeps the
-   * marker from lagging behind (or, at playback speed, never moving) while
-   * World Model answers.
+   * The display time (GEN-395), read once per rendered frame so a model, its
+   * label, its card and the follow camera agree within a frame, and clamped
+   * to `range`. Without a clock it is the query time; null with neither.
    */
-  function placeReceivers(validAt) {
-    const ms = Date.parse(validAt ?? '');
+  function displayMs(range) {
+    const frame = state.viewer?.scene?.frameState?.frameNumber;
+    let ms;
+    if (frame !== undefined && state.displayFrame.frame === frame) {
+      ms = state.displayFrame.ms;
+    } else {
+      ms = state.displayClock
+        ? displayMsAt(state.displayClock, performance.now())
+        : Date.parse(controller.getDemand().validAt ?? '');
+      if (frame !== undefined) state.displayFrame = { frame, ms };
+    }
+    if (!Number.isFinite(ms)) return null;
+    if (Number.isFinite(range?.end)) ms = Math.min(range.end, ms);
+    if (Number.isFinite(range?.start)) ms = Math.max(range.start, ms);
+    return ms;
+  }
+
+  function useDisplayClock(clock) {
+    state.displayClock = clock;
+    state.displayFrame = { frame: null, ms: null };
+  }
+
+  /**
+   * Bind each run receiver's marker, and the receiver end of every link drawn
+   * to it, to the display time along its pass: a step moves them at once,
+   * before World Model answers, and while the run plays they move between
+   * stored epochs with the drone (GEN-395, display interpolation only). The
+   * projection replaces the entities, so this runs after each one and when
+   * the pass lands. The marker's card, colour and label stay the projection's.
+   */
+  function placeReceivers() {
     // A pass read for another revision (the previous run) must not move this one's receiver.
-    if (!Number.isFinite(ms) || !state.passes.length) return;
+    if (!state.passes.length) return;
     if (state.passRevisionId !== state.revisionId) return;
-    const moved = [];
+    const bound = [];
     for (const entry of state.byId.values()) {
       if (entry.render.binding !== RECEIVER_TRACK_BINDING) continue;
       const identity = entry.render.record?.semantic_ref?.semantic_identity;
       const pass = state.passes.find((p) => p.identity === identity);
-      const to = pass && positionAt(pass.track, ms);
-      if (!to) continue;
-      const from = entry.at ?? {
+      if (!pass?.track?.length) continue;
+      const range = { start: pass.track[0].at, end: pass.track.at(-1).at };
+      const from = {
         lon: entry.render.longitude,
         lat: entry.render.latitude,
         height: entry.render.height,
       };
-      entry.at = to;
-      entry.entity.position = new Cesium.ConstantPositionProperty(
-        Cesium.Cartesian3.fromDegrees(to.lon, to.lat, to.height),
+      let lastMs = null;
+      let to = from;
+      let cartesian = entry.cartesian;
+      const at = () => {
+        const ms = displayMs(range);
+        if (ms !== lastMs) {
+          lastMs = ms;
+          to = (Number.isFinite(ms) && positionAt(pass.track, ms)) || from;
+          cartesian = Cesium.Cartesian3.fromDegrees(to.lon, to.lat, to.height);
+        }
+        return { to, cartesian };
+      };
+      entry.entity.position = new Cesium.CallbackProperty(
+        () => at().cartesian,
+        false,
       );
-      moved.push({ from, to });
+      entry.anchor = () => at().cartesian;
+      // A drawn drone carries this receiver; its marker gives way to the model.
+      const revisionId = state.revisionId;
+      if (entry.entity.point)
+        entry.entity.point.show = new Cesium.CallbackProperty(
+          () => !droneDrawn(source, revisionId, identity),
+          false,
+        );
+      bound.push({ from, at });
     }
-    if (!moved.length) return;
+    if (!bound.length) return;
     for (const entry of state.byId.values()) {
       if (entry.render.binding !== LINK_BINDING || !entry.entity.polyline)
         continue;
-      const positions = entry.positions ?? entry.render.positions;
-      for (const { from, to } of moved) {
-        const next = relinked(positions, from, to);
-        if (!next) continue;
-        entry.positions = next;
-        entry.entity.polyline.positions = new Cesium.ConstantProperty(
-          next.map((p) =>
+      const positions = entry.render.positions;
+      const link = bound.find(({ from }) => relinked(positions, from, from));
+      if (!link) continue;
+      let lastTo = null;
+      let drawn = null;
+      entry.entity.polyline.positions = new Cesium.CallbackProperty(() => {
+        const { to } = link.at();
+        if (to !== lastTo) {
+          lastTo = to;
+          drawn = relinked(positions, link.from, to).map((p) =>
             Cesium.Cartesian3.fromDegrees(p.lon, p.lat, p.height),
-          ),
-        );
-        break;
-      }
+          );
+        }
+        return drawn;
+      }, false);
+    }
+  }
+
+  /** The projected dot of a drawn drone gives way to its model; its card follows the model. */
+  function yieldDroneDots() {
+    const drawn = drones.drawnItemIds();
+    for (const [itemId, entry] of state.byId) {
+      if (!drawn.has(itemId)) continue;
+      if (entry.entity.point) entry.entity.point.show = false;
+      entry.anchor = drones.anchorFor(itemId);
+    }
+  }
+
+  function clearDrones() {
+    state.droneRevisionId = null;
+    drones.clear();
+  }
+
+  /** Read (cached per revision) and draw the run's drone for what was just projected (GEN-395). */
+  async function refreshDrones(revisionId) {
+    if (!features.select || !showsUasTrack(controller.getDemand())) {
+      clearDrones();
+      return;
+    }
+    if (state.droneRevisionId === revisionId) {
+      yieldDroneDots();
+      return;
+    }
+    state.droneRevisionId = revisionId;
+    try {
+      const tracks = await uasTracks.read({ revisionId });
+      if (state.droneRevisionId !== revisionId || !state.enabled) return;
+      drones.draw(tracks, { revisionId });
+      yieldDroneDots();
+      selection.reselect();
+      notifyRowControls();
+    } catch (error) {
+      if (state.droneRevisionId === revisionId) state.droneRevisionId = null;
+      console.warn('[Data:WorldModel] drone track unreadable:', error);
     }
   }
 
@@ -521,7 +642,7 @@ export function createWorldModelLayer({
       // A newer projection (or leaving the run) superseded this read.
       if (state.passRevisionId !== revisionId || !state.enabled) return;
       drawPasses(passes);
-      placeReceivers(controller.getDemand().validAt);
+      placeReceivers();
       // The pass names the receiver; a card already open takes the name.
       selection.reselect();
     } catch (error) {
@@ -563,10 +684,12 @@ export function createWorldModelLayer({
     state.lastUpdate = now();
     state.rendered = true;
     // Steps taken since this projection was issued are already on screen.
-    placeReceivers(controller.getDemand().validAt);
+    placeReceivers();
+    yieldDroneDots();
     selection.refreshContextRegistrations();
     selection.reselect();
     refreshPasses(projection.revision_id);
+    refreshDrones(projection.revision_id);
     console.log(
       `[Data:WorldModel] Rendered revision ${projection.revision_id.slice(0, 8)}: ` +
         (state.perBinding
@@ -701,6 +824,16 @@ export function createWorldModelLayer({
       if (group) group.lines.push(...lines);
       else groups.push({ label: o.binding, lines });
     }
+    // GEN-395: the drawn drone's motion is a display assumption, said where the row's facts are.
+    if (drones.hasDrone() || drones.reasons().length) {
+      const lines = [
+        ...(drones.hasDrone() ? [DRONE_DISPLAY_FACT] : []),
+        ...drones.reasons().map((reason) => `no model drawn: ${reason}`),
+      ];
+      const group = groups.find((g) => g.label === UAS_TRACK_BINDING);
+      if (group) group.lines.push(...lines);
+      else groups.push({ label: UAS_TRACK_BINDING, lines });
+    }
     for (const legend of state.legends) {
       if (layers && !layers.includes(legend.label)) continue;
       const group = groups.find((g) => g.label === legend.label);
@@ -729,6 +862,7 @@ export function createWorldModelLayer({
       state.passSource = new Cesium.CustomDataSource(`${id}-pass`);
       state.passSource.show = false;
       viewer.dataSources.add(state.passSource);
+      drones.init(viewer);
       resetRendered();
       state.enabled = false;
       overlayHost.setVisible(id, false);
@@ -739,6 +873,7 @@ export function createWorldModelLayer({
       state.enabled = true;
       if (state.dataSource) state.dataSource.show = true;
       if (state.passSource) state.passSource.show = true;
+      drones.show(true);
       selection.installClickHandler();
       services.picking.registerPickOwner(id, (pickedId) =>
         state.byId.has(pickedId),
@@ -754,6 +889,7 @@ export function createWorldModelLayer({
       unsubscribeCamera(viewer);
       if (state.dataSource) state.dataSource.show = false;
       if (state.passSource) state.passSource.show = false;
+      drones.show(false);
       selection.clearSelection();
       selection.removeClickHandler();
       services.picking.unregisterPickOwner(id);
@@ -804,10 +940,12 @@ export function createWorldModelLayer({
       if (state.passSource && viewer) {
         viewer.dataSources.remove(state.passSource, true);
       }
+      drones.destroy();
       state.dataSource = null;
       state.passSource = null;
       state.passes = [];
       state.passRevisionId = null;
+      state.droneRevisionId = null;
       state.viewer = null;
       resetRendered();
     },
@@ -859,6 +997,7 @@ export function createWorldModelLayer({
         // click selected the same item in two of them (DWM-210).
         if (layers && params.layers === undefined) controller.setLayers(layers);
         if (!showsReceiverPass(controller.getDemand())) clearPasses();
+        if (!showsUasTrack(controller.getDemand())) clearDrones();
       }
       if (params.modalities !== undefined)
         controller.setModalities(params.modalities);
@@ -869,7 +1008,10 @@ export function createWorldModelLayer({
           params.validAt !== undefined ? params.validAt : demand.validAt,
           params.knownAsOf !== undefined ? params.knownAsOf : demand.knownAsOf,
         );
-        if (params.validAt) placeReceivers(params.validAt);
+        // A step puts drawn things at the stored epoch; the run player, if
+        // playing, sets its running clock right after (GEN-395).
+        if (params.validAt !== undefined)
+          useDisplayClock(clockAt(params.validAt));
       }
       if (params.bbox !== undefined)
         controller.setViewport(demandBbox(params.bbox));
@@ -1023,6 +1165,31 @@ export function createWorldModelLayer({
     /** The receiver passes drawn under the run's markers (GEN-309); [] off a run head. */
     getReceiverPasses() {
       return state.passes;
+    },
+
+    /**
+     * The run player's display time (GEN-395): drawn geometry follows it
+     * between stored epochs; the query time and every value stay on stored
+     * epochs. A malformed clock is refused.
+     */
+    setDisplayClock(clock) {
+      if (clock !== null && !isDisplayClock(clock)) return false;
+      useDisplayClock(clock);
+      return true;
+    },
+
+    /** Whether this layer draws a run's drone as a model (GEN-395). */
+    hasDrone() {
+      return drones.hasDrone();
+    },
+
+    /** Follow the drone with the tracking camera, or stop; false when there is none to follow. */
+    followDrone(on = true) {
+      return drones.follow(!!on);
+    },
+
+    following() {
+      return drones.following();
     },
 
     getRenderedIds() {

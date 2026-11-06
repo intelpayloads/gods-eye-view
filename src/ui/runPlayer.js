@@ -20,10 +20,26 @@
  * it and a row marks every cell whose state differs. The models the effects
  * came from, and whether any is validated, are said under the lanes. A run
  * with effects but no receiver track plays at the effects' own epochs.
+ *
+ * GEN-395: while it plays, the player also gives every layer on the run a
+ * display clock, so a drawn drone (and the receiver's marker) moves between
+ * the stored epochs instead of jumping; the query time stays on them. A run
+ * starts at the slowest speed that plays it in 30 s, and FOLLOW puts the
+ * tracking camera on the run's drone.
  */
 import { SIM_HEAD_PREFIX } from '../layers/worldModel/simulationRuns.js';
 import { RECEIVER_TRACK_BINDING } from '../layers/worldModel/receiverPass.js';
-import { SPEEDS, createRunClock } from '../layers/worldModel/runClock.js';
+import {
+  SPEEDS,
+  createRunClock,
+  speedFor,
+} from '../layers/worldModel/runClock.js';
+import { pausedAt, runningFrom } from '../layers/worldModel/displayClock.js';
+import {
+  governorRequestRender,
+  holdContinuousRender,
+  releaseContinuousRender,
+} from '../renderGovernor.js';
 import { RECEIVER_STATES } from '../layers/worldModel/receiverPass.js';
 import {
   bannerOf,
@@ -42,6 +58,7 @@ import {
 import { runFocus } from '../layers/worldModel/runFocus.js';
 
 const TICK_MS = 100;
+const RENDER_OWNER = 'run-player';
 const STRIP = Object.freeze({ width: 480, height: 56 });
 const ROOT_CLASS = 'gev-run-player';
 
@@ -234,6 +251,8 @@ export function mountRunPlayer({ dataManager, container }) {
       <button type="button" class="rp-back" title="Back one epoch" aria-label="Back one epoch">◀◀</button>
       <button type="button" class="rp-play">▶ PLAY</button>
       <button type="button" class="rp-forward" title="Forward one epoch" aria-label="Forward one epoch">▶▶</button>
+      <button type="button" class="rp-follow" aria-pressed="false" hidden
+        title="Follow the drone with the camera (Esc or click again for the free camera)">FOLLOW</button>
       <span class="rp-spacer"></span>
       <span class="rp-note"></span>
       ${SPEEDS.map((s) => `<button type="button" class="rp-speed" data-speed="${s}" aria-pressed="false">${s}×</button>`).join('')}
@@ -258,6 +277,7 @@ export function mountRunPlayer({ dataManager, container }) {
     effects: null, // {lanes, card} of the run
     compared: null, // {lanes} of the pair's nominal case, when the host named it
     differences: [],
+    rendering: false, // holding continuous rendering while playing (GEN-395)
   };
 
   function readerFor(source) {
@@ -282,6 +302,52 @@ export function mountRunPlayer({ dataManager, container }) {
         console.warn(`[RunPlayer] ${layerId} refused ${validAt}:`, error);
       }
     }
+    publishDisplay();
+  }
+
+  /** The layer modules on the run's head. */
+  function modulesOnRun() {
+    return (state.run?.layerIds ?? [])
+      .map((layerId) => dataManager.layers?.get?.(layerId)?.module)
+      .filter(Boolean);
+  }
+
+  /**
+   * The display clock every layer on the run draws by (GEN-395): running on
+   * from where the clock is between epochs while playing, at the query time
+   * paused. Set after the query time, which resets each layer's own clock.
+   */
+  function publishDisplay() {
+    const { timeline, clock } = state;
+    if (!timeline || !clock) return;
+    const perf = performance.now();
+    const epoch = timeline.rows[clock.index].at;
+    const display = clock.playing
+      ? runningFrom(epoch + clock.carryMs * clock.speed, perf, clock.speed)
+      : pausedAt(Number.isFinite(state.cursorMs) ? state.cursorMs : epoch, perf);
+    for (const module of modulesOnRun()) {
+      try {
+        module.setDisplayClock?.(display);
+      } catch (error) {
+        console.warn('[RunPlayer] display clock refused:', error);
+      }
+    }
+    renderContinuously(clock.playing);
+    governorRequestRender(RENDER_OWNER);
+  }
+
+  /** Drawn motion between epochs needs every frame while the run plays; idle otherwise. */
+  function renderContinuously(on) {
+    if (on === state.rendering) return;
+    state.rendering = on;
+    if (on) holdContinuousRender(RENDER_OWNER);
+    else releaseContinuousRender(RENDER_OWNER);
+  }
+
+  /** The layers on the run that draw its drone, and whether one is following it. */
+  function droneLayers() {
+    const modules = modulesOnRun().filter((module) => module.hasDrone?.());
+    return { modules, following: modules.some((module) => module.following?.()) };
   }
 
   function applyIndex() {
@@ -507,6 +573,10 @@ export function mountRunPlayer({ dataManager, container }) {
         'aria-pressed',
         String(Number(button.dataset.speed) === clock?.speed),
       );
+    const drones = droneLayers();
+    const follow = $('.rp-follow');
+    follow.hidden = !drones.modules.length;
+    follow.setAttribute('aria-pressed', String(drones.following));
     if (!timeline) {
       $('.rp-swatch').style.background = 'transparent';
       $('.rp-banner-text').textContent =
@@ -596,6 +666,7 @@ export function mountRunPlayer({ dataManager, container }) {
           count: timeline.rows.length,
           cadenceMs: timeline.cadenceMs,
           index: Number.isFinite(at) ? nearestIndex(timeline, at) : 0,
+          speed: speedFor(timeline),
         });
         state.cursorMs = Number.isFinite(at) ? at : timeline.start;
         state.lastApplied = run.validAt;
@@ -632,6 +703,7 @@ export function mountRunPlayer({ dataManager, container }) {
       state.clock?.pause();
       state.key = null;
       state.timeline = null;
+      renderContinuously(false);
       render();
       return;
     }
@@ -650,6 +722,7 @@ export function mountRunPlayer({ dataManager, container }) {
         state.cursorMs = at;
       }
       state.lastApplied = run.validAt;
+      publishDisplay();
     }
     if (clock.advance(elapsed)) applyIndex();
     render();
@@ -682,6 +755,8 @@ export function mountRunPlayer({ dataManager, container }) {
     state.clock.toggle();
     // Playing from a time typed between epochs starts at its epoch.
     if (state.clock.playing) applyIndex();
+    // Paused, the drawn drone goes back to the stored epoch it is showing.
+    else publishDisplay();
     state.lastTick = performance.now();
     render();
   });
@@ -700,8 +775,15 @@ export function mountRunPlayer({ dataManager, container }) {
   for (const button of root.querySelectorAll('.rp-speed'))
     on(button, 'click', () => {
       state.clock?.setSpeed(Number(button.dataset.speed));
+      publishDisplay();
       render();
     });
+  on($('.rp-follow'), 'click', () => {
+    const { modules, following } = droneLayers();
+    if (following) for (const module of modules) module.followDrone?.(false);
+    else modules[0]?.followDrone?.(true);
+    render();
+  });
   on(strip, 'pointerdown', (event) => {
     state.dragging = true;
     strip.setPointerCapture?.(event.pointerId);
@@ -735,6 +817,7 @@ export function mountRunPlayer({ dataManager, container }) {
   tick();
   return () => {
     clearInterval(timer);
+    renderContinuously(false);
     for (const remove of listeners.splice(0)) remove();
     root.remove();
     style.remove();

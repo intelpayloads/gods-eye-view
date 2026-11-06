@@ -6,8 +6,26 @@
  * cadence takes `cadence / speed` of real time: at 60x the ISS run's 30 s
  * epochs go by every half second and its 40 epochs play in 20 s. Playing to
  * the last epoch pauses there. Pure: the UI feeds it elapsed real time.
+ *
+ * `carryMs` is the real time spent since the current epoch; `carryMs * speed`
+ * past that epoch is where the run is between epochs, which the display clock
+ * draws (GEN-395). The index -- the query time -- stays on stored epochs.
  */
 export const SPEEDS = Object.freeze([1, 10, 60]);
+
+/** The longest a run should take to play at its starting speed. */
+export const TARGET_PLAY_MS = 30_000;
+
+/**
+ * The slowest speed that plays the whole run in `TARGET_PLAY_MS` or less, so
+ * a 2-minute drone run plays at 10x rather than over in 2 s, and a 20-minute
+ * orbit pass at 60x as before. The fastest speed when none is fast enough.
+ */
+export function speedFor({ start, end } = {}) {
+  const span = end - start;
+  if (!(span > 0)) return SPEEDS.at(-1);
+  return SPEEDS.find((speed) => span / speed <= TARGET_PLAY_MS) ?? SPEEDS.at(-1);
+}
 
 export function createRunClock({ count, cadenceMs, index = 0, speed = 60 }) {
   if (!(count > 0) || !(cadenceMs > 0))
@@ -32,6 +50,10 @@ export function createRunClock({ count, cadenceMs, index = 0, speed = 60 }) {
     },
     get atEnd() {
       return state.index === count - 1;
+    },
+    /** Real ms spent at the current epoch; 0 paused or just moved. */
+    get carryMs() {
+      return state.carryMs;
     },
     /** Play; from the last epoch, start again at the first. */
     play() {
