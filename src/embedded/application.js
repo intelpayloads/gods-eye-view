@@ -91,6 +91,7 @@ export const EMBEDDED_FEATURES = Object.freeze({
  * @param {object} [options.worldModel] Extra world-model layer options (head, predicates, modalities, displayAssumptions, policyThresholdSeconds, updateInterval, debounceMs).
  * @param {object|null} [options.initialCamera] `{lon, lat, heightM?, rangeM, headingDeg, pitchDeg}`.
  * @param {object} [options.features] Opt in to `voice`, `keySetup`, `firstRun`.
+ * @param {object|null} [options.renderSource] Sends a run moment to the render node (GEN-369): `submit`, `status`, `outputs`, `download` (see `src/ui/runRender/jobs.js`). Absent, the run player has no RENDER.
  */
 export function createEmbeddedApplication(options = {}) {
   refuseRemovedOptions(options);
@@ -103,6 +104,7 @@ export function createEmbeddedApplication(options = {}) {
     worldModel = {},
     initialCamera = null,
     features = {},
+    renderSource = null,
   } = options;
   if (!root || typeof root.appendChild !== 'function')
     throw new TypeError('An embedding root element is required');
@@ -122,6 +124,7 @@ export function createEmbeddedApplication(options = {}) {
     cesiumToken: cesiumToken || undefined,
     features: { ...EMBEDDED_FEATURES, ...features },
     initialCamera,
+    renderSource,
     ownerLabel: 'embedded',
     hiddenLayerIds: EMBEDDED_HIDDEN_LAYER_IDS,
     panelLabels: EMBEDDED_PANEL_LABELS,

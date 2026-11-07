@@ -23,6 +23,7 @@ export function createStandaloneTools({
   loadingScreen,
   placeSearch,
   features = STANDALONE_FEATURES,
+  renderSource = null,
   signal,
   defer,
 }) {
@@ -47,8 +48,15 @@ export function createStandaloneTools({
       firstRun: enabled.firstRun,
     }),
   );
-  // A simulated run on screen plays through time (GEN-310).
-  defer(mountRunPlayer({ dataManager, container: viewer.container }));
+  // A simulated run on screen plays through time (GEN-310), and renders a moment through the host (GEN-369).
+  defer(
+    mountRunPlayer({
+      dataManager,
+      container: viewer.container,
+      viewer,
+      renderSource,
+    }),
+  );
   // Idle render governor: flips the scene into requestRenderMode whenever
   // nothing animates per frame. Installed AFTER every module above has had
   // its chance to register pre-install holds. (perf wave 2)

@@ -299,3 +299,16 @@ export function createUasTracks(source) {
     },
   };
 }
+
+const shared = new WeakMap(); // source -> reader
+
+/** One reader per source: the layer and the render panel (GEN-369) read a run's track once. */
+export function sharedUasTracks(source) {
+  if (!source || typeof source !== 'object') return createUasTracks(source);
+  let reader = shared.get(source);
+  if (!reader) {
+    reader = createUasTracks(source);
+    shared.set(source, reader);
+  }
+  return reader;
+}

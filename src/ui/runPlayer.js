@@ -26,6 +26,10 @@
  * the stored epochs instead of jumping; the query time stays on them. A run
  * starts at the slowest speed that plays it in 30 s, and FOLLOW puts the
  * tracking camera on the run's drone.
+ *
+ * GEN-369: when the host injects a `renderSource`, RENDER sends the moment the
+ * player shows to the render node (`./runRender/`), and a render of the
+ * epoch the player sits on is shown beside the globe.
  */
 import { SIM_HEAD_PREFIX } from '../layers/worldModel/simulationRuns.js';
 import { RECEIVER_TRACK_BINDING } from '../layers/worldModel/receiverPass.js';
@@ -56,6 +60,7 @@ import {
   lanesGeometry,
 } from '../layers/worldModel/runEffects.js';
 import { runFocus } from '../layers/worldModel/runFocus.js';
+import { mountRunRender } from './runRender/index.js';
 
 const TICK_MS = 100;
 const RENDER_OWNER = 'run-player';
@@ -223,9 +228,10 @@ function pinnedRevision(layer) {
 
 /**
  * Mount the player into `container` (the viewer's). Returns the cleanup.
- * @param {{dataManager: object, container: HTMLElement}} options
+ * @param {{dataManager: object, container: HTMLElement, viewer?: object,
+ *   renderSource?: object|null}} options
  */
-export function mountRunPlayer({ dataManager, container }) {
+export function mountRunPlayer({ dataManager, container, viewer = null, renderSource = null }) {
   if (!dataManager || !container) return () => {};
   const style = document.createElement('style');
   style.textContent = STYLE;
@@ -278,6 +284,7 @@ export function mountRunPlayer({ dataManager, container }) {
     compared: null, // {lanes} of the pair's nominal case, when the host named it
     differences: [],
     rendering: false, // holding continuous rendering while playing (GEN-395)
+    revisionId: null, // the revision the timeline was read from (GEN-369 renders it)
   };
 
   function readerFor(source) {
@@ -566,7 +573,7 @@ export function mountRunPlayer({ dataManager, container }) {
     if (!state.run) return;
     const clock = state.clock;
     $('.rp-play').textContent = clock?.playing ? '❚❚ PAUSE' : '▶ PLAY';
-    for (const button of root.querySelectorAll('button'))
+    for (const button of root.querySelectorAll('.rp-controls > button'))
       button.disabled = !clock;
     for (const button of root.querySelectorAll('.rp-speed'))
       button.setAttribute(
@@ -635,12 +642,14 @@ export function mountRunPlayer({ dataManager, container }) {
     state.effects = null;
     state.compared = null;
     state.differences = [];
+    state.revisionId = null;
     strip.replaceChildren();
     state.loading = true;
     render();
     try {
       const revisionId = run.revisionId ?? (await revisionOf(run));
       if (state.key !== key) return;
+      state.revisionId = revisionId;
       const at = { revisionId, head: run.head };
       const reader = readerFor(run.source);
       // The track alone plays; the jammer flags (one read per epoch) shade the strip when they land.
@@ -693,7 +702,53 @@ export function mountRunPlayer({ dataManager, container }) {
     render();
   }
 
+  /** The stored epoch the player shows, as the render controls take it (GEN-369). */
+  function momentShown() {
+    const { run, timeline, clock } = state;
+    if (!run || !timeline || !clock || !state.revisionId) return null;
+    const row = timeline.rows[clock.index];
+    return {
+      run: { head: run.head, revisionId: state.revisionId, source: run.source },
+      ms: row.at,
+      validAt: row.validAt,
+      playing: clock.playing,
+    };
+  }
+
+  /** Pause on `validAt`'s epoch (the renders list jumps there). */
+  function seekTo(validAt) {
+    const { timeline, clock } = state;
+    const at = Date.parse(validAt);
+    if (!timeline || !clock || !Number.isFinite(at)) return;
+    clock.pause();
+    clock.seek(nearestIndex(timeline, at));
+    applyIndex();
+    render();
+  }
+
+  const runRender = mountRunRender({
+    renderSource,
+    viewer,
+    playerRoot: root,
+    controls: $('.rp-controls'),
+    seek: seekTo,
+    pause() {
+      if (!state.clock?.playing) return;
+      state.clock.pause();
+      publishDisplay();
+      render();
+    },
+  });
+
   function tick() {
+    try {
+      step();
+    } finally {
+      runRender?.update(momentShown());
+    }
+  }
+
+  function step() {
     const now = performance.now();
     const elapsed = now - state.lastTick;
     state.lastTick = now;
@@ -817,6 +872,7 @@ export function mountRunPlayer({ dataManager, container }) {
   tick();
   return () => {
     clearInterval(timer);
+    runRender?.dispose();
     renderContinuously(false);
     for (const remove of listeners.splice(0)) remove();
     root.remove();
