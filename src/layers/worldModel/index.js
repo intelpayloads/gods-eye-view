@@ -45,7 +45,7 @@ import { displayMsAt, isDisplayClock, pausedAt } from './displayClock.js';
 import {
   DRONE_DISPLAY_FACT,
   UAS_TRACK_BINDING,
-  createUasTracks,
+  sharedUasTracks,
   showsUasTrack,
 } from './uasTrack.js';
 import { createDroneView, droneDrawn } from './droneView.js';
@@ -164,7 +164,7 @@ export function createWorldModelLayer({
   // Shared with every other row on this source: a run head is read once per world.
   const simulationRuns = sharedSimulationRuns(source);
   const receiverPasses = createReceiverPasses(source);
-  const uasTracks = createUasTracks(source);
+  const uasTracks = sharedUasTracks(source);
   const drones = createDroneView({
     id,
     source,

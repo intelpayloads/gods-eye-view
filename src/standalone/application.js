@@ -26,6 +26,7 @@ import { resetContextStore } from '../data/contextStore.js';
  * @param {object} [options.features] See STANDALONE_FEATURES in ./features.js.
  * @param {object|null} [options.initialCamera] Camera when no share link is present.
  * @param {(context: object) => void} [options.beforeScene] Host setup run first in the scene phase (context has `defer`, `signal`).
+ * @param {object|null} [options.renderSource] The host's render transport (GEN-369); the run player's RENDER needs one.
  * @param {string} [options.ownerLabel]
  */
 export function composeApplication({
@@ -40,6 +41,7 @@ export function composeApplication({
   features,
   initialCamera = null,
   beforeScene = null,
+  renderSource = null,
   ownerLabel = 'standalone',
 }) {
   if (typeof createWorldModelLayer !== 'function')
@@ -91,6 +93,7 @@ export function composeApplication({
         loadingScreen: loadingScreen(),
         placeSearch,
         features,
+        renderSource,
       }),
   });
 }
