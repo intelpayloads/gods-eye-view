@@ -40,6 +40,26 @@ export function refuseRemovedOptions(options) {
       );
 }
 
+/**
+ * Validate the embedded `basemap` option (GEN-367): null, or a raster
+ * `{z}/{x}/{y}` template with an optional attribution and maximum zoom.
+ * A malformed basemap is refused, never silently replaced by an external one.
+ */
+export function normalizeBasemap(basemap) {
+  if (basemap == null) return null;
+  const tileUrl = typeof basemap.tileUrl === 'string' ? basemap.tileUrl.trim() : '';
+  if (!/\{z\}/.test(tileUrl) || !/\{x\}/.test(tileUrl) || !/\{y\}/.test(tileUrl))
+    throw new TypeError('basemap.tileUrl must be a {z}/{x}/{y} template');
+  const maxZoom = Number(basemap.maxZoom ?? 19);
+  if (!Number.isInteger(maxZoom) || maxZoom < 0 || maxZoom > 22)
+    throw new TypeError('basemap.maxZoom must be a whole number 0-22');
+  return Object.freeze({
+    tileUrl,
+    attribution: typeof basemap.attribution === 'string' ? basemap.attribution : '',
+    maxZoom,
+  });
+}
+
 /** The generic world-model layer's id (`WORLD_MODEL_LAYER_ID`). */
 const GENERIC_WORLD_LAYER_ID = 'world-model';
 

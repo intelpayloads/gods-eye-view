@@ -40,6 +40,7 @@ import {
   EMBEDDED_HIDDEN_LAYER_IDS,
   EMBEDDED_LAYER_SOURCES,
   EMBEDDED_PANEL_LABELS,
+  normalizeBasemap,
   refuseRemovedOptions,
 } from './options.js';
 import { discoverWithin, productLayerOptions } from './worldProducts.js';
@@ -91,6 +92,19 @@ export const EMBEDDED_FEATURES = Object.freeze({
  * @param {object} [options.worldModel] Extra world-model layer options (head, predicates, modalities, displayAssumptions, policyThresholdSeconds, updateInterval, debounceMs).
  * @param {object|null} [options.initialCamera] `{lon, lat, heightM?, rangeM, headingDeg, pitchDeg}`.
  * @param {object} [options.features] Opt in to `voice`, `keySetup`, `firstRun`.
+ * @param {string[]|null} [options.stylesheets] The font stylesheets the chrome adds to
+ *   `<head>` (GEN-367). Default (omitted): Google Fonts for Inter, JetBrains Mono,
+ *   Material Symbols Outlined and Material Icons Round, as today. `[]` or null adds none: the host serves those faces
+ *   itself (font-family names `Inter`, `JetBrains Mono`, `Material Symbols Outlined`),
+ *   so the embed loads no external stylesheet. An array of hrefs replaces the list.
+ * @param {{tileUrl: string, attribution?: string, maxZoom?: number}|null} [options.basemap]
+ *   A host-supplied raster basemap (GEN-367): a `{z}/{x}/{y}` template, either an https
+ *   URL or a same-origin path such as `/tiles/{z}/{x}/{y}.png`, with an optional
+ *   on-screen attribution and maximum zoom (0-22, default 19). When set, the OSM stack
+ *   draws these tiles, every other imagery stack (Esri, Bing/ion, photoreal) is
+ *   unavailable and terrain is the flat ellipsoid, so the map fetches no external
+ *   origin. Default null: today's keyless Esri imagery with OSM fallback and
+ *   Re:Earth terrain.
  */
 export function createEmbeddedApplication(options = {}) {
   refuseRemovedOptions(options);
@@ -103,7 +117,10 @@ export function createEmbeddedApplication(options = {}) {
     worldModel = {},
     initialCamera = null,
     features = {},
+    basemap = null,
+    stylesheets = undefined,
   } = options;
+  const hostBasemap = normalizeBasemap(basemap);
   if (!root || typeof root.appendChild !== 'function')
     throw new TypeError('An embedding root element is required');
   if (!worldModelSource)
@@ -120,6 +137,7 @@ export function createEmbeddedApplication(options = {}) {
   const app = composeApplication({
     googleApiKey: googleApiKey || undefined,
     cesiumToken: cesiumToken || undefined,
+    basemap: hostBasemap,
     features: { ...EMBEDDED_FEATURES, ...features },
     initialCamera,
     ownerLabel: 'embedded',
@@ -156,7 +174,7 @@ export function createEmbeddedApplication(options = {}) {
         }),
       );
       defer(configureHostElement(root));
-      defer(attachApplicationStylesheets(document));
+      defer(attachApplicationStylesheets(document, stylesheets));
       root.classList.add(ROOT_CLASS);
       root.innerHTML = renderApplicationMarkup(assetBaseUrl);
       applyPresentation(root, ROOT_CLASS);
