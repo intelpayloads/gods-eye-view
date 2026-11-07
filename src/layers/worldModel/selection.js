@@ -101,7 +101,8 @@ export function createSelection({
     });
     return {
       id: entry.render.id,
-      position: entry.cartesian,
+      // A receiver or drone moving between stored epochs carries its card with it (GEN-395).
+      position: entry.anchor ?? entry.cartesian,
       variant: 'selected',
       selected: true,
       protected: true,
@@ -129,7 +130,9 @@ export function createSelection({
     overlayHost.setEntries(
       id,
       [cardEntry(entry)],
-      WORLD_MODEL_SELECTED_OVERLAY_OPTIONS,
+      entry.anchor
+        ? { ...WORLD_MODEL_SELECTED_OVERLAY_OPTIONS, moving: true }
+        : WORLD_MODEL_SELECTED_OVERLAY_OPTIONS,
     );
   }
 

@@ -16,6 +16,7 @@ import {
   receiverCard,
   receiverRawFragments,
 } from './rfCard.js';
+import { UAS_WORDED, uasCard } from './uasCard.js';
 import { EMITTER_BINDING, emitterStyle, linkStyle } from './rfStyle.js';
 
 /**
@@ -503,7 +504,8 @@ export function packCardLines(fragments, max = MAX_CARD_LINE_CHARS) {
  * product's own (age at product time T); "age at query" is what the view's
  * temporal_age policy computed against the query's valid time.
  * A receiver-track row leads with its state and reason in words, read from
- * the product header's legends when `header` is given (GEN-312).
+ * the product header's legends when `header` is given (GEN-312); a drone-track
+ * row with its mode, C2 state, AGL and lost-link timer (GEN-395).
  * @param {object} renderRecord A record from the functions above.
  * @param {{header?: object|null, name?: string|null}} [options] The binding's descriptor
  *   metadata, and the run's name for the item (a receiver pass label).
@@ -555,7 +557,10 @@ export function selectionCardLines(
       : {};
   const identity =
     item.semantic_ref?.semantic_identity || renderRecord?.id || 'item';
+  // A receiver or a drone states its own values in words; the generic list skips them.
   const receiver = receiverCard(item, header, name);
+  const worded = receiver ?? uasCard(item, header);
+  const wordedKeys = receiver ? RECEIVER_WORDED : worded ? UAS_WORDED : [];
   // Opportunistic: a callsign-like property leads the title when present.
   // Then the item's own values, all of them up to a budget, ahead of where
   // and when: they are what a click asks about (DWM-209).
@@ -563,18 +568,18 @@ export function selectionCardLines(
   const lead = keys.includes('callsign') ? 'callsign' : null;
   const leadText = lead ? propertyText(props[lead]) : '';
   const values = keys
-    .filter((k) => k !== lead && !(receiver && RECEIVER_WORDED.includes(k)))
+    .filter((k) => k !== lead && !wordedKeys.includes(k))
     .flatMap((k) => propertyFragments(k, props[k]));
   const surface = renderRecord?.surface === true;
   const age = Number(time.age_seconds);
-  const title = receiver
-    ? receiver.title
+  const title = worded
+    ? worded.title
     : leadText && leadText !== '—'
       ? `${leadText} · ${identity}`
       : identity;
   const lines = [
     title,
-    ...(receiver ? [receiver.lead, ...packCardLines(receiver.measures)] : []),
+    ...(worded ? [worded.lead, ...packCardLines(worded.measures)] : []),
     // A link says what its path is doing, in words (GEN-311).
     renderRecord?.kind === 'line' && renderRecord.label
       ? renderRecord.label

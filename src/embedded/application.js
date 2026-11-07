@@ -128,6 +128,12 @@ export function createEmbeddedApplication(options = {}) {
   let queryRoot = null;
   let discovery = { count: 0, error: null };
   let worldConfig = null;
+  const productLayer = (product) =>
+    createStandaloneWorldModelLayer({
+      ...worldModel,
+      ...productLayerOptions(product),
+      source: worldModelSource,
+    });
   const app = composeApplication({
     googleApiKey: googleApiKey || undefined,
     cesiumToken: cesiumToken || undefined,
@@ -150,13 +156,7 @@ export function createEmbeddedApplication(options = {}) {
       });
       discovery = { count: products.length, error };
       void worldConfig?.refresh();
-      return products.map((product) =>
-        createStandaloneWorldModelLayer({
-          ...worldModel,
-          ...productLayerOptions(product),
-          source: worldModelSource,
-        }),
-      );
+      return products.map(productLayer);
     },
     beforeScene({ defer }) {
       if (!root.isConnected)
@@ -203,7 +203,8 @@ export function createEmbeddedApplication(options = {}) {
      * product for is pointed at its head and time and switched on, pinned to
      * the receipt's revision when one is given (GEN-299). Resolves to what
      * opened and what has nothing to draw, or rejects with a RunOpenError
-     * the host can show (see `worldRuns.js`).
+     * the host can show (see `worldRuns.js`). A drawable product with no
+     * row gets one, as discovery makes it (GEN-394).
      * @param {string} head A `sim/` head.
      * @param {{validAt?: string|null, revisionId?: string|null,
      *   compare?: {head: string, revisionId?: string|null}|null}} [options]
@@ -211,14 +212,20 @@ export function createEmbeddedApplication(options = {}) {
     openRun: (
       head,
       { validAt = null, revisionId = null, compare = null } = {},
-    ) =>
-      openRun({
-        manager: app.getComponents().data?.dataManager,
+    ) => {
+      const manager = app.getComponents().data?.dataManager;
+      return openRun({
+        manager,
         source: worldModelSource,
         head,
         validAt,
         revisionId,
         compare,
-      }),
+        addRow(product) {
+          manager.registerUnshared(productLayer(product));
+          discovery = { ...discovery, count: discovery.count + 1 };
+        },
+      });
+    },
   });
 }

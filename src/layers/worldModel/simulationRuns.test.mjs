@@ -12,6 +12,7 @@ import {
   createSimulationRuns,
   leaveRunParams,
   runOf,
+  sharedSimulationRuns,
   SIM_HEAD_PREFIX,
   stepRunParams,
   viewRunParams,
@@ -32,8 +33,8 @@ function serving(calls = []) {
       calls.push('heads');
       return HEADS;
     },
-    async getStatus({ head }) {
-      calls.push(head);
+    async getStatus({ head, modality }) {
+      calls.push(`${head} ${modality}`);
       return STATUS;
     },
   };
@@ -67,13 +68,85 @@ test('a head with nothing simulated to draw is not a run', () => {
   assert.equal(runOf(RUN_HEAD, 'r', observedOnly), null);
 });
 
-test('runs are read from sim/ heads only, and a head is re-read only when it moves', async () => {
+test('runs are read from sim/ heads only, for their simulated bindings, and a head is re-read only when it moves', async () => {
   const calls = [];
   const runs = createSimulationRuns(serving(calls));
   const [run] = await runs.read();
   assert.equal(run.head, RUN_HEAD);
   await runs.read();
-  assert.deepEqual(calls, ['heads', RUN_HEAD, 'heads']);
+  assert.deepEqual(calls, ['heads', `${RUN_HEAD} simulated`, 'heads']);
+});
+
+/** Many run heads, each answering only when released: what is in flight is visible. */
+function held(count) {
+  const heads = Object.fromEntries(
+    Array.from({ length: count }, (_, i) => [`sim/sha256:run${i}`, `rev${i}`]),
+  );
+  const pending = [];
+  return {
+    pending,
+    asked: [],
+    async getHeads() {
+      return heads;
+    },
+    getStatus({ head }) {
+      this.asked.push(head);
+      return new Promise((resolve, reject) => pending.push({ resolve, reject }));
+    },
+    release() {
+      for (const { resolve } of pending.splice(0)) resolve(STATUS);
+    },
+  };
+}
+
+const settle = () => new Promise((resolve) => setImmediate(resolve));
+
+test('every moved run head is read at once, and two readers share what is in flight', async () => {
+  const source = held(30);
+  const runs = createSimulationRuns(source);
+  const first = runs.read();
+  const second = runs.read();
+  await settle();
+  assert.equal(source.pending.length, 30, 'all 30 asked before any answered');
+  source.release();
+  const [a, b] = await Promise.all([first, second]);
+  assert.equal(a.length, 30);
+  assert.deepEqual(a, b);
+  assert.equal(source.asked.length, 30, 'each head asked once for both reads');
+});
+
+test("one reader's abort never fails another's read of the same heads", async () => {
+  const source = held(3);
+  const runs = createSimulationRuns(source);
+  const controller = new AbortController();
+  const aborted = runs.read({ signal: controller.signal });
+  const kept = runs.read();
+  await settle();
+  controller.abort();
+  source.release();
+  await assert.rejects(aborted, { name: 'AbortError' });
+  assert.equal((await kept).length, 3);
+  assert.equal(source.asked.length, 3);
+});
+
+test('a head whose status failed is read again next time', async () => {
+  const source = held(1);
+  const runs = createSimulationRuns(source);
+  const failing = runs.read();
+  await settle();
+  source.pending.splice(0)[0].reject(new Error('502'));
+  await assert.rejects(failing, /502/);
+  const retry = runs.read();
+  await settle();
+  source.release();
+  assert.equal((await retry).length, 1);
+  assert.equal(source.asked.length, 2);
+});
+
+test('every row on one source shares one reader', () => {
+  const source = serving();
+  assert.equal(sharedSimulationRuns(source), sharedSimulationRuns(source));
+  assert.notEqual(sharedSimulationRuns(source), sharedSimulationRuns(serving()));
 });
 
 test('a source without heads or status has no runs', async () => {

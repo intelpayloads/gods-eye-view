@@ -49,9 +49,29 @@ export function runOf(head, revisionId, status) {
 /**
  * A reader with a per-revision cache: a head's status is re-read only when
  * the head moved. A source without `getHeads` or `getStatus` has no runs.
+ *
+ * Every moved head is read at once: one after another, 30 runs took 23 s on
+ * prod (2026-11-06). A read in flight is shared, and belongs to no caller's
+ * signal, so one layer's abort never fails another's read; a failed one is
+ * dropped and re-read next time.
  */
 export function createSimulationRuns(source) {
-  const cache = new Map(); // head -> run | null, keyed with its revision
+  const cache = new Map(); // head -> { revisionId, run: Promise<run | null> }
+  const runFor = (head, revisionId) => {
+    const known = cache.get(head);
+    if (known?.revisionId === revisionId) return known.run;
+    const entry = {
+      revisionId,
+      run: source
+        .getStatus({ head, modality: 'simulated' })
+        .then((status) => runOf(head, revisionId, status)),
+    };
+    entry.run.catch(() => {
+      if (cache.get(head) === entry) cache.delete(head);
+    });
+    cache.set(head, entry);
+    return entry.run;
+  };
   return {
     async read({ signal } = {}) {
       if (
@@ -60,23 +80,31 @@ export function createSimulationRuns(source) {
       )
         return [];
       const heads = await source.getHeads({ signal });
-      const runs = [];
-      for (const [head, revisionId] of Object.entries(heads)) {
-        if (!head.startsWith(SIM_HEAD_PREFIX)) continue;
-        let entry = cache.get(head);
-        if (!entry || entry.revisionId !== revisionId) {
-          signal?.throwIfAborted();
-          const status = await source.getStatus({ head, signal });
-          entry = { revisionId, run: runOf(head, revisionId, status) };
-          cache.set(head, entry);
-        }
-        if (entry.run) runs.push(entry.run);
-      }
-      return runs.sort(
-        (a, b) => Date.parse(b.earliest) - Date.parse(a.earliest),
+      signal?.throwIfAborted();
+      const runs = await Promise.all(
+        Object.entries(heads)
+          .filter(([head]) => head.startsWith(SIM_HEAD_PREFIX))
+          .map(([head, revisionId]) => runFor(head, revisionId)),
       );
+      signal?.throwIfAborted();
+      return runs
+        .filter(Boolean)
+        .sort((a, b) => Date.parse(b.earliest) - Date.parse(a.earliest));
     },
   };
+}
+
+const shared = new WeakMap(); // source -> reader
+
+/** One reader per source: every row of a world reads its runs once, not once each. */
+export function sharedSimulationRuns(source) {
+  if (!source || typeof source !== 'object') return createSimulationRuns(source);
+  let reader = shared.get(source);
+  if (!reader) {
+    reader = createSimulationRuns(source);
+    shared.set(source, reader);
+  }
+  return reader;
 }
 
 /** The params that view `run` at `validAt` (its first epoch by default). */

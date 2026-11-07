@@ -1,0 +1,1460 @@
+{
+ "revision_id": "d6814ab5a1934efc935da93e26a9026e",
+ "query": {
+  "spatial_scope": null,
+  "valid_at": null,
+  "known_as_of": null,
+  "type_filter": null,
+  "requested_layers": [
+   "simulation.uas.track"
+  ],
+  "resolution": null,
+  "predicates": {
+   "interval": {
+    "start": "1970-01-01T00:00:00Z",
+    "end": "2100-01-01T00:00:00Z"
+   }
+  },
+  "modalities": [
+   "simulated"
+  ]
+ },
+ "products": [
+  {
+   "product_ref": {
+    "type_id": "simulation.uas.track_sample_series.v1",
+    "content_id": "sha256:135a24b3388aa523e04af4cc6eba94db0866d64672e9336c1cf275bea1c1584a"
+   },
+   "descriptor_id": "5f5c940a28c749d4b7b384b8e977ca9d",
+   "binding": "simulation.uas.track",
+   "semantic_metadata": {
+    "models": {
+     "flight": "dataforge.multirotor-flight/1",
+     "c2_link": "dataforge.ground-free-space-rf/1",
+     "failsafe": "dataforge.lost-link-failsafe/1"
+    },
+    "schema": "dataforge.uas-track/1",
+    "terrain": {
+     "bbox": [
+      -105.014831,
+      38.663542,
+      -104.657169,
+      39.008458
+     ],
+     "bundle": "sha256:a81e9c2ba3d600bc87993a6813b10713352b22c1802191648e56f733b4cb439e",
+     "inputs": {
+      "dem_height_datum": "NAVD88 orthometric metres, as USGS states for 3DEP seamless; GEOID18 (world.terrain.geoid18) takes them to the NAD83(2011) ellipsoid",
+      "geoid_height_datum": "metres from the NAD83(2011) ellipsoid up to the NAVD88 surface: an ellipsoid height is h = H + N, H a NAVD88 height and N this value"
+     },
+     "policy": "dataforge.terrain-bilinear-geoid18/1",
+     "region": "cs-downtown",
+     "products": {
+      "dem": "terrain.dem_10m_surface.v1",
+      "geoid": "terrain.geoid18_undulation.v1"
+     },
+     "sampling": "bilinear",
+     "height_datum": "NAD83(2011) ellipsoid metres: h = H + N, H the 3DEP DEM's NAVD88 height and N GEOID18's, each sampled bilinearly; used as WGS84 ellipsoid metres, about 1 m off in CONUS, not corrected",
+     "base_revision_id": "a1c497ec321d4f038dd223e1037b9e4f"
+    },
+    "modality": "simulated",
+    "row_count": 31,
+    "descriptor": "foundation-uas-track",
+    "mode_codes": {
+     "0": "mission",
+     "1": "return_altitude",
+     "2": "return_transit",
+     "3": "landing",
+     "4": "holding",
+     "5": "landed"
+    },
+    "run_status": "completed",
+    "time_scale": "UTC",
+    "assumptions": [
+     "Each leg is the WGS84 geodesic between its waypoints (Vincenty inverse and direct); height above the ellipsoid changes linearly along it.",
+     "A leg flies at constant ground speed and vertical rate, ending both together; its duration is the longer of the leg at cruise speed and the height change at the climb or descent rate. Turns and speed changes are instantaneous.",
+     "No wind acts on any leg.",
+     "No terrain avoidance: terrain is read at every row and a row below it refuses the run; between rows it is not checked.",
+     "Ground speed and course are along the ellipsoid; the state velocity is them and the vertical rate in the local east-north-up frame, so it omits the h/R growth of horizontal rate at height (about 0.03 % at 2 km).",
+     "Earth-fixed to ECI by a GMST rotation about z only (wgs84-geodetic-to-eci-gmst/1); no precession, nutation or polar motion.",
+     "The drone profile's values are the scenario's own declaration, illustrative, not a measured airframe.",
+     "The failsafe judges the C2 link on the planned flight with the scenario's own ground-rf-propagation and receiver-response settings; that plan-stage judgement is not published. The lost-link timer runs from the first epoch of the current unbroken run of not-available states (unavailable, recovering) and resets only on an available one (nominal, degraded).",
+     "The failsafe latches at t_LL, the first epoch at which the timer reaches lost_link_timeout_s (t_j + timeout). The t_LL row is the plan's row with only its mode changed (return_altitude); the return is flown from the next epoch on the grid's epochs, and the mode never returns to mission.",
+     "The published C2 link is computed on the flown path; through t_LL it equals the plan's, after it the link no longer steers the flight.",
+     "At the failsafe position the drone changes height to the return height, home's height_m plus return_height_above_home_m above the WGS84 ellipsoid, at the profile's climb or descent rate (return_altitude). It then flies the WGS84 geodesic to home at that constant ellipsoidal height and return_speed_mps over the ground (return_transit; Vincenty inverse and direct), descends at the descent rate to home's height (landing) and ends landed at home, its last row; with on_arrival hover it holds above home at the return height (holding) until the grid ends.",
+     "Every return phase starts on a grid epoch: the first epoch at or past the phase's duration (within 1e-6 s) holds its target exactly and starts the next phase with that phase's mode and velocity, so a phase lasts a whole number of steps and a phase with no length still has its first row.",
+     "Rate and speed changes between return phases are instantaneous, and no wind acts on the return.",
+     "No terrain avoidance on the return: the return height is relative to home's ellipsoidal height, not to the ground below; terrain is read at every row and a row below it refuses the run, but between rows it is not checked.",
+     "WGS84 longitude and latitude are read as NAD83 with no horizontal transform (about 1 m in CONUS); stated, not corrected.",
+     "h = H + N is NAD83(2011) ellipsoid metres, used as WGS84 ellipsoid metres (about 1 m in CONUS); stated, not corrected.",
+     "One synthetic emitter fixed at a WGS84 geodetic site (height above the ellipsoid, 0-9000 m); no terrain, buildings or geoid.",
+     "The WGS84 ellipsoid is opaque; paths that touch it are blocked. Visibility also requires geodetic elevation at or above the declared horizon mask.",
+     "The horizon mask is caller policy for site obstruction, not a computed terrain or antenna horizon.",
+     "FSPL = 20 log10(4 pi r f / c); received power = EIRP times receiver gain divided by attenuation and system loss.",
+     "EIRP and receiver gain are fixed in the path direction; no antenna pattern, attitude or polarization calculation.",
+     "No atmosphere, troposphere, ionosphere, refraction, rain, diffraction, multipath, light-time or Doppler.",
+     "All modeled interference is assumed in the declared common band; no spectral-overlap or waveform calculation.",
+     "min_range_m is an explicit caller validity policy; antenna far-field conditions are assumed, not verified.",
+     "The desired signal S is propagated from GCS gcs-1, at the WGS84 site and EIRP declared in configuration.signal.gcs (height above the ellipsoid, 0-9000 m), by the same free-space model, frequency, receiver gain and system loss as the interference; it is not prescribed. Noise remains a prescribed receiver-plane input.",
+     "S is 0 when the GCS path touches the opaque ellipsoid. No horizon mask applies to the GCS path, and min_range_m bounds it as it bounds the emitter's path.",
+     "The scenario time grid provides timing, half-open at its last epoch; it carries no radiated power or receiver calibration.",
+     "The receiver has states over only part of the time grid, so rows are the grid's epochs from its first state to its last, every one of them present; the grid's other epochs have no row."
+    ],
+    "attribution": "Foundation C-UAS simulation (intelpayloads/dataforge-plugin-foundation), completed-run contract dataforge.completed-simulation-run/1 with a dataforge.uas-track/1 artifact (GEN-355). SIMULATED, not observed: a deterministic kinematic flight with an in-kernel lost-link failsafe; the C2 powers are free space over an opaque ellipsoid with no terrain masking. mode_code, c2_state_code and c2_reason_code legends are the header's mode_codes, c2_state_codes and c2_reason_codes. A null is unknown, never a fabricated outage",
+    "height_datum": "height_m is Foundation's height above the WGS84 ellipsoid from the flight kernel's geodetic state; terrain_height_m and height_agl_m use the region's NAVD88 DEM taken to NAD83(2011) ellipsoid metres by GEOID18, treated as WGS84 (about 1 m apart in CONUS, not corrected)",
+    "c2_state_codes": {
+     "0": "nominal",
+     "1": "degraded",
+     "2": "unavailable",
+     "3": "recovering",
+     "4": "unknown"
+    },
+    "run_content_id": "sha256:043d75f90515f7de017877c65345f15531be32c50a809a86c2c18b0087c9d0c2",
+    "source_columns": {
+     "lat_deg": {
+      "unit": "deg",
+      "dtype": "float64",
+      "frame": "WGS84",
+      "meaning": "geodetic latitude",
+      "nullable": false
+     },
+     "lon_deg": {
+      "unit": "deg",
+      "dtype": "float64",
+      "frame": "WGS84",
+      "meaning": "geodetic longitude, [-180, 180]",
+      "nullable": false
+     },
+     "height_m": {
+      "unit": "m",
+      "dtype": "float64",
+      "frame": "WGS84",
+      "meaning": "height above the WGS84 ellipsoid",
+      "nullable": false
+     },
+     "mode_code": {
+      "unit": "1",
+      "dtype": "int64",
+      "meaning": "autopilot mode; mode_codes",
+      "nullable": false
+     },
+     "c2_sinr_db": {
+      "unit": "dB",
+      "dtype": "float64",
+      "meaning": "10\u00b7log10(S / (N + I)); null when I is unknown (state unknown) or when S is 0 (reason no_desired_signal)",
+      "nullable": true
+     },
+     "course_deg": {
+      "unit": "deg",
+      "dtype": "float64",
+      "meaning": "direction of horizontal motion, clockwise from true north, [0, 360); null when ground_speed_mps is 0",
+      "nullable": true
+     },
+     "c2_margin_db": {
+      "unit": "dB",
+      "dtype": "float64",
+      "meaning": "c2_sinr_db \u2212 c2_unavailable_below_sinr_db; below 0 the link is unavailable; null when c2_sinr_db is",
+      "nullable": true
+     },
+     "height_agl_m": {
+      "unit": "m",
+      "dtype": "float64",
+      "meaning": "height_m \u2212 terrain_height_m, computed from the flown height, never the planned clearance",
+      "nullable": false
+     },
+     "c2_state_code": {
+      "unit": "1",
+      "dtype": "int64",
+      "meaning": "the C2 receiver's state; c2_state_codes (the RF state legend)",
+      "nullable": false
+     },
+     "c2_reason_code": {
+      "unit": "1",
+      "dtype": "int64",
+      "meaning": "why; c2_reason_codes (the RF reason legend, which includes code 10)",
+      "nullable": false
+     },
+     "c2_noise_power_w": {
+      "unit": "W",
+      "dtype": "float64",
+      "meaning": "N, the receiver's declared noise power",
+      "nullable": false
+     },
+     "ground_speed_mps": {
+      "unit": "m/s",
+      "dtype": "float64",
+      "meaning": "horizontal speed of the state at this epoch",
+      "nullable": false
+     },
+     "terrain_height_m": {
+      "unit": "m",
+      "dtype": "float64",
+      "meaning": "the region's terrain under the drone, as ellipsoid metres (see \"Heights\")",
+      "nullable": false
+     },
+     "c2_signal_power_w": {
+      "unit": "W",
+      "dtype": "float64",
+      "meaning": "S, the GCS uplink power at the C2 receiver; 0 when the GCS path does not reach the drone",
+      "nullable": false
+     },
+     "vertical_speed_mps": {
+      "unit": "m/s",
+      "dtype": "float64",
+      "meaning": "rate of change of height_m, positive up",
+      "nullable": false
+     },
+     "lost_link_elapsed_s": {
+      "unit": "s",
+      "dtype": "float64",
+      "meaning": "the lost-link timer: time since the C2 link was last available, 0 while it is available; see \"Lost link\". It is null only at an unknown epoch after the failsafe has latched.",
+      "nullable": true
+     },
+     "lost_link_timeout_s": {
+      "unit": "s",
+      "dtype": "float64",
+      "meaning": "the profile's timeout, constant per drone",
+      "nullable": false
+     },
+     "c2_nominal_min_sinr_db": {
+      "unit": "dB",
+      "dtype": "float64",
+      "meaning": "the C2 receiver response's nominal threshold, constant per drone",
+      "nullable": false
+     },
+     "c2_interference_power_w": {
+      "unit": "W",
+      "dtype": "float64",
+      "meaning": "I, the total in-band interference at the C2 receiver; null when unknown",
+      "nullable": true
+     },
+     "c2_unavailable_below_sinr_db": {
+      "unit": "dB",
+      "dtype": "float64",
+      "meaning": "the C2 receiver response's unavailable threshold, constant per drone",
+      "nullable": false
+     }
+    },
+    "withheld_count": 0,
+    "c2_reason_codes": {
+     "0": "below_nominal_threshold",
+     "1": "below_unavailable_threshold",
+     "2": "nominal_threshold_met",
+     "3": "reacquisition_complete",
+     "4": "reacquisition_delay",
+     "5": "unknown_rf_environment",
+     "6": "missing_receiver_sample",
+     "10": "no_desired_signal"
+    },
+    "input_manifests": [
+     "sha256:a81e9c2ba3d600bc87993a6813b10713352b22c1802191648e56f733b4cb439e"
+    ],
+    "pair_content_id": "sha256:caeb970fc647a0c0b5cf4f6e290cb5843aa5c26974956343e4e773318d15ff45",
+    "base_revision_id": "a1c497ec321d4f038dd223e1037b9e4f",
+    "source_run_label": "contested",
+    "valid_time_basis": "the row's epoch on the run's UTC time grid, an ISO-8601 instant with its offset",
+    "height_assumption": "geodetic_height:declared-wgs84-ellipsoidal",
+    "source_run_content_id": "sha256:96d36901adc8359b291b3e8beb8d413a46cd652c14fe4289d8bb8ace2edef89e"
+   },
+   "values_ref": null,
+   "metadata": {
+    "selected": 31,
+    "of": 31,
+    "access_target": "world-sample-store",
+    "coverage": {
+     "first": "2026-11-05T16:00:00+00:00",
+     "last": "2026-11-05T16:02:30+00:00"
+    },
+    "outside_coverage": false,
+    "declared_columns": {
+     "lat_deg": {
+      "unit": "deg",
+      "dtype": "float64",
+      "frame": "WGS84",
+      "quantity": "geodetic_latitude"
+     },
+     "lon_deg": {
+      "unit": "deg",
+      "dtype": "float64",
+      "frame": "WGS84",
+      "quantity": "geodetic_longitude"
+     },
+     "height_m": {
+      "unit": "m",
+      "dtype": "float64",
+      "frame": "WGS84",
+      "quantity": "height_above_ellipsoid"
+     },
+     "mode_code": {
+      "unit": "dimensionless",
+      "dtype": "int64",
+      "quantity": "uas_autopilot_mode_code"
+     },
+     "c2_sinr_db": {
+      "unit": "dB",
+      "dtype": "float64",
+      "quantity": "signal_to_interference_plus_noise_ratio"
+     },
+     "course_deg": {
+      "unit": "deg",
+      "dtype": "float64",
+      "quantity": "course_over_ground_from_true_north"
+     },
+     "c2_margin_db": {
+      "unit": "dB",
+      "dtype": "float64",
+      "quantity": "sinr_margin_over_unavailable_threshold"
+     },
+     "height_agl_m": {
+      "unit": "m",
+      "dtype": "float64",
+      "quantity": "height_above_terrain"
+     },
+     "c2_state_code": {
+      "unit": "dimensionless",
+      "dtype": "int64",
+      "quantity": "receiver_state_code"
+     },
+     "c2_reason_code": {
+      "unit": "dimensionless",
+      "dtype": "int64",
+      "quantity": "receiver_reason_code"
+     },
+     "c2_noise_power_w": {
+      "unit": "W",
+      "dtype": "float64",
+      "quantity": "receiver_noise_power"
+     },
+     "ground_speed_mps": {
+      "unit": "m/s",
+      "dtype": "float64",
+      "quantity": "ground_speed"
+     },
+     "terrain_height_m": {
+      "unit": "m",
+      "dtype": "float64",
+      "quantity": "terrain_height_above_ellipsoid"
+     },
+     "c2_signal_power_w": {
+      "unit": "W",
+      "dtype": "float64",
+      "quantity": "desired_signal_power_at_receiver"
+     },
+     "vertical_speed_mps": {
+      "unit": "m/s",
+      "dtype": "float64",
+      "quantity": "vertical_speed_positive_up"
+     },
+     "lost_link_elapsed_s": {
+      "unit": "s",
+      "dtype": "float64",
+      "quantity": "lost_link_timer_elapsed"
+     },
+     "lost_link_timeout_s": {
+      "unit": "s",
+      "dtype": "float64",
+      "quantity": "lost_link_timeout"
+     },
+     "c2_nominal_min_sinr_db": {
+      "unit": "dB",
+      "dtype": "float64",
+      "quantity": "receiver_nominal_min_sinr"
+     },
+     "c2_interference_power_w": {
+      "unit": "W",
+      "dtype": "float64",
+      "quantity": "total_interference_power_at_receiver"
+     },
+     "c2_unavailable_below_sinr_db": {
+      "unit": "dB",
+      "dtype": "float64",
+      "quantity": "receiver_unavailable_below_sinr"
+     }
+    },
+    "frame": "WGS84",
+    "order": "declared"
+   },
+   "values": [
+    {
+     "product_content_id": "sha256:135a24b3388aa523e04af4cc6eba94db0866d64672e9336c1cf275bea1c1584a",
+     "ordinal": 0,
+     "semantic_identity": "platform:foundation:uas-1",
+     "valid_time": "2026-11-05T16:00:00+00:00",
+     "knowledge_time": "2026-11-06T20:53:23.251069+00:00",
+     "series_key": {
+      "gcs": "gcs:foundation:gcs-1",
+      "home": "home:foundation:uas-1",
+      "c2_receiver": "receiver:foundation:uas-1-c2"
+     },
+     "value": {
+      "lat_deg": 38.8377,
+      "lon_deg": -104.8228,
+      "height_m": 1818.9319317073137,
+      "mode_code": 0.0,
+      "c2_sinr_db": 55.03623012970856,
+      "course_deg": null,
+      "c2_margin_db": 49.03623012970856,
+      "height_agl_m": 0.0,
+      "c2_state_code": 0.0,
+      "c2_reason_code": 2.0,
+      "c2_noise_power_w": 1e-13,
+      "ground_speed_mps": 0.0,
+      "terrain_height_m": 1818.9319317073137,
+      "c2_signal_power_w": 3.1887686596041534e-08,
+      "vertical_speed_mps": 4.0,
+      "lost_link_elapsed_s": 0.0,
+      "lost_link_timeout_s": 30.0,
+      "c2_nominal_min_sinr_db": 12.0,
+      "c2_interference_power_w": 0.0,
+      "c2_unavailable_below_sinr_db": 6.0
+     }
+    },
+    {
+     "product_content_id": "sha256:135a24b3388aa523e04af4cc6eba94db0866d64672e9336c1cf275bea1c1584a",
+     "ordinal": 1,
+     "semantic_identity": "platform:foundation:uas-1",
+     "valid_time": "2026-11-05T16:00:05+00:00",
+     "knowledge_time": "2026-11-06T20:53:23.251069+00:00",
+     "series_key": {
+      "gcs": "gcs:foundation:gcs-1",
+      "home": "home:foundation:uas-1",
+      "c2_receiver": "receiver:foundation:uas-1-c2"
+     },
+     "value": {
+      "lat_deg": 38.8377,
+      "lon_deg": -104.8228,
+      "height_m": 1838.9319317073137,
+      "mode_code": 0.0,
+      "c2_sinr_db": 54.57320199134517,
+      "course_deg": null,
+      "c2_margin_db": 48.57320199134517,
+      "height_agl_m": 20.0,
+      "c2_state_code": 0.0,
+      "c2_reason_code": 2.0,
+      "c2_noise_power_w": 1e-13,
+      "ground_speed_mps": 0.0,
+      "terrain_height_m": 1818.9319317073137,
+      "c2_signal_power_w": 2.866290466181519e-08,
+      "vertical_speed_mps": 4.0,
+      "lost_link_elapsed_s": 0.0,
+      "lost_link_timeout_s": 30.0,
+      "c2_nominal_min_sinr_db": 12.0,
+      "c2_interference_power_w": 0.0,
+      "c2_unavailable_below_sinr_db": 6.0
+     }
+    },
+    {
+     "product_content_id": "sha256:135a24b3388aa523e04af4cc6eba94db0866d64672e9336c1cf275bea1c1584a",
+     "ordinal": 2,
+     "semantic_identity": "platform:foundation:uas-1",
+     "valid_time": "2026-11-05T16:00:10+00:00",
+     "knowledge_time": "2026-11-06T20:53:23.251069+00:00",
+     "series_key": {
+      "gcs": "gcs:foundation:gcs-1",
+      "home": "home:foundation:uas-1",
+      "c2_receiver": "receiver:foundation:uas-1-c2"
+     },
+     "value": {
+      "lat_deg": 38.8377,
+      "lon_deg": -104.8228,
+      "height_m": 1858.9319317073137,
+      "mode_code": 0.0,
+      "c2_sinr_db": 53.29893013068414,
+      "course_deg": null,
+      "c2_margin_db": 47.29893013068414,
+      "height_agl_m": 40.0,
+      "c2_state_code": 0.0,
+      "c2_reason_code": 2.0,
+      "c2_noise_power_w": 1e-13,
+      "ground_speed_mps": 0.0,
+      "terrain_height_m": 1818.9319317073137,
+      "c2_signal_power_w": 2.1374354748623184e-08,
+      "vertical_speed_mps": 4.0,
+      "lost_link_elapsed_s": 0.0,
+      "lost_link_timeout_s": 30.0,
+      "c2_nominal_min_sinr_db": 12.0,
+      "c2_interference_power_w": 0.0,
+      "c2_unavailable_below_sinr_db": 6.0
+     }
+    },
+    {
+     "product_content_id": "sha256:135a24b3388aa523e04af4cc6eba94db0866d64672e9336c1cf275bea1c1584a",
+     "ordinal": 3,
+     "semantic_identity": "platform:foundation:uas-1",
+     "valid_time": "2026-11-05T16:00:15+00:00",
+     "knowledge_time": "2026-11-06T20:53:23.251069+00:00",
+     "series_key": {
+      "gcs": "gcs:foundation:gcs-1",
+      "home": "home:foundation:uas-1",
+      "c2_receiver": "receiver:foundation:uas-1-c2"
+     },
+     "value": {
+      "lat_deg": 38.8377,
+      "lon_deg": -104.8228,
+      "height_m": 1878.9319317073137,
+      "mode_code": 0.0,
+      "c2_sinr_db": 51.735993832053,
+      "course_deg": null,
+      "c2_margin_db": 45.735993832053,
+      "height_agl_m": 60.0,
+      "c2_state_code": 0.0,
+      "c2_reason_code": 2.0,
+      "c2_noise_power_w": 1e-13,
+      "ground_speed_mps": 0.0,
+      "terrain_height_m": 1818.9319317073137,
+      "c2_signal_power_w": 1.4914180099478042e-08,
+      "vertical_speed_mps": 4.0,
+      "lost_link_elapsed_s": 0.0,
+      "lost_link_timeout_s": 30.0,
+      "c2_nominal_min_sinr_db": 12.0,
+      "c2_interference_power_w": 0.0,
+      "c2_unavailable_below_sinr_db": 6.0
+     }
+    },
+    {
+     "product_content_id": "sha256:135a24b3388aa523e04af4cc6eba94db0866d64672e9336c1cf275bea1c1584a",
+     "ordinal": 4,
+     "semantic_identity": "platform:foundation:uas-1",
+     "valid_time": "2026-11-05T16:00:20+00:00",
+     "knowledge_time": "2026-11-06T20:53:23.251069+00:00",
+     "series_key": {
+      "gcs": "gcs:foundation:gcs-1",
+      "home": "home:foundation:uas-1",
+      "c2_receiver": "receiver:foundation:uas-1-c2"
+     },
+     "value": {
+      "lat_deg": 38.8377,
+      "lon_deg": -104.8228,
+      "height_m": 1898.9319317073137,
+      "mode_code": 0.0,
+      "c2_sinr_db": 50.191605186556174,
+      "course_deg": null,
+      "c2_margin_db": 44.191605186556174,
+      "height_agl_m": 80.0,
+      "c2_state_code": 0.0,
+      "c2_reason_code": 2.0,
+      "c2_noise_power_w": 1e-13,
+      "ground_speed_mps": 0.0,
+      "terrain_height_m": 1818.9319317073137,
+      "c2_signal_power_w": 1.0451064273974497e-08,
+      "vertical_speed_mps": 4.0,
+      "lost_link_elapsed_s": 0.0,
+      "lost_link_timeout_s": 30.0,
+      "c2_nominal_min_sinr_db": 12.0,
+      "c2_interference_power_w": 0.0,
+      "c2_unavailable_below_sinr_db": 6.0
+     }
+    },
+    {
+     "product_content_id": "sha256:135a24b3388aa523e04af4cc6eba94db0866d64672e9336c1cf275bea1c1584a",
+     "ordinal": 5,
+     "semantic_identity": "platform:foundation:uas-1",
+     "valid_time": "2026-11-05T16:00:25+00:00",
+     "knowledge_time": "2026-11-06T20:53:23.251069+00:00",
+     "series_key": {
+      "gcs": "gcs:foundation:gcs-1",
+      "home": "home:foundation:uas-1",
+      "c2_receiver": "receiver:foundation:uas-1-c2"
+     },
+     "value": {
+      "lat_deg": 38.8377,
+      "lon_deg": -104.8228,
+      "height_m": 1918.9319317073137,
+      "mode_code": 0.0,
+      "c2_sinr_db": 48.771739378484895,
+      "course_deg": null,
+      "c2_margin_db": 42.771739378484895,
+      "height_agl_m": 100.0,
+      "c2_state_code": 0.0,
+      "c2_reason_code": 2.0,
+      "c2_noise_power_w": 1e-13,
+      "ground_speed_mps": 0.0,
+      "terrain_height_m": 1818.9319317073137,
+      "c2_signal_power_w": 7.536573481115428e-09,
+      "vertical_speed_mps": 4.0,
+      "lost_link_elapsed_s": 0.0,
+      "lost_link_timeout_s": 30.0,
+      "c2_nominal_min_sinr_db": 12.0,
+      "c2_interference_power_w": 0.0,
+      "c2_unavailable_below_sinr_db": 6.0
+     }
+    },
+    {
+     "product_content_id": "sha256:135a24b3388aa523e04af4cc6eba94db0866d64672e9336c1cf275bea1c1584a",
+     "ordinal": 6,
+     "semantic_identity": "platform:foundation:uas-1",
+     "valid_time": "2026-11-05T16:00:30+00:00",
+     "knowledge_time": "2026-11-06T20:53:23.251069+00:00",
+     "series_key": {
+      "gcs": "gcs:foundation:gcs-1",
+      "home": "home:foundation:uas-1",
+      "c2_receiver": "receiver:foundation:uas-1-c2"
+     },
+     "value": {
+      "lat_deg": 38.8377,
+      "lon_deg": -104.8228,
+      "height_m": 1938.9319317073137,
+      "mode_code": 0.0,
+      "c2_sinr_db": 47.49440805887275,
+      "course_deg": 34.3838054900119,
+      "c2_margin_db": 41.49440805887275,
+      "height_agl_m": 120.0,
+      "c2_state_code": 0.0,
+      "c2_reason_code": 2.0,
+      "c2_noise_power_w": 1e-13,
+      "ground_speed_mps": 8.0,
+      "terrain_height_m": 1818.9319317073137,
+      "c2_signal_power_w": 5.616177249339224e-09,
+      "vertical_speed_mps": 0.04405652811695655,
+      "lost_link_elapsed_s": 0.0,
+      "lost_link_timeout_s": 30.0,
+      "c2_nominal_min_sinr_db": 12.0,
+      "c2_interference_power_w": 0.0,
+      "c2_unavailable_below_sinr_db": 6.0
+     }
+    },
+    {
+     "product_content_id": "sha256:135a24b3388aa523e04af4cc6eba94db0866d64672e9336c1cf275bea1c1584a",
+     "ordinal": 7,
+     "semantic_identity": "platform:foundation:uas-1",
+     "valid_time": "2026-11-05T16:00:35+00:00",
+     "knowledge_time": "2026-11-06T20:53:23.251069+00:00",
+     "series_key": {
+      "gcs": "gcs:foundation:gcs-1",
+      "home": "home:foundation:uas-1",
+      "c2_receiver": "receiver:foundation:uas-1-c2"
+     },
+     "value": {
+      "lat_deg": 38.83799736225152,
+      "lon_deg": -104.82253982475223,
+      "height_m": 1939.1522143478985,
+      "mode_code": 0.0,
+      "c2_sinr_db": 47.036951895383474,
+      "course_deg": 34.38396865072118,
+      "c2_margin_db": 41.036951895383474,
+      "height_agl_m": 119.8960244065338,
+      "c2_state_code": 0.0,
+      "c2_reason_code": 2.0,
+      "c2_noise_power_w": 1e-13,
+      "ground_speed_mps": 8.0,
+      "terrain_height_m": 1819.2561899413647,
+      "c2_signal_power_w": 5.054697724942246e-09,
+      "vertical_speed_mps": 0.04405652811695655,
+      "lost_link_elapsed_s": 0.0,
+      "lost_link_timeout_s": 30.0,
+      "c2_nominal_min_sinr_db": 12.0,
+      "c2_interference_power_w": 0.0,
+      "c2_unavailable_below_sinr_db": 6.0
+     }
+    },
+    {
+     "product_content_id": "sha256:135a24b3388aa523e04af4cc6eba94db0866d64672e9336c1cf275bea1c1584a",
+     "ordinal": 8,
+     "semantic_identity": "platform:foundation:uas-1",
+     "valid_time": "2026-11-05T16:00:40+00:00",
+     "knowledge_time": "2026-11-06T20:53:23.251069+00:00",
+     "series_key": {
+      "gcs": "gcs:foundation:gcs-1",
+      "home": "home:foundation:uas-1",
+      "c2_receiver": "receiver:foundation:uas-1-c2"
+     },
+     "value": {
+      "lat_deg": 38.83829472390839,
+      "lon_deg": -104.822279647339,
+      "height_m": 1939.3724969884831,
+      "mode_code": 0.0,
+      "c2_sinr_db": 0.2473917505801282,
+      "course_deg": 34.38413181384021,
+      "c2_margin_db": -5.752608249419872,
+      "height_agl_m": 119.8171990884257,
+      "c2_state_code": 2.0,
+      "c2_reason_code": 1.0,
+      "c2_noise_power_w": 1e-13,
+      "ground_speed_mps": 8.0,
+      "terrain_height_m": 1819.5552979000574,
+      "c2_signal_power_w": 3.982329884321873e-09,
+      "vertical_speed_mps": 0.04405652811695655,
+      "lost_link_elapsed_s": 0.0,
+      "lost_link_timeout_s": 30.0,
+      "c2_nominal_min_sinr_db": 12.0,
+      "c2_interference_power_w": 3.7617204045567554e-09,
+      "c2_unavailable_below_sinr_db": 6.0
+     }
+    },
+    {
+     "product_content_id": "sha256:135a24b3388aa523e04af4cc6eba94db0866d64672e9336c1cf275bea1c1584a",
+     "ordinal": 9,
+     "semantic_identity": "platform:foundation:uas-1",
+     "valid_time": "2026-11-05T16:00:45+00:00",
+     "knowledge_time": "2026-11-06T20:53:23.251069+00:00",
+     "series_key": {
+      "gcs": "gcs:foundation:gcs-1",
+      "home": "home:foundation:uas-1",
+      "c2_receiver": "receiver:foundation:uas-1-c2"
+     },
+     "value": {
+      "lat_deg": 38.83859208497061,
+      "lon_deg": -104.82201946776031,
+      "height_m": 1939.592779629068,
+      "mode_code": 0.0,
+      "c2_sinr_db": -1.5603350854748044,
+      "course_deg": 34.38429497936906,
+      "c2_margin_db": -7.560335085474804,
+      "height_agl_m": 119.75029547481518,
+      "c2_state_code": 2.0,
+      "c2_reason_code": 1.0,
+      "c2_noise_power_w": 1e-13,
+      "ground_speed_mps": 8.0,
+      "terrain_height_m": 1819.8424841542528,
+      "c2_signal_power_w": 2.959651580670386e-09,
+      "vertical_speed_mps": 0.04405652811695655,
+      "lost_link_elapsed_s": 5.0,
+      "lost_link_timeout_s": 30.0,
+      "c2_nominal_min_sinr_db": 12.0,
+      "c2_interference_power_w": 4.239004240806263e-09,
+      "c2_unavailable_below_sinr_db": 6.0
+     }
+    },
+    {
+     "product_content_id": "sha256:135a24b3388aa523e04af4cc6eba94db0866d64672e9336c1cf275bea1c1584a",
+     "ordinal": 10,
+     "semantic_identity": "platform:foundation:uas-1",
+     "valid_time": "2026-11-05T16:00:50+00:00",
+     "knowledge_time": "2026-11-06T20:53:23.251069+00:00",
+     "series_key": {
+      "gcs": "gcs:foundation:gcs-1",
+      "home": "home:foundation:uas-1",
+      "c2_receiver": "receiver:foundation:uas-1-c2"
+     },
+     "value": {
+      "lat_deg": 38.83888944543814,
+      "lon_deg": -104.82175928601612,
+      "height_m": 1939.8130622696528,
+      "mode_code": 0.0,
+      "c2_sinr_db": -3.401919210847435,
+      "course_deg": 34.38445814730774,
+      "c2_margin_db": -9.401919210847435,
+      "height_agl_m": 119.6915803876675,
+      "c2_state_code": 2.0,
+      "c2_reason_code": 1.0,
+      "c2_noise_power_w": 1e-13,
+      "ground_speed_mps": 8.0,
+      "terrain_height_m": 1820.1214818819853,
+      "c2_signal_power_w": 2.182735327079323e-09,
+      "vertical_speed_mps": 0.04405652811695655,
+      "lost_link_elapsed_s": 10.0,
+      "lost_link_timeout_s": 30.0,
+      "c2_nominal_min_sinr_db": 12.0,
+      "c2_interference_power_w": 4.777315327125314e-09,
+      "c2_unavailable_below_sinr_db": 6.0
+     }
+    },
+    {
+     "product_content_id": "sha256:135a24b3388aa523e04af4cc6eba94db0866d64672e9336c1cf275bea1c1584a",
+     "ordinal": 11,
+     "semantic_identity": "platform:foundation:uas-1",
+     "valid_time": "2026-11-05T16:00:55+00:00",
+     "knowledge_time": "2026-11-06T20:53:23.251069+00:00",
+     "series_key": {
+      "gcs": "gcs:foundation:gcs-1",
+      "home": "home:foundation:uas-1",
+      "c2_receiver": "receiver:foundation:uas-1-c2"
+     },
+     "value": {
+      "lat_deg": 38.83918680531101,
+      "lon_deg": -104.82149910210639,
+      "height_m": 1940.0333449102375,
+      "mode_code": 0.0,
+      "c2_sinr_db": -5.169641244614525,
+      "course_deg": 34.3846213176563,
+      "c2_margin_db": -11.169641244614525,
+      "height_agl_m": 119.6274716034061,
+      "c2_state_code": 2.0,
+      "c2_reason_code": 1.0,
+      "c2_noise_power_w": 1e-13,
+      "ground_speed_mps": 8.0,
+      "terrain_height_m": 1820.4058733068314,
+      "c2_signal_power_w": 1.6342574115380527e-09,
+      "vertical_speed_mps": 0.04405652811695655,
+      "lost_link_elapsed_s": 15.0,
+      "lost_link_timeout_s": 30.0,
+      "c2_nominal_min_sinr_db": 12.0,
+      "c2_interference_power_w": 5.373738218358205e-09,
+      "c2_unavailable_below_sinr_db": 6.0
+     }
+    },
+    {
+     "product_content_id": "sha256:135a24b3388aa523e04af4cc6eba94db0866d64672e9336c1cf275bea1c1584a",
+     "ordinal": 12,
+     "semantic_identity": "platform:foundation:uas-1",
+     "valid_time": "2026-11-05T16:01:00+00:00",
+     "knowledge_time": "2026-11-06T20:53:23.251069+00:00",
+     "series_key": {
+      "gcs": "gcs:foundation:gcs-1",
+      "home": "home:foundation:uas-1",
+      "c2_receiver": "receiver:foundation:uas-1-c2"
+     },
+     "value": {
+      "lat_deg": 38.83948416458918,
+      "lon_deg": -104.82123891603106,
+      "height_m": 1940.2536275508223,
+      "mode_code": 0.0,
+      "c2_sinr_db": -6.819862658436229,
+      "course_deg": 34.384784490414745,
+      "c2_margin_db": -12.819862658436229,
+      "height_agl_m": 119.57755325354447,
+      "c2_state_code": 2.0,
+      "c2_reason_code": 1.0,
+      "c2_noise_power_w": 1e-13,
+      "ground_speed_mps": 8.0,
+      "terrain_height_m": 1820.6760742972779,
+      "c2_signal_power_w": 1.2513272064457702e-09,
+      "vertical_speed_mps": 0.04405652811695655,
+      "lost_link_elapsed_s": 20.0,
+      "lost_link_timeout_s": 30.0,
+      "c2_nominal_min_sinr_db": 12.0,
+      "c2_interference_power_w": 6.016583311462867e-09,
+      "c2_unavailable_below_sinr_db": 6.0
+     }
+    },
+    {
+     "product_content_id": "sha256:135a24b3388aa523e04af4cc6eba94db0866d64672e9336c1cf275bea1c1584a",
+     "ordinal": 13,
+     "semantic_identity": "platform:foundation:uas-1",
+     "valid_time": "2026-11-05T16:01:05+00:00",
+     "knowledge_time": "2026-11-06T20:53:23.251069+00:00",
+     "series_key": {
+      "gcs": "gcs:foundation:gcs-1",
+      "home": "home:foundation:uas-1",
+      "c2_receiver": "receiver:foundation:uas-1-c2"
+     },
+     "value": {
+      "lat_deg": 38.839781523272656,
+      "lon_deg": -104.8209787277901,
+      "height_m": 1940.4739101914072,
+      "mode_code": 0.0,
+      "c2_sinr_db": -8.334177350367984,
+      "course_deg": 34.38494766558315,
+      "c2_margin_db": -14.334177350367984,
+      "height_agl_m": 119.56077828510956,
+      "c2_state_code": 2.0,
+      "c2_reason_code": 1.0,
+      "c2_noise_power_w": 1e-13,
+      "ground_speed_mps": 8.0,
+      "terrain_height_m": 1820.9131319062976,
+      "c2_signal_power_w": 9.804891546438337e-10,
+      "vertical_speed_mps": 0.04405652811695655,
+      "lost_link_elapsed_s": 25.0,
+      "lost_link_timeout_s": 30.0,
+      "c2_nominal_min_sinr_db": 12.0,
+      "c2_interference_power_w": 6.6811931789729885e-09,
+      "c2_unavailable_below_sinr_db": 6.0
+     }
+    },
+    {
+     "product_content_id": "sha256:135a24b3388aa523e04af4cc6eba94db0866d64672e9336c1cf275bea1c1584a",
+     "ordinal": 14,
+     "semantic_identity": "platform:foundation:uas-1",
+     "valid_time": "2026-11-05T16:01:10+00:00",
+     "knowledge_time": "2026-11-06T20:53:23.251069+00:00",
+     "series_key": {
+      "gcs": "gcs:foundation:gcs-1",
+      "home": "home:foundation:uas-1",
+      "c2_receiver": "receiver:foundation:uas-1-c2"
+     },
+     "value": {
+      "lat_deg": 38.8400788813614,
+      "lon_deg": -104.82071853738351,
+      "height_m": 1940.6941928319918,
+      "mode_code": 1.0,
+      "c2_sinr_db": -9.701230103626841,
+      "course_deg": 34.38511084316151,
+      "c2_margin_db": -15.701230103626841,
+      "height_agl_m": 119.58177159612183,
+      "c2_state_code": 2.0,
+      "c2_reason_code": 1.0,
+      "c2_noise_power_w": 1e-13,
+      "ground_speed_mps": 8.0,
+      "terrain_height_m": 1821.11242123587,
+      "c2_signal_power_w": 7.848421696586419e-10,
+      "vertical_speed_mps": 0.04405652811695655,
+      "lost_link_elapsed_s": 30.0,
+      "lost_link_timeout_s": 30.0,
+      "c2_nominal_min_sinr_db": 12.0,
+      "c2_interference_power_w": 7.326548222173009e-09,
+      "c2_unavailable_below_sinr_db": 6.0
+     }
+    },
+    {
+     "product_content_id": "sha256:135a24b3388aa523e04af4cc6eba94db0866d64672e9336c1cf275bea1c1584a",
+     "ordinal": 15,
+     "semantic_identity": "platform:foundation:uas-1",
+     "valid_time": "2026-11-05T16:01:15+00:00",
+     "knowledge_time": "2026-11-06T20:53:23.251069+00:00",
+     "series_key": {
+      "gcs": "gcs:foundation:gcs-1",
+      "home": "home:foundation:uas-1",
+      "c2_receiver": "receiver:foundation:uas-1-c2"
+     },
+     "value": {
+      "lat_deg": 38.8400788813614,
+      "lon_deg": -104.82071853738351,
+      "height_m": 1925.6941928319918,
+      "mode_code": 1.0,
+      "c2_sinr_db": -9.687050806757966,
+      "course_deg": null,
+      "c2_margin_db": -15.687050806757966,
+      "height_agl_m": 104.58177159612183,
+      "c2_state_code": 2.0,
+      "c2_reason_code": 1.0,
+      "c2_noise_power_w": 1e-13,
+      "ground_speed_mps": 0.0,
+      "terrain_height_m": 1821.11242123587,
+      "c2_signal_power_w": 8.072502033119297e-10,
+      "vertical_speed_mps": -3.0,
+      "lost_link_elapsed_s": 35.0,
+      "lost_link_timeout_s": 30.0,
+      "c2_nominal_min_sinr_db": 12.0,
+      "c2_interference_power_w": 7.511167757512479e-09,
+      "c2_unavailable_below_sinr_db": 6.0
+     }
+    },
+    {
+     "product_content_id": "sha256:135a24b3388aa523e04af4cc6eba94db0866d64672e9336c1cf275bea1c1584a",
+     "ordinal": 16,
+     "semantic_identity": "platform:foundation:uas-1",
+     "valid_time": "2026-11-05T16:01:20+00:00",
+     "knowledge_time": "2026-11-06T20:53:23.251069+00:00",
+     "series_key": {
+      "gcs": "gcs:foundation:gcs-1",
+      "home": "home:foundation:uas-1",
+      "c2_receiver": "receiver:foundation:uas-1-c2"
+     },
+     "value": {
+      "lat_deg": 38.8400788813614,
+      "lon_deg": -104.82071853738351,
+      "height_m": 1910.6941928319918,
+      "mode_code": 1.0,
+      "c2_sinr_db": 39.17892671430202,
+      "course_deg": null,
+      "c2_margin_db": 33.17892671430202,
+      "height_agl_m": 89.58177159612183,
+      "c2_state_code": 3.0,
+      "c2_reason_code": 4.0,
+      "c2_noise_power_w": 1e-13,
+      "ground_speed_mps": 0.0,
+      "terrain_height_m": 1821.11242123587,
+      "c2_signal_power_w": 8.277375770262067e-10,
+      "vertical_speed_mps": -3.0,
+      "lost_link_elapsed_s": 40.0,
+      "lost_link_timeout_s": 30.0,
+      "c2_nominal_min_sinr_db": 12.0,
+      "c2_interference_power_w": 0.0,
+      "c2_unavailable_below_sinr_db": 6.0
+     }
+    },
+    {
+     "product_content_id": "sha256:135a24b3388aa523e04af4cc6eba94db0866d64672e9336c1cf275bea1c1584a",
+     "ordinal": 17,
+     "semantic_identity": "platform:foundation:uas-1",
+     "valid_time": "2026-11-05T16:01:25+00:00",
+     "knowledge_time": "2026-11-06T20:53:23.251069+00:00",
+     "series_key": {
+      "gcs": "gcs:foundation:gcs-1",
+      "home": "home:foundation:uas-1",
+      "c2_receiver": "receiver:foundation:uas-1-c2"
+     },
+     "value": {
+      "lat_deg": 38.8400788813614,
+      "lon_deg": -104.82071853738351,
+      "height_m": 1895.6941928319918,
+      "mode_code": 1.0,
+      "c2_sinr_db": 39.27324214145294,
+      "course_deg": null,
+      "c2_margin_db": 33.27324214145294,
+      "height_agl_m": 74.58177159612183,
+      "c2_state_code": 0.0,
+      "c2_reason_code": 3.0,
+      "c2_noise_power_w": 1e-13,
+      "ground_speed_mps": 0.0,
+      "terrain_height_m": 1821.11242123587,
+      "c2_signal_power_w": 8.459101073316341e-10,
+      "vertical_speed_mps": -3.0,
+      "lost_link_elapsed_s": 0.0,
+      "lost_link_timeout_s": 30.0,
+      "c2_nominal_min_sinr_db": 12.0,
+      "c2_interference_power_w": 0.0,
+      "c2_unavailable_below_sinr_db": 6.0
+     }
+    },
+    {
+     "product_content_id": "sha256:135a24b3388aa523e04af4cc6eba94db0866d64672e9336c1cf275bea1c1584a",
+     "ordinal": 18,
+     "semantic_identity": "platform:foundation:uas-1",
+     "valid_time": "2026-11-05T16:01:30+00:00",
+     "knowledge_time": "2026-11-06T20:53:23.251069+00:00",
+     "series_key": {
+      "gcs": "gcs:foundation:gcs-1",
+      "home": "home:foundation:uas-1",
+      "c2_receiver": "receiver:foundation:uas-1-c2"
+     },
+     "value": {
+      "lat_deg": 38.8400788813614,
+      "lon_deg": -104.82071853738351,
+      "height_m": 1880.6941928319918,
+      "mode_code": 1.0,
+      "c2_sinr_db": 39.35200572739291,
+      "course_deg": null,
+      "c2_margin_db": 33.35200572739291,
+      "height_agl_m": 59.581771596121825,
+      "c2_state_code": 0.0,
+      "c2_reason_code": 2.0,
+      "c2_noise_power_w": 1e-13,
+      "ground_speed_mps": 0.0,
+      "terrain_height_m": 1821.11242123587,
+      "c2_signal_power_w": 8.613914817583583e-10,
+      "vertical_speed_mps": -3.0,
+      "lost_link_elapsed_s": 0.0,
+      "lost_link_timeout_s": 30.0,
+      "c2_nominal_min_sinr_db": 12.0,
+      "c2_interference_power_w": 0.0,
+      "c2_unavailable_below_sinr_db": 6.0
+     }
+    },
+    {
+     "product_content_id": "sha256:135a24b3388aa523e04af4cc6eba94db0866d64672e9336c1cf275bea1c1584a",
+     "ordinal": 19,
+     "semantic_identity": "platform:foundation:uas-1",
+     "valid_time": "2026-11-05T16:01:35+00:00",
+     "knowledge_time": "2026-11-06T20:53:23.251069+00:00",
+     "series_key": {
+      "gcs": "gcs:foundation:gcs-1",
+      "home": "home:foundation:uas-1",
+      "c2_receiver": "receiver:foundation:uas-1-c2"
+     },
+     "value": {
+      "lat_deg": 38.8400788813614,
+      "lon_deg": -104.82071853738351,
+      "height_m": 1878.9319317073137,
+      "mode_code": 2.0,
+      "c2_sinr_db": 39.36019536351491,
+      "course_deg": 214.38511084279526,
+      "c2_margin_db": 33.36019536351491,
+      "height_agl_m": 57.819510471443664,
+      "c2_state_code": 0.0,
+      "c2_reason_code": 2.0,
+      "c2_noise_power_w": 1e-13,
+      "ground_speed_mps": 10.0,
+      "terrain_height_m": 1821.11242123587,
+      "c2_signal_power_w": 8.630173689635327e-10,
+      "vertical_speed_mps": 0.0,
+      "lost_link_elapsed_s": 0.0,
+      "lost_link_timeout_s": 30.0,
+      "c2_nominal_min_sinr_db": 12.0,
+      "c2_interference_power_w": 0.0,
+      "c2_unavailable_below_sinr_db": 6.0
+     }
+    },
+    {
+     "product_content_id": "sha256:135a24b3388aa523e04af4cc6eba94db0866d64672e9336c1cf275bea1c1584a",
+     "ordinal": 20,
+     "semantic_identity": "platform:foundation:uas-1",
+     "valid_time": "2026-11-05T16:01:40+00:00",
+     "knowledge_time": "2026-11-06T20:53:23.251069+00:00",
+     "series_key": {
+      "gcs": "gcs:foundation:gcs-1",
+      "home": "home:foundation:uas-1",
+      "c2_receiver": "receiver:foundation:uas-1-c2"
+     },
+     "value": {
+      "lat_deg": 38.83970718365753,
+      "lon_deg": -104.82104377505337,
+      "height_m": 1878.9319317073137,
+      "mode_code": 2.0,
+      "c2_sinr_db": 40.72193287239873,
+      "course_deg": 214.38490687119884,
+      "c2_margin_db": 34.72193287239873,
+      "height_agl_m": 58.07572548784992,
+      "c2_state_code": 0.0,
+      "c2_reason_code": 2.0,
+      "c2_noise_power_w": 1e-13,
+      "ground_speed_mps": 10.0,
+      "terrain_height_m": 1820.8562062194637,
+      "c2_signal_power_w": 1.1808460664437524e-09,
+      "vertical_speed_mps": 0.0,
+      "lost_link_elapsed_s": 0.0,
+      "lost_link_timeout_s": 30.0,
+      "c2_nominal_min_sinr_db": 12.0,
+      "c2_interference_power_w": 0.0,
+      "c2_unavailable_below_sinr_db": 6.0
+     }
+    },
+    {
+     "product_content_id": "sha256:135a24b3388aa523e04af4cc6eba94db0866d64672e9336c1cf275bea1c1584a",
+     "ordinal": 21,
+     "semantic_identity": "platform:foundation:uas-1",
+     "valid_time": "2026-11-05T16:01:45+00:00",
+     "knowledge_time": "2026-11-06T20:53:23.251069+00:00",
+     "series_key": {
+      "gcs": "gcs:foundation:gcs-1",
+      "home": "home:foundation:uas-1",
+      "c2_receiver": "receiver:foundation:uas-1-c2"
+     },
+     "value": {
+      "lat_deg": 38.83933548502442,
+      "lon_deg": -104.8213690093394,
+      "height_m": 1878.9319317073137,
+      "mode_code": 2.0,
+      "c2_sinr_db": 42.31133209083833,
+      "course_deg": 214.38470290336804,
+      "c2_margin_db": 36.31133209083833,
+      "height_agl_m": 58.3830354238396,
+      "c2_state_code": 0.0,
+      "c2_reason_code": 2.0,
+      "c2_noise_power_w": 1e-13,
+      "ground_speed_mps": 10.0,
+      "terrain_height_m": 1820.548896283474,
+      "c2_signal_power_w": 1.7026806834681893e-09,
+      "vertical_speed_mps": 0.0,
+      "lost_link_elapsed_s": 0.0,
+      "lost_link_timeout_s": 30.0,
+      "c2_nominal_min_sinr_db": 12.0,
+      "c2_interference_power_w": 0.0,
+      "c2_unavailable_below_sinr_db": 6.0
+     }
+    },
+    {
+     "product_content_id": "sha256:135a24b3388aa523e04af4cc6eba94db0866d64672e9336c1cf275bea1c1584a",
+     "ordinal": 22,
+     "semantic_identity": "platform:foundation:uas-1",
+     "valid_time": "2026-11-05T16:01:50+00:00",
+     "knowledge_time": "2026-11-06T20:53:23.251069+00:00",
+     "series_key": {
+      "gcs": "gcs:foundation:gcs-1",
+      "home": "home:foundation:uas-1",
+      "c2_receiver": "receiver:foundation:uas-1-c2"
+     },
+     "value": {
+      "lat_deg": 38.83896378546211,
+      "lon_deg": -104.8216942402417,
+      "height_m": 1878.9319317073137,
+      "mode_code": 2.0,
+      "c2_sinr_db": 44.201004329669225,
+      "course_deg": 214.38449893930272,
+      "c2_margin_db": 38.201004329669225,
+      "height_agl_m": 58.736894489522,
+      "c2_state_code": 0.0,
+      "c2_reason_code": 2.0,
+      "c2_noise_power_w": 1e-13,
+      "ground_speed_mps": 10.0,
+      "terrain_height_m": 1820.1950372177917,
+      "c2_signal_power_w": 2.630876326047577e-09,
+      "vertical_speed_mps": 0.0,
+      "lost_link_elapsed_s": 0.0,
+      "lost_link_timeout_s": 30.0,
+      "c2_nominal_min_sinr_db": 12.0,
+      "c2_interference_power_w": 0.0,
+      "c2_unavailable_below_sinr_db": 6.0
+     }
+    },
+    {
+     "product_content_id": "sha256:135a24b3388aa523e04af4cc6eba94db0866d64672e9336c1cf275bea1c1584a",
+     "ordinal": 23,
+     "semantic_identity": "platform:foundation:uas-1",
+     "valid_time": "2026-11-05T16:01:55+00:00",
+     "knowledge_time": "2026-11-06T20:53:23.251069+00:00",
+     "series_key": {
+      "gcs": "gcs:foundation:gcs-1",
+      "home": "home:foundation:uas-1",
+      "c2_receiver": "receiver:foundation:uas-1-c2"
+     },
+     "value": {
+      "lat_deg": 38.83859208497059,
+      "lon_deg": -104.82201946776031,
+      "height_m": 1878.9319317073137,
+      "mode_code": 2.0,
+      "c2_sinr_db": 46.47378891241665,
+      "course_deg": 214.3842949790028,
+      "c2_margin_db": 40.47378891241665,
+      "height_agl_m": 59.08944755307357,
+      "c2_state_code": 0.0,
+      "c2_reason_code": 2.0,
+      "c2_noise_power_w": 1e-13,
+      "ground_speed_mps": 10.0,
+      "terrain_height_m": 1819.84248415424,
+      "c2_signal_power_w": 4.439958299928669e-09,
+      "vertical_speed_mps": 0.0,
+      "lost_link_elapsed_s": 0.0,
+      "lost_link_timeout_s": 30.0,
+      "c2_nominal_min_sinr_db": 12.0,
+      "c2_interference_power_w": 0.0,
+      "c2_unavailable_below_sinr_db": 6.0
+     }
+    },
+    {
+     "product_content_id": "sha256:135a24b3388aa523e04af4cc6eba94db0866d64672e9336c1cf275bea1c1584a",
+     "ordinal": 24,
+     "semantic_identity": "platform:foundation:uas-1",
+     "valid_time": "2026-11-05T16:02:00+00:00",
+     "knowledge_time": "2026-11-06T20:53:23.251069+00:00",
+     "series_key": {
+      "gcs": "gcs:foundation:gcs-1",
+      "home": "home:foundation:uas-1",
+      "c2_receiver": "receiver:foundation:uas-1-c2"
+     },
+     "value": {
+      "lat_deg": 38.83822038354991,
+      "lon_deg": -104.82234469189531,
+      "height_m": 1878.9319317073137,
+      "mode_code": 2.0,
+      "c2_sinr_db": 49.112023480361024,
+      "course_deg": 214.38409102246828,
+      "c2_margin_db": 43.112023480361024,
+      "height_agl_m": 59.45155158285661,
+      "c2_state_code": 0.0,
+      "c2_reason_code": 2.0,
+      "c2_noise_power_w": 1e-13,
+      "ground_speed_mps": 10.0,
+      "terrain_height_m": 1819.480380124457,
+      "c2_signal_power_w": 8.150839623942716e-09,
+      "vertical_speed_mps": 0.0,
+      "lost_link_elapsed_s": 0.0,
+      "lost_link_timeout_s": 30.0,
+      "c2_nominal_min_sinr_db": 12.0,
+      "c2_interference_power_w": 0.0,
+      "c2_unavailable_below_sinr_db": 6.0
+     }
+    },
+    {
+     "product_content_id": "sha256:135a24b3388aa523e04af4cc6eba94db0866d64672e9336c1cf275bea1c1584a",
+     "ordinal": 25,
+     "semantic_identity": "platform:foundation:uas-1",
+     "valid_time": "2026-11-05T16:02:05+00:00",
+     "knowledge_time": "2026-11-06T20:53:23.251069+00:00",
+     "series_key": {
+      "gcs": "gcs:foundation:gcs-1",
+      "home": "home:foundation:uas-1",
+      "c2_receiver": "receiver:foundation:uas-1-c2"
+     },
+     "value": {
+      "lat_deg": 38.83784868120008,
+      "lon_deg": -104.82266991264677,
+      "height_m": 1878.9319317073137,
+      "mode_code": 2.0,
+      "c2_sinr_db": 51.39783580276429,
+      "course_deg": 214.38388706969906,
+      "c2_margin_db": 45.39783580276429,
+      "height_agl_m": 59.826760790183016,
+      "c2_state_code": 0.0,
+      "c2_reason_code": 2.0,
+      "c2_noise_power_w": 1e-13,
+      "ground_speed_mps": 10.0,
+      "terrain_height_m": 1819.1051709171306,
+      "c2_signal_power_w": 1.3796965562151387e-08,
+      "vertical_speed_mps": 0.0,
+      "lost_link_elapsed_s": 0.0,
+      "lost_link_timeout_s": 30.0,
+      "c2_nominal_min_sinr_db": 12.0,
+      "c2_interference_power_w": 0.0,
+      "c2_unavailable_below_sinr_db": 6.0
+     }
+    },
+    {
+     "product_content_id": "sha256:135a24b3388aa523e04af4cc6eba94db0866d64672e9336c1cf275bea1c1584a",
+     "ordinal": 26,
+     "semantic_identity": "platform:foundation:uas-1",
+     "valid_time": "2026-11-05T16:02:10+00:00",
+     "knowledge_time": "2026-11-06T20:53:23.251069+00:00",
+     "series_key": {
+      "gcs": "gcs:foundation:gcs-1",
+      "home": "home:foundation:uas-1",
+      "c2_receiver": "receiver:foundation:uas-1-c2"
+     },
+     "value": {
+      "lat_deg": 38.8377,
+      "lon_deg": -104.8228,
+      "height_m": 1878.9319317073137,
+      "mode_code": 3.0,
+      "c2_sinr_db": 51.735993832022444,
+      "course_deg": null,
+      "c2_margin_db": 45.735993832022444,
+      "height_agl_m": 60.0,
+      "c2_state_code": 0.0,
+      "c2_reason_code": 2.0,
+      "c2_noise_power_w": 1e-13,
+      "ground_speed_mps": 0.0,
+      "terrain_height_m": 1818.9319317073137,
+      "c2_signal_power_w": 1.491418009937312e-08,
+      "vertical_speed_mps": -3.0,
+      "lost_link_elapsed_s": 0.0,
+      "lost_link_timeout_s": 30.0,
+      "c2_nominal_min_sinr_db": 12.0,
+      "c2_interference_power_w": 0.0,
+      "c2_unavailable_below_sinr_db": 6.0
+     }
+    },
+    {
+     "product_content_id": "sha256:135a24b3388aa523e04af4cc6eba94db0866d64672e9336c1cf275bea1c1584a",
+     "ordinal": 27,
+     "semantic_identity": "platform:foundation:uas-1",
+     "valid_time": "2026-11-05T16:02:15+00:00",
+     "knowledge_time": "2026-11-06T20:53:23.251069+00:00",
+     "series_key": {
+      "gcs": "gcs:foundation:gcs-1",
+      "home": "home:foundation:uas-1",
+      "c2_receiver": "receiver:foundation:uas-1-c2"
+     },
+     "value": {
+      "lat_deg": 38.8377,
+      "lon_deg": -104.8228,
+      "height_m": 1863.9319317073137,
+      "mode_code": 3.0,
+      "c2_sinr_db": 52.91861339772716,
+      "course_deg": null,
+      "c2_margin_db": 46.91861339772716,
+      "height_agl_m": 45.0,
+      "c2_state_code": 0.0,
+      "c2_reason_code": 2.0,
+      "c2_noise_power_w": 1e-13,
+      "ground_speed_mps": 0.0,
+      "terrain_height_m": 1818.9319317073137,
+      "c2_signal_power_w": 1.958219359338875e-08,
+      "vertical_speed_mps": -3.0,
+      "lost_link_elapsed_s": 0.0,
+      "lost_link_timeout_s": 30.0,
+      "c2_nominal_min_sinr_db": 12.0,
+      "c2_interference_power_w": 0.0,
+      "c2_unavailable_below_sinr_db": 6.0
+     }
+    },
+    {
+     "product_content_id": "sha256:135a24b3388aa523e04af4cc6eba94db0866d64672e9336c1cf275bea1c1584a",
+     "ordinal": 28,
+     "semantic_identity": "platform:foundation:uas-1",
+     "valid_time": "2026-11-05T16:02:20+00:00",
+     "knowledge_time": "2026-11-06T20:53:23.251069+00:00",
+     "series_key": {
+      "gcs": "gcs:foundation:gcs-1",
+      "home": "home:foundation:uas-1",
+      "c2_receiver": "receiver:foundation:uas-1-c2"
+     },
+     "value": {
+      "lat_deg": 38.8377,
+      "lon_deg": -104.8228,
+      "height_m": 1848.9319317073137,
+      "mode_code": 3.0,
+      "c2_sinr_db": 54.002194530907914,
+      "course_deg": null,
+      "c2_margin_db": 48.002194530907914,
+      "height_agl_m": 30.0,
+      "c2_state_code": 0.0,
+      "c2_reason_code": 2.0,
+      "c2_noise_power_w": 1e-13,
+      "ground_speed_mps": 0.0,
+      "terrain_height_m": 1818.9319317073137,
+      "c2_signal_power_w": 2.5131560321175635e-08,
+      "vertical_speed_mps": -3.0,
+      "lost_link_elapsed_s": 0.0,
+      "lost_link_timeout_s": 30.0,
+      "c2_nominal_min_sinr_db": 12.0,
+      "c2_interference_power_w": 0.0,
+      "c2_unavailable_below_sinr_db": 6.0
+     }
+    },
+    {
+     "product_content_id": "sha256:135a24b3388aa523e04af4cc6eba94db0866d64672e9336c1cf275bea1c1584a",
+     "ordinal": 29,
+     "semantic_identity": "platform:foundation:uas-1",
+     "valid_time": "2026-11-05T16:02:25+00:00",
+     "knowledge_time": "2026-11-06T20:53:23.251069+00:00",
+     "series_key": {
+      "gcs": "gcs:foundation:gcs-1",
+      "home": "home:foundation:uas-1",
+      "c2_receiver": "receiver:foundation:uas-1-c2"
+     },
+     "value": {
+      "lat_deg": 38.8377,
+      "lon_deg": -104.8228,
+      "height_m": 1833.9319317073137,
+      "mode_code": 3.0,
+      "c2_sinr_db": 54.7857822742651,
+      "course_deg": null,
+      "c2_margin_db": 48.7857822742651,
+      "height_agl_m": 15.0,
+      "c2_state_code": 0.0,
+      "c2_reason_code": 2.0,
+      "c2_noise_power_w": 1e-13,
+      "ground_speed_mps": 0.0,
+      "terrain_height_m": 1818.9319317073137,
+      "c2_signal_power_w": 3.0100813118627225e-08,
+      "vertical_speed_mps": -3.0,
+      "lost_link_elapsed_s": 0.0,
+      "lost_link_timeout_s": 30.0,
+      "c2_nominal_min_sinr_db": 12.0,
+      "c2_interference_power_w": 0.0,
+      "c2_unavailable_below_sinr_db": 6.0
+     }
+    },
+    {
+     "product_content_id": "sha256:135a24b3388aa523e04af4cc6eba94db0866d64672e9336c1cf275bea1c1584a",
+     "ordinal": 30,
+     "semantic_identity": "platform:foundation:uas-1",
+     "valid_time": "2026-11-05T16:02:30+00:00",
+     "knowledge_time": "2026-11-06T20:53:23.251069+00:00",
+     "series_key": {
+      "gcs": "gcs:foundation:gcs-1",
+      "home": "home:foundation:uas-1",
+      "c2_receiver": "receiver:foundation:uas-1-c2"
+     },
+     "value": {
+      "lat_deg": 38.8377,
+      "lon_deg": -104.8228,
+      "height_m": 1818.9319317073137,
+      "mode_code": 5.0,
+      "c2_sinr_db": 55.03623012968464,
+      "course_deg": null,
+      "c2_margin_db": 49.03623012968464,
+      "height_agl_m": 0.0,
+      "c2_state_code": 0.0,
+      "c2_reason_code": 2.0,
+      "c2_noise_power_w": 1e-13,
+      "ground_speed_mps": 0.0,
+      "terrain_height_m": 1818.9319317073137,
+      "c2_signal_power_w": 3.1887686595865914e-08,
+      "vertical_speed_mps": 0.0,
+      "lost_link_elapsed_s": 0.0,
+      "lost_link_timeout_s": 30.0,
+      "c2_nominal_min_sinr_db": 12.0,
+      "c2_interference_power_w": 0.0,
+      "c2_unavailable_below_sinr_db": 6.0
+     }
+    }
+   ]
+  }
+ ],
+ "plan": [
+  {
+   "kind": "revision",
+   "revision_id": "d6814ab5a1934efc935da93e26a9026e",
+   "head": null,
+   "resolved_at": "2026-11-06T22:55:18.906848+00:00",
+   "parent_id": "a1c497ec321d4f038dd223e1037b9e4f"
+  },
+  {
+   "kind": "product",
+   "binding": "simulation.uas.track",
+   "product_ref": "simulation.uas.track_sample_series.v1@sha256:135a24b3388aa523e04af4cc6eba94db0866d64672e9336c1cf275bea1c1584a",
+   "descriptor_id": "5f5c940a28c749d4b7b384b8e977ca9d",
+   "type_id": "simulation.uas.track_sample_series.v1",
+   "access_kind": "sample_series/v1",
+   "access_target": "world-sample-store",
+   "decision": "selected",
+   "reason": null,
+   "applied_dimensions": [],
+   "ignored_dimensions": [],
+   "detail": {
+    "selected": 31
+   }
+  }
+ ],
+ "omissions": []
+}

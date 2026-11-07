@@ -8,9 +8,12 @@
  * run: every row the run has a product for is pointed at the run's head and
  * time and switched on. Nothing else changes, and no hidden layer is involved.
  *
- * A simulated product with no row is reported, not dropped: today's RF
- * mission-effect series have no position to draw, and the host says so rather
- * than showing an empty globe as if the run had nothing in it.
+ * A drawable product with no row gets one from the host's `addRow`, made as
+ * start-up discovery makes it (GEN-394): discovery may have timed out, or the
+ * run may be newer than the page. A simulated product still with no row is
+ * reported, not dropped: today's RF mission-effect series have no position to
+ * draw, and the host says so rather than showing an empty globe as if the run
+ * had nothing in it.
  *
  * A host that holds a publication receipt names its revision too (GEN-299):
  * every row is pinned to exactly that revision, never to whatever the head
@@ -31,6 +34,7 @@ import {
   DRAWABLE_REPRESENTATIONS,
   PRODUCT_LAYER_PREFIX,
   productLayerId,
+  productsOf,
 } from './worldProducts.js';
 
 export const RUN_OPEN_ERROR_CODES = Object.freeze([
@@ -58,6 +62,8 @@ const REVISION_CHAIN_LIMIT = 50;
  * @param {string|null} [options.validAt] Where to open the run; null = each product's first epoch.
  * @param {string|null} [options.revisionId] The receipt's revision: rows are pinned to it.
  * @param {{head: string, revisionId?: string|null}|null} [options.compare] The pair's other case.
+ * @param {((product: object) => void)|null} [options.addRow] Registers a row for a
+ *   discovered-shaped product (`productsOf`); without it a missing row is reported.
  * @returns {Promise<{head: string, revisionId: string|null, headAdvanced: boolean,
  *   interval: {start: string, end: string}|null, compareError: string|null,
  *   opened: Array<{binding: string, layerId: string, validAt: string|null}>,
@@ -71,6 +77,7 @@ export async function openRun({
   validAt = null,
   revisionId = null,
   compare = null,
+  addRow = null,
   signal,
 }) {
   if (typeof head !== 'string' || !head.startsWith(SIM_HEAD_PREFIX))
@@ -80,7 +87,11 @@ export async function openRun({
   if (!manager?.layers)
     throw new Error('openRun: the application is not running');
   const { headAdvanced } = await checkRevision(source, head, revisionId, signal);
-  const status = await source.getStatus({ head, signal });
+  const status = await source.getStatus({
+    head,
+    modality: 'simulated',
+    signal,
+  });
   const simulated = (status?.bindings ?? []).filter(
     (entry) =>
       entry?.modality === 'simulated' && typeof entry.binding === 'string',
@@ -93,17 +104,22 @@ export async function openRun({
     );
   const opened = [];
   const undrawable = [];
+  // The row discovery would have made; none for what an adapter claims or cannot draw.
+  const addRowFor = (entry) => {
+    const [product] = productsOf({ bindings: [entry] }, head);
+    if (!product || typeof addRow !== 'function') return false;
+    addRow(product);
+    return manager.layers.has(productLayerId(entry.binding));
+  };
   for (const entry of simulated) {
     const layerId = productLayerId(entry.binding);
-    if (!manager.layers.has(layerId)) {
+    if (!manager.layers.has(layerId) && !addRowFor(entry)) {
       const drawable = (entry.representations ?? []).some((r) =>
         DRAWABLE_REPRESENTATIONS.includes(r?.kind),
       );
       undrawable.push({
         binding: entry.binding,
-        reason: drawable
-          ? 'no panel row (not discovered at start-up)'
-          : 'no position to draw',
+        reason: drawable ? 'no panel row' : 'no position to draw',
       });
       continue;
     }

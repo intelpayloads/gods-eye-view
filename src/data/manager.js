@@ -109,6 +109,21 @@ export class DataLayerManager {
     return destroyed;
   }
 
+  /**
+   * Register a layer after sealing. Only one the share link never carries is
+   * allowed, since no restore can be waiting for it: a world-model product row
+   * for a run opened after start-up (GEN-394). The panel shows it at once.
+   */
+  registerUnshared(layerModule) {
+    if (!this._registrationsFinalized) {
+      throw new Error('Data-layer registrations are not finalized; use register()');
+    }
+    this._registerLayer(layerModule);
+    this._registrationDispositions.set(layerModule.id, 'not-shared');
+    if (this._toggleContainer) this._renderToggles();
+    return layerModule.id;
+  }
+
   _registerLayer(layerModule) {
     if (!layerModule || typeof layerModule.id !== 'string' || !layerModule.id) {
       throw new Error('Data layer must provide a stable id');

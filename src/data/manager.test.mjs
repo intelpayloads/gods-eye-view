@@ -39,6 +39,44 @@ function makeSlowLayer(id, { updateInterval = 1000 } = {}) {
   };
 }
 
+/** A DOM element just rich enough for the layer panel to render rows into. */
+function makeElement() {
+  const element = {
+    children: [],
+    className: '',
+    dataset: {},
+    textContent: '',
+    disabled: false,
+    attributes: {},
+    classList: {
+      toggle() {},
+    },
+    appendChild(child) { this.children.push(child); return child; },
+    addEventListener() {},
+    removeEventListener() {},
+    setAttribute(name, value) { this.attributes[name] = String(value); },
+    querySelector(selector) {
+      if (selector.startsWith('[data-layer-id="')) {
+        const id = selector.slice(16, -2);
+        return this.children.find((child) => child.dataset.layerId === id) || null;
+      }
+      const className = selector.startsWith('.') ? selector.slice(1) : '';
+      const visit = (node) => {
+        if (String(node.className).split(/\s+/).includes(className)) return node;
+        for (const child of node.children || []) {
+          const found = visit(child);
+          if (found) return found;
+        }
+        return null;
+      };
+      return visit(this);
+    },
+    set innerHTML(value) { if (value === '') this.children = []; },
+    get innerHTML() { return ''; },
+  };
+  return element;
+}
+
 test('keeps panel-hidden coordinator layers registered and addressable', () => {
   const mgr = new DataLayerManager({});
   const layer = makeSlowLayer('military-awareness', { updateInterval: -1 });
@@ -103,42 +141,6 @@ test('adopts settled visibility without re-running lifecycle work', async () => 
 
 test('renders ordinary layer rows without recreating a panel-hidden coordinator', async () => {
   const originalDocument = globalThis.document;
-  const makeElement = () => {
-    const element = {
-      children: [],
-      className: '',
-      dataset: {},
-      textContent: '',
-      disabled: false,
-      attributes: {},
-      classList: {
-        toggle() {},
-      },
-      appendChild(child) { this.children.push(child); return child; },
-      addEventListener() {},
-      removeEventListener() {},
-      setAttribute(name, value) { this.attributes[name] = String(value); },
-      querySelector(selector) {
-        if (selector.startsWith('[data-layer-id="')) {
-          const id = selector.slice(16, -2);
-          return this.children.find((child) => child.dataset.layerId === id) || null;
-        }
-        const className = selector.startsWith('.') ? selector.slice(1) : '';
-        const visit = (node) => {
-          if (String(node.className).split(/\s+/).includes(className)) return node;
-          for (const child of node.children || []) {
-            const found = visit(child);
-            if (found) return found;
-          }
-          return null;
-        };
-        return visit(this);
-      },
-      set innerHTML(value) { if (value === '') this.children = []; },
-      get innerHTML() { return ''; },
-    };
-    return element;
-  };
   globalThis.document = { createElement: makeElement };
   const mgr = new DataLayerManager({});
   const ordinary = makeSlowLayer('flights', { updateInterval: -1 });
@@ -156,6 +158,32 @@ test('renders ordinary layer rows without recreating a panel-hidden coordinator'
     mgr._refreshTogglePanel();
     assert.equal(container.querySelector('[data-layer-id="military-awareness"]'), null);
     assert.equal(mgr.getAll().find(({ id }) => id === 'military-awareness').enabled, true);
+  } finally {
+    await mgr.destroyAll();
+    if (originalDocument === undefined) delete globalThis.document;
+    else globalThis.document = originalDocument;
+  }
+});
+
+test('a sealed manager takes only an unshared layer late, and the panel shows it (GEN-394)', async () => {
+  const originalDocument = globalThis.document;
+  globalThis.document = { createElement: makeElement };
+  const mgr = new DataLayerManager({});
+  const late = makeSlowLayer('world-product:simulation.uas.track', { updateInterval: -1 });
+  assert.throws(() => mgr.registerUnshared(late.module), /not finalized/);
+  mgr.register(makeSlowLayer('flights', { updateInterval: -1 }).module);
+  mgr.finalizeRegistrations([{ id: 'flights', disposition: 'enabled-only' }]);
+  const container = makeElement();
+  try {
+    mgr.buildTogglePanel(container);
+    assert.throws(() => mgr.register(late.module), /finalized/);
+    assert.equal(container.querySelector(`[data-layer-id="${late.module.id}"]`), null);
+    assert.equal(mgr.registerUnshared(late.module), late.module.id);
+    assert.ok(container.querySelector(`[data-layer-id="${late.module.id}"]`));
+    assert.ok(container.querySelector('[data-layer-id="flights"]'));
+    assert.equal(mgr._registrationDispositions.get(late.module.id), 'not-shared');
+    assert.throws(() => mgr.registerUnshared(late.module), /Duplicate/);
+    assert.equal(await mgr.setEnabled(late.module.id, true), true);
   } finally {
     await mgr.destroyAll();
     if (originalDocument === undefined) delete globalThis.document;
