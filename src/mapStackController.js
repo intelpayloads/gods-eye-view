@@ -122,6 +122,8 @@ export class MapStackController {
     // Lives independently of `_switchGen` — construction is async and racy
     // switches are guarded where it's awaited (`_setWorldTerrainEnabled`).
     this._reearthTerrainProvider = null;
+    // A terrain that replaces every stack's own while set (GEN-403).
+    this._terrainOverride = null;
     // Monotonic switch counter. setStack() awaits network-bound provider
     // creation; a rapid A→B switch where A (e.g. slow Bing) resolves AFTER B
     // (fast OSM) would otherwise revert the user's last choice (M7). Each call
@@ -454,20 +456,51 @@ export class MapStackController {
    * @param {number} [gen] — switch generation this call belongs to
    */
   async _setWorldTerrainEnabled(enabled, gen) {
+    if (this._terrainOverride) return;
     const targetMode = enabled ? 'world' : 'keyless';
     if (targetMode === this._terrainMode) return;
     if (enabled) {
-      this.viewer.scene.setTerrain(Cesium.Terrain.fromWorldTerrain({
+      const terrain = Cesium.Terrain.fromWorldTerrain({
         requestVertexNormals: true,
-      }));
+      });
+      this.viewer.scene.setTerrain(terrain);
+      // setTerrain installs the provider once ready; an override set meanwhile wins.
+      terrain.readyEvent?.addEventListener(() => {
+        if (this._terrainOverride)
+          this.viewer.terrainProvider = this._terrainOverride;
+      });
     } else {
       const provider = await this._getKeylessTerrainProvider();
       // A newer switch started while the Re:Earth layer.json fetch was in
       // flight — that call owns terrain now; don't stomp it (M7 pattern).
       if (gen != null && gen !== this._switchGen) return;
+      if (this._terrainOverride) return;
       this.viewer.terrainProvider = provider;
     }
     this._terrainMode = targetMode;
+  }
+
+  /**
+   * A terrain that replaces the stack's own while it is set (GEN-403: a World
+   * Model region's terrain while the camera is over that region). A world or
+   * keyless terrain that resolves later never displaces it; `null` puts the
+   * stack's own terrain back (at once on a shown globe, else on the next globe
+   * stack).
+   * @param {Cesium.TerrainProvider|null} provider
+   */
+  async setTerrainOverride(provider) {
+    if (this._destroyed) return;
+    const next = provider ?? null;
+    if (next === this._terrainOverride) return;
+    this._terrainOverride = next;
+    // The scene no longer holds the stack's own provider: re-derive it next.
+    this._terrainMode = null;
+    if (next) {
+      this.viewer.terrainProvider = next;
+    } else if (this.viewer.scene.globe.show) {
+      await this._setWorldTerrainEnabled(!!this.cesiumToken, this._switchGen);
+    }
+    governorRequestRender('map-stack');
   }
 
   /**

@@ -19,6 +19,15 @@
  *       `POST /select` with values: products the projection does not draw
  *       (a sample series has no position), read by a layer adapter as numbers
  *
+ * Regions, offered together or not at all (GEN-403's Modelled scene):
+ *
+ *   getRegions({ head, signal })                 -> `GET /regions` as served
+ *   getRegion({ name, head, signal })            -> `GET /regions/{name}`: its declaration and coverage
+ *   getRegionTilesets({ name, head, signal })    -> `GET /regions/{name}/tilesets` as served
+ *   resolveUrl(path) -> string
+ *       a backplane path (a tileset's `/tilesets/{content_id}/`) joined to the
+ *       address this source uses, so the page can fetch the files itself
+ *
  * How the request reaches the world model is the host's business: the
  * standalone Gods Eye shell wires an HTTP source at a local development
  * proxy; the Dataforge client supplies its own transport (Dataforge Serve v2
@@ -72,8 +81,18 @@ export function sourceFeatures(source) {
     status: typeof source?.getStatus === 'function',
     select: typeof source?.select === 'function',
     revision: typeof source?.getRevision === 'function',
+    regions: REGION_METHODS.every(
+      (name) => typeof source?.[name] === 'function',
+    ),
   });
 }
+
+const REGION_METHODS = Object.freeze([
+  'getRegions',
+  'getRegion',
+  'getRegionTilesets',
+  'resolveUrl',
+]);
 
 /**
  * `type_id@sha256:<hex>` for a projected item's `semantic_ref.product_ref`
@@ -200,6 +219,12 @@ function untilAborted(promise, signal) {
       },
     );
   });
+}
+
+function regionName(name) {
+  if (typeof name !== 'string' || !name)
+    throw new TypeError('a region read requires a region name');
+  return name;
 }
 
 export function createHttpProjectionSource({
@@ -404,6 +429,24 @@ export function createHttpProjectionSource({
         );
       }
       return payload;
+    },
+    async getRegions({ head: name = head, signal } = {}) {
+      return request(`/regions${searchOf({ head: name })}`, { signal });
+    },
+    async getRegion({ name, head: headName = head, signal } = {}) {
+      const path = `/regions/${encodeURIComponent(regionName(name))}`;
+      return request(`${path}${searchOf({ head: headName })}`, { signal });
+    },
+    async getRegionTilesets({ name, head: headName = head, signal } = {}) {
+      const path = `/regions/${encodeURIComponent(regionName(name))}/tilesets`;
+      return request(`${path}${searchOf({ head: headName })}`, { signal });
+    },
+    resolveUrl(path) {
+      if (typeof path !== 'string' || !path.startsWith('/'))
+        throw new TypeError(
+          `resolveUrl takes a backplane path, got ${JSON.stringify(path)}`,
+        );
+      return `${root}${path}`;
     },
     describe() {
       return { transport: 'http', baseUrl: root, head };

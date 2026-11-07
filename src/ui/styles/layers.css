@@ -186,6 +186,40 @@
   text-overflow: ellipsis;
 }
 
+/* The Scene row (GEN-403): Photoreal or the World Model's own regions. */
+.world-config-scene {
+  margin-top: 8px;
+}
+
+.world-config-scene-chips {
+  display: flex;
+  gap: 6px;
+  padding-left: 15px;
+}
+
+.world-config-scene-chip {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 1px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 212, 255, 0.25);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.world-config-scene-chip[aria-pressed='true'] {
+  background: rgba(0, 212, 255, 0.16);
+  border-color: rgba(0, 212, 255, 0.6);
+  color: var(--text, #e8eaed);
+}
+
+.world-config-scene-chip:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* Selected-only, provenance-first proximity results. This is intentionally a
    contextual panel, not a radar/engagement display. */
 #global-context-panel {

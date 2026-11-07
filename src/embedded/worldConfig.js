@@ -6,9 +6,17 @@
  * the revision on it and how old that is, how many products it holds and how
  * many simulation runs sit beside it -- refreshed on a timer. It has no
  * toggle; it is the configuration the rows run on.
+ *
+ * Its Scene row (GEN-403) is the one choice it offers: Photoreal (Google's
+ * mesh) or Modelled (the world's own regions), and in Modelled what each
+ * region draws or why it does not.
  */
 import { SIM_HEAD_PREFIX } from '../layers/worldModel/simulationRuns.js';
 import { HEAD } from '../layers/worldModel/view.js';
+import {
+  REGION_DISPLAY_FACT,
+  SCENES,
+} from '../layers/worldModel/regionScene.js';
 
 export const WORLD_CONFIG_REFRESH_MS = 15_000;
 
@@ -46,6 +54,36 @@ export function worldConfigLines({ status, heads, error, discovery }) {
         ? `${bindings} products · ${runLabel} · product rows not loaded (${failed}); reload to retry`
         : `${bindings} products · ${discovery?.count ?? 0} drawn as layers · ${runLabel}`,
     ],
+  };
+}
+
+/**
+ * The Scene row from a region scene's state (GEN-403): a chip per scene, the
+ * one unavailable saying why, and in Modelled a line per region.
+ */
+export function sceneRow(state) {
+  const chips = [SCENES.photoreal, SCENES.modelled].map((id) => ({
+    id,
+    label: id.toUpperCase(),
+    pressed: state?.scene === id,
+    disabledReason: state?.available?.[id] ?? null,
+  }));
+  if (state?.scene !== SCENES.modelled) return { chips, lines: [] };
+  const line = (text, title = text) => ({ text, title });
+  if (state.error) return { chips, lines: [line(state.error)] };
+  if (state.reading) return { chips, lines: [line('reading regions…')] };
+  if (!state.regions?.length)
+    return {
+      chips,
+      lines: [
+        line('no regions in this world: the base globe', REGION_DISPLAY_FACT),
+      ],
+    };
+  return {
+    chips,
+    lines: state.regions.map((region) =>
+      line(region.line, region.title || region.line),
+    ),
   };
 }
 
@@ -167,8 +205,45 @@ export function mountWorldConfig({
   name.textContent = 'World Model';
   title.append(dot, name);
   const body = document.createElement('div');
-  block.append(title, body);
+  const scene = document.createElement('div');
+  scene.className = 'world-config-scene';
+  scene.hidden = true;
+  block.append(title, body, scene);
   before.parentNode.insertBefore(block, before);
+  let detachScene = null;
+
+  const renderScene = (regionScene, state) => {
+    const { chips, lines } = sceneRow(state);
+    const row = document.createElement('div');
+    row.className = 'world-config-scene-chips';
+    row.setAttribute('role', 'group');
+    row.setAttribute('aria-label', 'Scene');
+    for (const chip of chips) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'world-config-scene-chip';
+      button.dataset.scene = chip.id;
+      button.textContent = chip.label;
+      button.setAttribute('aria-pressed', String(chip.pressed));
+      button.disabled = Boolean(chip.disabledReason);
+      button.title = chip.disabledReason ?? `Show the ${chip.id} scene`;
+      button.addEventListener(
+        'click',
+        () => void regionScene.setScene(chip.id),
+      );
+      row.append(button);
+    }
+    scene.replaceChildren(
+      row,
+      ...lines.map(({ text, title: hint }) => {
+        const line = document.createElement('div');
+        line.className = 'world-config-line';
+        line.textContent = text;
+        line.title = hint;
+        return line;
+      }),
+    );
+  };
 
   const controller = new AbortController();
   const render = ({ state, lines }) => {
@@ -195,9 +270,19 @@ export function mountWorldConfig({
   const timer = setInterval(refresh, refreshMs);
   return {
     refresh,
+    /** Show the Scene row for a region scene (GEN-403); it follows the scene's changes. */
+    attachScene(regionScene) {
+      detachScene?.();
+      scene.hidden = false;
+      renderScene(regionScene, regionScene.state());
+      detachScene = regionScene.subscribe((state) =>
+        renderScene(regionScene, state),
+      );
+    },
     remove() {
       controller.abort();
       clearInterval(timer);
+      detachScene?.();
       block.remove();
     },
   };

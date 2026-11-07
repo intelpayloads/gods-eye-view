@@ -11,6 +11,7 @@ import {
 } from '../renderGovernor.js';
 import { startStandaloneChrome } from './startupChrome.js';
 import { mountRunPlayer } from '../ui/runPlayer.js';
+import { createRegionScene } from '../layers/worldModel/regionView.js';
 import { STANDALONE_FEATURES, resolveFeatures } from './features.js';
 
 export { STANDALONE_FEATURES } from './features.js';
@@ -24,11 +25,12 @@ export function createStandaloneTools({
   placeSearch,
   features = STANDALONE_FEATURES,
   renderSource = null,
+  regions = null,
   signal,
   defer,
 }) {
   const enabled = resolveFeatures(features);
-  const { viewer, tileset, mapStackController } = scene;
+  const { viewer, tileset, mapStackController, globeStack } = scene;
   const { styleManager, weatherEffects, cockpitCloudEffects } = controls;
   const { dataManager } = data;
   const sceneDirector = new SceneDirector(viewer, styleManager, dataManager);
@@ -48,6 +50,21 @@ export function createStandaloneTools({
       firstRun: enabled.firstRun,
     }),
   );
+  // Photoreal or the World Model's own regions (GEN-403), when the host's source reads regions.
+  const regionScene = regions?.source
+    ? createRegionScene({
+        viewer,
+        mapStackController,
+        globeStack,
+        source: regions.source,
+        head: regions.head,
+      })
+    : null;
+  if (regionScene) {
+    defer(() => regionScene.destroy());
+    void regionScene.start();
+    regions.onScene?.(regionScene);
+  }
   // A simulated run on screen plays through time (GEN-310), and renders a moment through the host (GEN-369).
   defer(
     mountRunPlayer({
@@ -55,6 +72,7 @@ export function createStandaloneTools({
       container: viewer.container,
       viewer,
       renderSource,
+      regions: regionScene,
     }),
   );
   // Idle render governor: flips the scene into requestRenderMode whenever
@@ -142,5 +160,5 @@ export function createStandaloneTools({
     });
   }
   debug.voiceCommands = voiceCommands;
-  return { sceneDirector, annotations, voiceCommands };
+  return { sceneDirector, annotations, voiceCommands, regionScene };
 }

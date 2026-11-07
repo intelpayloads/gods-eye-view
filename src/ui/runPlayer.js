@@ -146,6 +146,15 @@ function runKey(run) {
   return [run.head, run.revisionId ?? '', run.compare?.head ?? '', run.compare?.revisionId ?? ''].join('|');
 }
 
+/**
+ * The region to fly to for the run on screen (GEN-403): the first its layers'
+ * products name, once per run (`flown` is the run already flown to), else null.
+ */
+export function regionToFlyTo(modules, run, flown) {
+  if (!run || flown === runKey(run)) return null;
+  return modules.map((module) => module.terrainRegion?.()).find(Boolean) ?? null;
+}
+
 /** World-model layers (they expose their projection source) and their params. */
 function worldModelLayers(dataManager) {
   const out = [];
@@ -228,10 +237,18 @@ function pinnedRevision(layer) {
 
 /**
  * Mount the player into `container` (the viewer's). Returns the cleanup.
+ * With `regions` (GEN-403's region scene), opening a run whose products name
+ * a region flies there, once per run.
  * @param {{dataManager: object, container: HTMLElement, viewer?: object,
- *   renderSource?: object|null}} options
+ *   renderSource?: object|null, regions?: {flyTo: (name: string) => Promise<boolean>}|null}} options
  */
-export function mountRunPlayer({ dataManager, container, viewer = null, renderSource = null }) {
+export function mountRunPlayer({
+  dataManager,
+  container,
+  viewer = null,
+  renderSource = null,
+  regions = null,
+}) {
   if (!dataManager || !container) return () => {};
   const style = document.createElement('style');
   style.textContent = STYLE;
@@ -285,6 +302,7 @@ export function mountRunPlayer({ dataManager, container, viewer = null, renderSo
     differences: [],
     rendering: false, // holding continuous rendering while playing (GEN-395)
     revisionId: null, // the revision the timeline was read from (GEN-369 renders it)
+    flown: null, // the run whose region the camera flew to (GEN-403)
   };
 
   function readerFor(source) {
@@ -349,6 +367,17 @@ export function mountRunPlayer({ dataManager, container, viewer = null, renderSo
     state.rendering = on;
     if (on) holdContinuousRender(RENDER_OWNER);
     else releaseContinuousRender(RENDER_OWNER);
+  }
+
+  /** Fly to the region the run's products name, once per run on screen (GEN-403). */
+  function flyToRunRegion(run) {
+    if (!regions) return;
+    const region = regionToFlyTo(modulesOnRun(), run, state.flown);
+    if (!region) return;
+    state.flown = runKey(run);
+    Promise.resolve(regions.flyTo(region)).catch((error) =>
+      console.warn('[RunPlayer] fly to the run region failed:', error),
+    );
   }
 
   /** The layers on the run that draw its drone, and whether one is following it. */
@@ -757,12 +786,14 @@ export function mountRunPlayer({ dataManager, container, viewer = null, renderSo
     if (!run) {
       state.clock?.pause();
       state.key = null;
+      state.flown = null;
       state.timeline = null;
       renderContinuously(false);
       render();
       return;
     }
     if (runKey(run) !== state.key) void load(run);
+    flyToRunRegion(run);
     const { timeline, clock } = state;
     if (!timeline || !clock) {
       render();

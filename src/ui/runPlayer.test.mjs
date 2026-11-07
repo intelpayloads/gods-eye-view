@@ -1,7 +1,7 @@
 /** The run player (GEN-310): which run is on screen, and which layers its clock moves. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { runOnScreen } from './runPlayer.js';
+import { regionToFlyTo, runOnScreen } from './runPlayer.js';
 
 const RUN = 'sim/sha256:d6eca085';
 const source = { select() {} };
@@ -80,4 +80,16 @@ test('a focused run with no layer on screen (mission effects only) is still the 
   assert.deepEqual(run.layerIds, []);
   assert.equal(run.source, source);
   assert.equal(runOnScreen([], null), null);
+});
+
+test('a run whose products name a region flies there once; a run without one never does (GEN-403)', () => {
+  const run = { head: RUN, revisionId: null, layerIds: ['a'] };
+  const inRegion = [{ terrainRegion: () => null }, { terrainRegion: () => 'cs-downtown' }];
+  assert.equal(regionToFlyTo(inRegion, run, null), 'cs-downtown');
+  // Flown already for this run: never again on later ticks.
+  assert.equal(regionToFlyTo(inRegion, run, `${RUN}|||`), null);
+  // Another run (or the same head pinned to a receipt) flies again.
+  assert.equal(regionToFlyTo(inRegion, { ...run, revisionId: 'rev-2' }, `${RUN}|||`), 'cs-downtown');
+  assert.equal(regionToFlyTo([{ terrainRegion: () => null }, {}], run, null), null);
+  assert.equal(regionToFlyTo(inRegion, null, null), null);
 });

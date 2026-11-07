@@ -1,0 +1,82 @@
+{
+  "head": "world/main",
+  "revision_id": "2d4997e2e4834c0e9a21fc53243e8cb6",
+  "regions": [
+    {
+      "region": "cs-downtown",
+      "region_id": "sha256:51f8dc68803d5f601a5e25b88b1741cd6412f3bbd49bd2fea6f25812f96ea268",
+      "descriptor": "naip-imagery",
+      "instance": "naip-imagery",
+      "source_type": "source.usda.naip_cog.v1",
+      "extent": "box",
+      "listed": true,
+      "items": 4,
+      "bound": 4,
+      "missing": [],
+      "complete": true
+    },
+    {
+      "region": "cs-downtown",
+      "region_id": "sha256:51f8dc68803d5f601a5e25b88b1741cd6412f3bbd49bd2fea6f25812f96ea268",
+      "descriptor": "osm-buildings",
+      "instance": "osm-buildings",
+      "source_type": "source.osm.overpass_buildings.v1",
+      "extent": "box",
+      "level": 12,
+      "tiles": 6,
+      "bound": 6,
+      "missing": [],
+      "complete": true
+    },
+    {
+      "region": "cs-downtown",
+      "region_id": "sha256:51f8dc68803d5f601a5e25b88b1741cd6412f3bbd49bd2fea6f25812f96ea268",
+      "descriptor": "usgs-3dep-10m",
+      "instance": "usgs-3dep-10m",
+      "source_type": "source.usgs.dem_10m_geotiff.v1",
+      "extent": "ring",
+      "listed": true,
+      "items": 4,
+      "bound": 4,
+      "missing": [],
+      "complete": true
+    },
+    {
+      "region": "cs-downtown",
+      "region_id": "sha256:51f8dc68803d5f601a5e25b88b1741cd6412f3bbd49bd2fea6f25812f96ea268",
+      "descriptor": "usgs-3dep-1m",
+      "instance": "usgs-3dep-1m",
+      "source_type": "source.usgs.dem_1m_geotiff.v1",
+      "extent": "box",
+      "listed": true,
+      "items": 3,
+      "bound": 3,
+      "missing": [],
+      "complete": true
+    },
+    {
+      "region": "cs-downtown",
+      "region_id": "sha256:51f8dc68803d5f601a5e25b88b1741cd6412f3bbd49bd2fea6f25812f96ea268",
+      "descriptor": "usgs-3dep-lidar",
+      "instance": "usgs-3dep-lidar",
+      "source_type": "source.usgs.lidar_ept.v1",
+      "extent": "box",
+      "level": 13,
+      "tiles": 12,
+      "bound": 12,
+      "missing": [],
+      "complete": true
+    }
+  ],
+  "declaration": {
+    "name": "cs-downtown",
+    "bounds": [
+      -104.864831,
+      38.813542,
+      -104.807169,
+      38.858458
+    ],
+    "ring": 0.15
+  },
+  "region_id": "sha256:51f8dc68803d5f601a5e25b88b1741cd6412f3bbd49bd2fea6f25812f96ea268"
+}

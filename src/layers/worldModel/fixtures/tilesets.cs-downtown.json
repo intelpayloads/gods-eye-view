@@ -1,0 +1,47 @@
+{
+  "head": "world/main",
+  "revision_id": "2d4997e2e4834c0e9a21fc53243e8cb6",
+  "region": "cs-downtown",
+  "tilesets": [
+    {
+      "layer": "buildings",
+      "binding": "world.tilesets.buildings.cs-downtown",
+      "type": "buildings.glb_tileset.v1",
+      "content_id": "sha256:4254f058a1520d5af60c1c6873bbc04acb126f6a563f17a3f2bf151f77c1cfa4",
+      "root": "tileset.json",
+      "files": 109,
+      "url": "/revisions/2d4997e2e4834c0e9a21fc53243e8cb6/tilesets/cs-downtown/buildings/",
+      "root_url": "/revisions/2d4997e2e4834c0e9a21fc53243e8cb6/tilesets/cs-downtown/buildings/tileset.json"
+    },
+    {
+      "layer": "imagery",
+      "binding": "world.tilesets.imagery.cs-downtown",
+      "type": "imagery.xyz_png_tileset.v1",
+      "content_id": "sha256:382ea7174eba34381f04879be259822c5a0b5ff529bac708715e1a6bfbb6a5b3",
+      "root": "tilejson.json",
+      "files": 9799,
+      "url": "/revisions/2d4997e2e4834c0e9a21fc53243e8cb6/tilesets/cs-downtown/imagery/",
+      "root_url": "/revisions/2d4997e2e4834c0e9a21fc53243e8cb6/tilesets/cs-downtown/imagery/tilejson.json"
+    },
+    {
+      "layer": "terrain",
+      "binding": "world.tilesets.terrain.cs-downtown",
+      "type": "terrain.quantized_mesh_tileset.v1",
+      "content_id": "sha256:29cbe2a40d3eb98f97c482f0e621cdfe7626fdfba0b25ba3c50d3f1ec1d0dd1d",
+      "root": "layer.json",
+      "files": 16280,
+      "url": "/revisions/2d4997e2e4834c0e9a21fc53243e8cb6/tilesets/cs-downtown/terrain/",
+      "root_url": "/revisions/2d4997e2e4834c0e9a21fc53243e8cb6/tilesets/cs-downtown/terrain/layer.json"
+    },
+    {
+      "layer": "trees",
+      "binding": "world.tilesets.trees.cs-downtown",
+      "type": "vegetation.glb_tileset.v1",
+      "content_id": "sha256:5c16d0d2cb3854eae56fa80dee2a0d58a5388c0c3ef8ce07e28144f36a5fbf7f",
+      "root": "tileset.json",
+      "files": 109,
+      "url": "/revisions/2d4997e2e4834c0e9a21fc53243e8cb6/tilesets/cs-downtown/trees/",
+      "root_url": "/revisions/2d4997e2e4834c0e9a21fc53243e8cb6/tilesets/cs-downtown/trees/tileset.json"
+    }
+  ]
+}
