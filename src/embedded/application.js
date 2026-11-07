@@ -105,6 +105,7 @@ export const EMBEDDED_FEATURES = Object.freeze({
  *   unavailable and terrain is the flat ellipsoid, so the map fetches no external
  *   origin. Default null: today's keyless Esri imagery with OSM fallback and
  *   Re:Earth terrain.
+ * @param {object|null} [options.renderSource] Sends a run moment to the render node (GEN-369): `submit`, `status`, `outputs`, `download` (see `src/ui/runRender/jobs.js`). Absent, the run player has no RENDER.
  */
 export function createEmbeddedApplication(options = {}) {
   refuseRemovedOptions(options);
@@ -119,6 +120,7 @@ export function createEmbeddedApplication(options = {}) {
     features = {},
     basemap = null,
     stylesheets = undefined,
+    renderSource = null,
   } = options;
   const hostBasemap = normalizeBasemap(basemap);
   if (!root || typeof root.appendChild !== 'function')
@@ -140,6 +142,13 @@ export function createEmbeddedApplication(options = {}) {
     basemap: hostBasemap,
     features: { ...EMBEDDED_FEATURES, ...features },
     initialCamera,
+    renderSource,
+    // Photoreal | Modelled (GEN-403): the World Model block shows the choice.
+    regions: {
+      source: worldModelSource,
+      head: worldModel.head,
+      onScene: (regionScene) => worldConfig?.attachScene(regionScene),
+    },
     ownerLabel: 'embedded',
     hiddenLayerIds: EMBEDDED_HIDDEN_LAYER_IDS,
     panelLabels: EMBEDDED_PANEL_LABELS,

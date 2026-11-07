@@ -5,10 +5,13 @@
  *
  * `?live` (or `?live=<base url>`, default `/world`) reads a running backplane
  * over HTTP instead, and starts on load: the UI against a real world.
+ * `?render=demo` gives the run player a stand-in render node (GEN-369), and
+ * `?run=<sim head>` opens that run once started.
  */
 import '../../src/embedded/embedded.css';
 import { createEmbeddedApplication } from '../../src/embedded/application.js';
 import { createHttpProjectionSource } from '../../src/layers/worldModel/source.js';
+import { createDemoRenderSource } from './renderDemo.js';
 import projection from '../../src/layers/worldModel/fixtures/experiment-002.projection.json';
 import revisions from '../../src/layers/worldModel/fixtures/experiment-002.revisions.json';
 import status from '../../src/layers/worldModel/fixtures/experiment-002.status.json';
@@ -249,6 +252,8 @@ window.__embeddedQa = {
     app = createEmbeddedApplication({
       root: document.getElementById('host-root'),
       worldModelSource: source,
+      renderSource:
+        params.get('render') === 'demo' ? createDemoRenderSource() : null,
       cesiumToken: params.get('cesiumToken') || null,
       initialCamera: {
         lon: -122.25,
@@ -303,6 +308,14 @@ window.__embeddedQa = {
       validAt,
     });
   },
+  /** The running viewer, for driving the camera in a check (GEN-403). */
+  viewer() {
+    return app?.getComponents().scene?.viewer ?? null;
+  },
+  /** The Photoreal | Modelled scene (GEN-403). */
+  regionScene() {
+    return app?.getComponents().tools?.regionScene ?? null;
+  },
   renderedIds() {
     const layer = app
       ?.getComponents()
@@ -335,4 +348,11 @@ window.__embeddedQa = {
 if (live)
   window.__embeddedQa
     .create()
+    .then(() =>
+      params.get('run')
+        ? app.openRun(params.get('run'), {
+            validAt: params.get('validAt') || null,
+          })
+        : null,
+    )
     .catch((error) => console.error('[embedded-qa] start failed:', error));

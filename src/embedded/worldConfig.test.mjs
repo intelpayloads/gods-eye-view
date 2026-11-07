@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createWorldConfigRefresh } from './worldConfig.js';
+import { createWorldConfigRefresh, sceneRow } from './worldConfig.js';
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -110,4 +110,72 @@ test('an unreachable backplane says so; a source without heads still reads one a
   answer(status('rev-1'));
   await flush();
   assert.equal(shown.at(-1).state, 'ok');
+});
+
+test('the Scene row: a chip per scene, the unavailable one says why, Modelled lists its regions (GEN-403)', () => {
+  const available = { photoreal: null, modelled: null };
+  const photoreal = sceneRow({ scene: 'photoreal', available, regions: [] });
+  assert.deepEqual(
+    photoreal.chips.map((chip) => [
+      chip.label,
+      chip.pressed,
+      chip.disabledReason,
+    ]),
+    [
+      ['PHOTOREAL', true, null],
+      ['MODELLED', false, null],
+    ],
+  );
+  assert.deepEqual(photoreal.lines, []);
+  const keyless = sceneRow({
+    scene: 'modelled',
+    available: {
+      photoreal: 'Google 3D tiles did not load here',
+      modelled: null,
+    },
+    reading: true,
+    regions: [],
+  });
+  assert.equal(
+    keyless.chips[0].disabledReason,
+    'Google 3D tiles did not load here',
+  );
+  assert.deepEqual(
+    keyless.lines.map((line) => line.text),
+    ['reading regions…'],
+  );
+  const drawn = sceneRow({
+    scene: 'modelled',
+    available,
+    regions: [
+      {
+        name: 'cs-downtown',
+        line: 'cs-downtown · terrain, imagery, buildings, trees',
+        title: 'terrain: NAD83(2011)…',
+      },
+      { name: 'b', line: 'b not drawn: no terrain tileset yet', title: '' },
+    ],
+  });
+  assert.deepEqual(
+    drawn.lines.map((line) => line.text),
+    [
+      'cs-downtown · terrain, imagery, buildings, trees',
+      'b not drawn: no terrain tileset yet',
+    ],
+  );
+  assert.equal(drawn.lines[0].title, 'terrain: NAD83(2011)…');
+  assert.equal(drawn.lines[1].title, 'b not drawn: no terrain tileset yet');
+  assert.match(
+    sceneRow({ scene: 'modelled', available, regions: [] }).lines[0].text,
+    /no regions in this world/,
+  );
+  assert.deepEqual(
+    sceneRow({
+      scene: 'modelled',
+      available,
+      error: 'regions not read: 502',
+      regions: [],
+    }).lines.map((l) => l.text),
+    ['regions not read: 502'],
+  );
 });

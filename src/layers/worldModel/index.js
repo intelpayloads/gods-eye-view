@@ -45,10 +45,11 @@ import { displayMsAt, isDisplayClock, pausedAt } from './displayClock.js';
 import {
   DRONE_DISPLAY_FACT,
   UAS_TRACK_BINDING,
-  createUasTracks,
+  sharedUasTracks,
   showsUasTrack,
 } from './uasTrack.js';
 import { createDroneView, droneDrawn } from './droneView.js';
+import { runRegionOf } from './regionScene.js';
 export * from './adapter.js';
 export * from './controller.js';
 export * from './demand.js';
@@ -56,6 +57,7 @@ export * from './selection.js';
 export * from './receiverPass.js';
 export * from './uasTrack.js';
 export * from './displayClock.js';
+export * from './regionScene.js';
 export * from './source.js';
 export * from './view.js';
 
@@ -164,7 +166,7 @@ export function createWorldModelLayer({
   // Shared with every other row on this source: a run head is read once per world.
   const simulationRuns = sharedSimulationRuns(source);
   const receiverPasses = createReceiverPasses(source);
-  const uasTracks = createUasTracks(source);
+  const uasTracks = sharedUasTracks(source);
   const drones = createDroneView({
     id,
     source,
@@ -1190,6 +1192,11 @@ export function createWorldModelLayer({
 
     following() {
       return drones.following();
+    },
+
+    /** The region this layer's products name (`terrain.region`, GEN-403), or null. */
+    terrainRegion() {
+      return runRegionOf(state.headers);
     },
 
     getRenderedIds() {

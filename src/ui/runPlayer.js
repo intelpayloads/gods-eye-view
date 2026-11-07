@@ -26,6 +26,10 @@
  * the stored epochs instead of jumping; the query time stays on them. A run
  * starts at the slowest speed that plays it in 30 s, and FOLLOW puts the
  * tracking camera on the run's drone.
+ *
+ * GEN-369: when the host injects a `renderSource`, RENDER sends the moment the
+ * player shows to the render node (`./runRender/`), and a render of the
+ * epoch the player sits on is shown beside the globe.
  */
 import { SIM_HEAD_PREFIX } from '../layers/worldModel/simulationRuns.js';
 import { RECEIVER_TRACK_BINDING } from '../layers/worldModel/receiverPass.js';
@@ -56,6 +60,7 @@ import {
   lanesGeometry,
 } from '../layers/worldModel/runEffects.js';
 import { runFocus } from '../layers/worldModel/runFocus.js';
+import { mountRunRender } from './runRender/index.js';
 
 const TICK_MS = 100;
 const RENDER_OWNER = 'run-player';
@@ -139,6 +144,15 @@ function clockText(ms) {
 /** What the player shows: the run, its revision and its comparison. */
 function runKey(run) {
   return [run.head, run.revisionId ?? '', run.compare?.head ?? '', run.compare?.revisionId ?? ''].join('|');
+}
+
+/**
+ * The region to fly to for the run on screen (GEN-403): the first its layers'
+ * products name, once per run (`flown` is the run already flown to), else null.
+ */
+export function regionToFlyTo(modules, run, flown) {
+  if (!run || flown === runKey(run)) return null;
+  return modules.map((module) => module.terrainRegion?.()).find(Boolean) ?? null;
 }
 
 /** World-model layers (they expose their projection source) and their params. */
@@ -271,9 +285,18 @@ function pinnedRevision(layer) {
 
 /**
  * Mount the player into `container` (the viewer's). Returns the cleanup.
- * @param {{dataManager: object, container: HTMLElement}} options
+ * With `regions` (GEN-403's region scene), opening a run whose products name
+ * a region flies there, once per run.
+ * @param {{dataManager: object, container: HTMLElement, viewer?: object,
+ *   renderSource?: object|null, regions?: {flyTo: (name: string) => Promise<boolean>}|null}} options
  */
-export function mountRunPlayer({ dataManager, container }) {
+export function mountRunPlayer({
+  dataManager,
+  container,
+  viewer = null,
+  renderSource = null,
+  regions = null,
+}) {
   if (!dataManager || !container) return () => {};
   const style = document.createElement('style');
   style.textContent = STYLE;
@@ -326,6 +349,8 @@ export function mountRunPlayer({ dataManager, container }) {
     compared: null, // {lanes} of the pair's nominal case, when the host named it
     differences: [],
     rendering: false, // holding continuous rendering while playing (GEN-395)
+    revisionId: null, // the revision the timeline was read from (GEN-369 renders it)
+    flown: null, // the run whose region the camera flew to (GEN-403)
   };
 
   function readerFor(source) {
@@ -390,6 +415,17 @@ export function mountRunPlayer({ dataManager, container }) {
     state.rendering = on;
     if (on) holdContinuousRender(RENDER_OWNER);
     else releaseContinuousRender(RENDER_OWNER);
+  }
+
+  /** Fly to the region the run's products name, once per run on screen (GEN-403). */
+  function flyToRunRegion(run) {
+    if (!regions) return;
+    const region = regionToFlyTo(modulesOnRun(), run, state.flown);
+    if (!region) return;
+    state.flown = runKey(run);
+    Promise.resolve(regions.flyTo(region)).catch((error) =>
+      console.warn('[RunPlayer] fly to the run region failed:', error),
+    );
   }
 
   /** The layers on the run that draw its drone, and whether one is following it. */
@@ -599,7 +635,7 @@ export function mountRunPlayer({ dataManager, container }) {
     if (!state.run) return;
     const clock = state.clock;
     $('.rp-play').textContent = clock?.playing ? '❚❚ PAUSE' : '▶ PLAY';
-    for (const button of root.querySelectorAll('button'))
+    for (const button of root.querySelectorAll('.rp-controls > button'))
       button.disabled = !clock;
     for (const button of root.querySelectorAll('.rp-speed'))
       button.setAttribute(
@@ -668,12 +704,14 @@ export function mountRunPlayer({ dataManager, container }) {
     state.effects = null;
     state.compared = null;
     state.differences = [];
+    state.revisionId = null;
     strip.replaceChildren();
     state.loading = true;
     render();
     try {
       const revisionId = run.revisionId ?? (await revisionOf(run));
       if (state.key !== key) return;
+      state.revisionId = revisionId;
       const at = { revisionId, head: run.head };
       const reader = readerFor(run.source);
       // The track alone plays; the jammer flags (one read per epoch) shade the strip when they land.
@@ -726,7 +764,53 @@ export function mountRunPlayer({ dataManager, container }) {
     render();
   }
 
+  /** The stored epoch the player shows, as the render controls take it (GEN-369). */
+  function momentShown() {
+    const { run, timeline, clock } = state;
+    if (!run || !timeline || !clock || !state.revisionId) return null;
+    const row = timeline.rows[clock.index];
+    return {
+      run: { head: run.head, revisionId: state.revisionId, source: run.source },
+      ms: row.at,
+      validAt: row.validAt,
+      playing: clock.playing,
+    };
+  }
+
+  /** Pause on `validAt`'s epoch (the renders list jumps there). */
+  function seekTo(validAt) {
+    const { timeline, clock } = state;
+    const at = Date.parse(validAt);
+    if (!timeline || !clock || !Number.isFinite(at)) return;
+    clock.pause();
+    clock.seek(nearestIndex(timeline, at));
+    applyIndex();
+    render();
+  }
+
+  const runRender = mountRunRender({
+    renderSource,
+    viewer,
+    playerRoot: root,
+    controls: $('.rp-controls'),
+    seek: seekTo,
+    pause() {
+      if (!state.clock?.playing) return;
+      state.clock.pause();
+      publishDisplay();
+      render();
+    },
+  });
+
   function tick() {
+    try {
+      step();
+    } finally {
+      runRender?.update(momentShown());
+    }
+  }
+
+  function step() {
     const now = performance.now();
     const elapsed = now - state.lastTick;
     state.lastTick = now;
@@ -735,12 +819,14 @@ export function mountRunPlayer({ dataManager, container }) {
     if (!run) {
       state.clock?.pause();
       state.key = null;
+      state.flown = null;
       state.timeline = null;
       renderContinuously(false);
       render();
       return;
     }
     if (runKey(run) !== state.key) void load(run);
+    flyToRunRegion(run);
     const { timeline, clock } = state;
     if (!timeline || !clock) {
       render();
@@ -850,6 +936,7 @@ export function mountRunPlayer({ dataManager, container }) {
   tick();
   return () => {
     clearInterval(timer);
+    runRender?.dispose();
     renderContinuously(false);
     for (const remove of listeners.splice(0)) remove();
     root.remove();

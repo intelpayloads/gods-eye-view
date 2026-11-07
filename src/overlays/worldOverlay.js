@@ -130,6 +130,8 @@ export const WORLD_OVERLAY_OCCLUDER_SELECTORS = Object.freeze([
   // toggled). Every other cockpit selector was removed — see the block comment.
   '#cockpit-context',
   '#cockpit-signal-stream',
+  // A run's render beside the globe (GEN-369): a solid card a world card would hide under.
+  '.gev-run-render-pip',
 ]);
 
 /** @typedef {{x:number,y:number,w:number,h:number}} OverlayRect */

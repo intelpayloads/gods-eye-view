@@ -83,12 +83,14 @@ export async function createStandaloneScene({
 
   loaderStatus.textContent = 'Initializing systems...';
 
-  const keylessStack = basemap ? 'osm' : 'esri-imagery'; // osm draws the host basemap when one is set
+  // The globe stack a scene without Google tiles shows (GEN-403's Modelled base); osm draws the
+  // host basemap when one is set (GEN-367).
+  const globeStack = basemap ? 'osm' : 'esri-imagery';
   const mapStackController = new MapStackController(viewer, {
     googleTileset: tileset,
     cesiumToken,
     basemap,
-    initialStack: tileset ? 'photoreal' : keylessStack,
+    initialStack: tileset ? 'photoreal' : globeStack,
     // Task 5 (height-datum fix): rebroadcast stack changes as a window
     // CustomEvent so data layers (CCTV per-regime ground resolution) can
     // react without coupling MapStackController to layer modules. Fires on
@@ -102,10 +104,10 @@ export async function createStandaloneScene({
     onError: (message) => console.warn('[MapStack]', message),
   });
   defer(() => mapStackController.destroy());
-  await mapStackController.setStack(tileset ? 'photoreal' : keylessStack, {
+  await mapStackController.setStack(tileset ? 'photoreal' : globeStack, {
     silent: true,
   });
 
   signal.throwIfAborted();
-  return { viewer, tileset, mapStackController };
+  return { viewer, tileset, mapStackController, globeStack };
 }
