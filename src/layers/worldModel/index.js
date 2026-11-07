@@ -49,6 +49,7 @@ import {
   showsUasTrack,
 } from './uasTrack.js';
 import { createDroneView, droneDrawn } from './droneView.js';
+import { runRegionOf } from './regionScene.js';
 export * from './adapter.js';
 export * from './controller.js';
 export * from './demand.js';
@@ -56,6 +57,7 @@ export * from './selection.js';
 export * from './receiverPass.js';
 export * from './uasTrack.js';
 export * from './displayClock.js';
+export * from './regionScene.js';
 export * from './source.js';
 export * from './view.js';
 
@@ -1190,6 +1192,11 @@ export function createWorldModelLayer({
 
     following() {
       return drones.following();
+    },
+
+    /** The region this layer's products name (`terrain.region`, GEN-403), or null. */
+    terrainRegion() {
+      return runRegionOf(state.headers);
     },
 
     getRenderedIds() {

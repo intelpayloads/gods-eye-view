@@ -27,6 +27,8 @@ import { resetContextStore } from '../data/contextStore.js';
  * @param {object|null} [options.initialCamera] Camera when no share link is present.
  * @param {(context: object) => void} [options.beforeScene] Host setup run first in the scene phase (context has `defer`, `signal`).
  * @param {object|null} [options.renderSource] The host's render transport (GEN-369); the run player's RENDER needs one.
+ * @param {{source: object, head?: string, onScene?: (scene: object) => void}|null} [options.regions]
+ *   The Photoreal | Modelled scene (GEN-403) over this source's regions; `onScene` gets it once made.
  * @param {string} [options.ownerLabel]
  */
 export function composeApplication({
@@ -42,6 +44,7 @@ export function composeApplication({
   initialCamera = null,
   beforeScene = null,
   renderSource = null,
+  regions = null,
   ownerLabel = 'standalone',
 }) {
   if (typeof createWorldModelLayer !== 'function')
@@ -94,6 +97,7 @@ export function composeApplication({
         placeSearch,
         features,
         renderSource,
+        regions,
       }),
   });
 }

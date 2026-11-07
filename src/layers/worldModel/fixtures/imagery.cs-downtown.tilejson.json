@@ -1,0 +1,36 @@
+{
+  "attribution": "USDA Farm Service Agency National Agriculture Imagery Program (NAIP), via Microsoft Planetary Computer, public domain",
+  "bands": [
+    "red",
+    "green",
+    "blue"
+  ],
+  "bounds": [
+    -104.864831,
+    38.813542,
+    -104.807169,
+    38.858458
+  ],
+  "empty": "empty.png",
+  "format": "png",
+  "inputs": {
+    "strips": [
+      "sha256:b140cea895bde6206c76d990ea43f8d76d0c61ee298186fc5b445bece35ba6f4",
+      "sha256:ecb078f080b7036a1a1b4e59ea09029eac651dd8d9475b0d0661d2c76a5f7961",
+      "sha256:274835bee7609c922c4fb3f8ddc6aeb0caafbf7cdf680315ed40a0fba9dfdaf7",
+      "sha256:fd05aa4bd02459dae1c58ff10b5a258030b44439e9f060dc939da66a3ffa1af6"
+    ]
+  },
+  "maxzoom": 19,
+  "minzoom": 0,
+  "name": "imagery/cs-downtown",
+  "projection": "EPSG:3857",
+  "revision": "3b0a7161752d45288b192b5db602be8b",
+  "scheme": "xyz",
+  "tile_size": 256,
+  "tilejson": "3.0.0",
+  "tiles": [
+    "{z}/{x}/{y}.png"
+  ],
+  "version": "1.0.0"
+}

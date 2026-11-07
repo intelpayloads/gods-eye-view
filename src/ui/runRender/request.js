@@ -14,13 +14,15 @@
  * The drone is its STORED row at or before the moment (`storedRowAt`), never
  * the interpolated display pose GEN-395 draws. Pure and Cesium-free.
  */
+import { REGION_LAYERS } from '../../layers/worldModel/regionScene.js';
+
 export const RENDER_COMMAND = 'RenderRequest/v1';
 
 /** The renderer's `MAX_OBSERVER_TARGET_DISTANCE_M` (render_request.rs). */
 export const MAX_TARGET_DISTANCE_M = 5000;
 
 /** Region tilesets the renderer draws, in the order it takes them. */
-export const RENDER_LAYERS = Object.freeze(['terrain', 'imagery', 'buildings', 'trees']);
+export const RENDER_LAYERS = REGION_LAYERS;
 
 /** The render's frame for This view; the viewfinder shows its shape. */
 export const VIEW_FRAME = Object.freeze({ width: 1920, height: 1080 });

@@ -308,6 +308,14 @@ window.__embeddedQa = {
       validAt,
     });
   },
+  /** The running viewer, for driving the camera in a check (GEN-403). */
+  viewer() {
+    return app?.getComponents().scene?.viewer ?? null;
+  },
+  /** The Photoreal | Modelled scene (GEN-403). */
+  regionScene() {
+    return app?.getComponents().tools?.regionScene ?? null;
+  },
   renderedIds() {
     const layer = app
       ?.getComponents()

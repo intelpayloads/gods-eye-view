@@ -334,6 +334,8 @@
       "src/layers/worldModel/droneView.js",
       "src/layers/worldModel/index.js",
       "src/layers/worldModel/receiverPass.js",
+      "src/layers/worldModel/regionScene.js",
+      "src/layers/worldModel/regionView.js",
       "src/layers/worldModel/rfCard.js",
       "src/layers/worldModel/rfStyle.js",
       "src/layers/worldModel/runClock.js",

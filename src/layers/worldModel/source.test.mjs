@@ -88,6 +88,7 @@ test('reads the chain and projects one demand by revision id', async () => {
   assert.deepEqual(sourceFeatures(source), {
     heads: true,
     provenance: true,
+    regions: true,
     revision: true,
     select: true,
     status: true,
@@ -141,6 +142,28 @@ test('optional reads: heads, provenance by ref, status', async () => {
   assert.equal(refString({ type_id: 't.v1' }), '');
   assert.equal(refString(null), '');
   await assert.rejects(source.getProvenance({ ref: {} }), /product ref/);
+});
+
+test('region reads (GEN-403): the bodies as served, and tile paths joined to the source’s address', async () => {
+  const listing = { region: 'cs-downtown', tilesets: [] };
+  const { calls, fetchImpl } = fakeFetch({
+    '/w/regions?head=world%2Fmain': { body: { regions: [] } },
+    '/w/regions/cs-downtown?head=world%2Fmain': { body: { declaration: {} } },
+    '/w/regions/cs-downtown/tilesets?head=world%2Fmain': { body: listing },
+  });
+  const source = createHttpProjectionSource({ baseUrl: '/w/', fetchImpl });
+  assert.equal(sourceFeatures(source).regions, true);
+  assert.deepEqual(await source.getRegions(), { regions: [] });
+  assert.deepEqual(await source.getRegion({ name: 'cs-downtown' }), { declaration: {} });
+  assert.deepEqual(await source.getRegionTilesets({ name: 'cs-downtown' }), listing);
+  assert.equal(calls.length, 3);
+  assert.equal(source.resolveUrl('/tilesets/sha256:ab/'), '/w/tilesets/sha256:ab/');
+  assert.throws(() => source.resolveUrl('tilesets/x'), /backplane path/);
+  await assert.rejects(source.getRegion({}), /region name/);
+  // Three region methods without the fourth are no regions at all.
+  const { resolveUrl, ...partial } = source;
+  void resolveUrl;
+  assert.equal(sourceFeatures(partial).regions, false);
 });
 
 test('typed errors: head missing, unauthorized, unreachable, http, malformed', async () => {
@@ -264,6 +287,7 @@ test('any object with the two required methods is a ProjectionSource; the rest i
   assert.deepEqual(sourceFeatures(memory), {
     heads: false,
     provenance: false,
+    regions: false,
     revision: false,
     select: false,
     status: false,

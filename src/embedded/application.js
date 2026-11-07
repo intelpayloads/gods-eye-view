@@ -125,6 +125,12 @@ export function createEmbeddedApplication(options = {}) {
     features: { ...EMBEDDED_FEATURES, ...features },
     initialCamera,
     renderSource,
+    // Photoreal | Modelled (GEN-403): the World Model block shows the choice.
+    regions: {
+      source: worldModelSource,
+      head: worldModel.head,
+      onScene: (regionScene) => worldConfig?.attachScene(regionScene),
+    },
     ownerLabel: 'embedded',
     hiddenLayerIds: EMBEDDED_HIDDEN_LAYER_IDS,
     panelLabels: EMBEDDED_PANEL_LABELS,
