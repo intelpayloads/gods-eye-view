@@ -54,8 +54,9 @@ export const FLIGHT_MODEL_AIRFRAMES = Object.freeze({
     airframe: 'multirotor',
     url: '/models/multirotor.glb',
     // A 0.6 m airframe is a few pixels at a follow camera's range: drawn
-    // larger, as the flights layer draws aircraft (a display choice).
-    minimumPixelSize: 96,
+    // larger, as the flights layer draws aircraft (a display choice). At 96
+    // px it outsized a downtown tower from a few hundred metres up.
+    minimumPixelSize: 48,
     headingOffsetDeg: 180,
   }),
 });
