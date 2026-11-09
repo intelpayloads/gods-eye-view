@@ -576,14 +576,29 @@ export function mountRunRender({ renderSource, viewer, playerRoot, controls, see
     if (ui.fullOpen && entry.images) {
       const src = view === 'photo' ? images.photo : view === 'unreal' ? images.unreal : images.labels;
       full.replaceChildren(
+        el('button', { type: 'button', class: 'rr-close', 'aria-label': 'Close', title: 'Close (Esc)', onclick: closeFull }, '×'),
         frameNode(entry, view),
         el('div', {}, `${entry.camera} · ${entry.fovDeg}° · ${clockText(Date.parse(entry.validAt))} · ${entry.captureId}`),
         el('div', { class: 'rr-actions' },
           src ? el('a', { href: src, download: `${entry.captureId}-${view}.${view === 'unreal' ? 'jpg' : 'png'}` }, 'Download') : null,
-          el('button', { type: 'button', onclick: () => ((ui.fullOpen = false), (dirty = true)) }, 'Close')),
+          el('button', { type: 'button', onclick: closeFull }, 'Close')),
       );
     }
   }
+
+  function closeFull() {
+    ui.fullOpen = false;
+    dirty = true;
+  }
+
+  /** Escape leaves full size, as a lightbox does. */
+  function onKey(event) {
+    if (event.key === 'Escape' && ui.fullOpen) {
+      event.preventDefault();
+      closeFull();
+    }
+  }
+  document.addEventListener('keydown', onKey);
 
   // ---- the player's tick ----------------------------------------------
 
@@ -614,6 +629,7 @@ export function mountRunRender({ renderSource, viewer, playerRoot, controls, see
     update,
     dispose() {
       jobs.dispose();
+      document.removeEventListener('keydown', onKey);
       for (const node of [button, line, list, panel, viewfinder, pip, full, style]) node.remove();
     },
   };
