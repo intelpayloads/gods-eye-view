@@ -5131,6 +5131,84 @@ body.cockpit-mode .gods-eye-root .cockpit-signal-window {
   text-overflow: ellipsis;
 }
 
+/* The host's section (GEN-419): what it shows in this world, in the block's
+   look. The host brings markup; these rules are its styles. */
+.gods-eye-root .world-config-host > * {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 8px 0 0 15px;
+  border-top: 1px solid rgba(0, 212, 255, 0.12);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.gods-eye-root .world-config-host > :empty,
+.gods-eye-root .world-config-host > [hidden],
+.gods-eye-root .world-config-host [hidden] {
+  display: none;
+}
+
+.gods-eye-root .world-config-host label {
+  display: grid;
+  gap: 3px;
+  font-size: 8px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.gods-eye-root .world-config-host select,
+.gods-eye-root .world-config-host input {
+  width: 100%;
+  padding: 4px 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  text-transform: none;
+  color: var(--text-primary);
+  color-scheme: dark;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(0, 212, 255, 0.25);
+  border-radius: 4px;
+}
+
+.gods-eye-root .world-config-host select:hover,
+.gods-eye-root .world-config-host input:hover,
+.gods-eye-root .world-config-host select:focus,
+.gods-eye-root .world-config-host input:focus {
+  border-color: rgba(0, 212, 255, 0.6);
+}
+
+.gods-eye-root .world-config-host a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.gods-eye-root .world-config-host a:hover {
+  text-decoration: underline;
+}
+
+.gods-eye-root .world-config-host [role='alert'],
+.gods-eye-root .world-config-host [role='status'] {
+  color: #f5c26b;
+}
+
+.gods-eye-root .world-config-host:not([hidden]) + .world-config-scene {
+  padding-top: 8px;
+  border-top: 1px solid rgba(0, 212, 255, 0.12);
+}
+
+/* A collapsed panel keeps the block's headline: what it is connected to. */
+.gods-eye-root #data-panel.collapsed .world-config-host,
+.gods-eye-root #data-panel.collapsed .world-config-scene {
+  display: none;
+}
+
 /* The Scene row (GEN-403): Photoreal or the World Model's own regions. */
 .gods-eye-root .world-config-scene {
   margin-top: 8px;
