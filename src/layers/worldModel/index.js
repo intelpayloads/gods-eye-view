@@ -49,6 +49,8 @@ import {
   showsUasTrack,
 } from './uasTrack.js';
 import { createDroneView, droneDrawn } from './droneView.js';
+import { followDrone, linkEdgeEntity, pathOwner } from './linkView.js';
+import { sharedUasSites } from './uasSites.js';
 import { runRegionOf } from './regionScene.js';
 export * from './adapter.js';
 export * from './controller.js';
@@ -167,6 +169,7 @@ export function createWorldModelLayer({
   const simulationRuns = sharedSimulationRuns(source);
   const receiverPasses = createReceiverPasses(source);
   const uasTracks = sharedUasTracks(source);
+  const uasSites = sharedUasSites(source);
   const drones = createDroneView({
     id,
     source,
@@ -186,6 +189,11 @@ export function createWorldModelLayer({
     debounceMs,
     now,
   });
+  // A click on a drawn path's line or edge marker opens its item's card (GEN-405).
+  state.pickAlias = (pickedId) => {
+    const owner = drones.itemForPick(pickedId) ?? pathOwner(pickedId);
+    return owner && state.byId.has(owner) ? owner : null;
+  };
   const selection = createSelection({
     state,
     services,
@@ -611,14 +619,59 @@ export function createWorldModelLayer({
     state.droneRevisionId = revisionId;
     try {
       const tracks = await uasTracks.read({ revisionId });
+      // The C2 path's GCS end (GEN-405); a run without sites draws no path.
+      const first = tracks.find((t) => t.rows.length)?.rows[0]?.validTime;
+      const sites = await uasSites
+        .read({ revisionId, validAt: first })
+        .catch((error) => {
+          console.warn('[Data:WorldModel] run sites unreadable:', error);
+          return new Map();
+        });
       if (state.droneRevisionId !== revisionId || !state.enabled) return;
-      drones.draw(tracks, { revisionId });
+      drones.draw(tracks, { revisionId, sites });
       yieldDroneDots();
       selection.reselect();
       notifyRowControls();
     } catch (error) {
       if (state.droneRevisionId === revisionId) state.droneRevisionId = null;
       console.warn('[Data:WorldModel] drone track unreadable:', error);
+    }
+  }
+
+  /**
+   * A jammer's path to a drone follows the drawn drone between stored epochs
+   * (GEN-405), as the drone does; its colour and card stay the projection's.
+   * The track is the run's, read once per revision and shared.
+   */
+  async function followLinks(revisionId) {
+    const links = [...state.byId.values()].filter(
+      (e) =>
+        e.render.binding === LINK_BINDING &&
+        e.entity.polyline &&
+        typeof e.render.record?.properties?.receiver === 'string',
+    );
+    if (!links.length || !features.select) return;
+    let tracks;
+    try {
+      tracks = await uasTracks.read({ revisionId });
+    } catch (error) {
+      console.warn('[Data:WorldModel] drone track unreadable:', error);
+      return;
+    }
+    if (state.revisionId !== revisionId || !state.enabled) return;
+    const byIdentity = new Map(
+      tracks.filter((t) => t.rows.length >= 2).map((t) => [t.identity, t]),
+    );
+    for (const entry of links) {
+      if (state.byId.get(entry.render.id) !== entry) continue; // a newer projection
+      const track = byIdentity.get(entry.render.record.properties.receiver);
+      if (track)
+        entry.anchor = followDrone(
+          entry.entity,
+          entry.render,
+          track,
+          displayMs,
+        );
     }
   }
 
@@ -670,7 +723,12 @@ export function createWorldModelLayer({
     // kept drawing the previous entity and a step never moved the marker.
     entities.removeAll();
     entities.suspendEvents();
-    for (const entry of byId.values()) entities.add(entry.entity);
+    for (const entry of byId.values()) {
+      entities.add(entry.entity);
+      // An obstructed RF path marks its main edge (GEN-405).
+      const edge = linkEdgeEntity(entry.render);
+      if (edge) entities.add(edge);
+    }
     entities.resumeEvents();
 
     state.byId = byId;
@@ -688,6 +746,7 @@ export function createWorldModelLayer({
     // Steps taken since this projection was issued are already on screen.
     placeReceivers();
     yieldDroneDots();
+    void followLinks(projection.revision_id);
     selection.refreshContextRegistrations();
     selection.reselect();
     refreshPasses(projection.revision_id);

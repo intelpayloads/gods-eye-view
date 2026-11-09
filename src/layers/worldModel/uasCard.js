@@ -13,6 +13,7 @@
  * Pure and DOM-free.
  */
 import { droneName, uasValuesOf } from './uasTrack.js';
+import { OBSTRUCTION_KEYS, obstructionLines } from './linkObstruction.js';
 
 /** Row properties the card states in words; the generic value list skips them. */
 export const UAS_WORDED = Object.freeze([
@@ -24,6 +25,7 @@ export const UAS_WORDED = Object.freeze([
   'ground_speed_mps',
   'lost_link_elapsed_s',
   'lost_link_timeout_s',
+  ...OBSTRUCTION_KEYS.map((key) => `c2_${key}`),
 ]);
 
 /** True when a projected item is a drone-track row (a mode and a C2 state). */
@@ -96,7 +98,8 @@ export function uasLabel(row, header, identity) {
  * What the card says about one drone-track item.
  * @param {object} item A projected item (`properties`, `binding`, `semantic_ref`).
  * @param {object|null} header The binding's descriptor `semantic.metadata`, if read.
- * @returns {{title: string, lead: string, measures: string[]}|null} null for another item.
+ * @returns {{title: string, lead: string, measures: string[], extra: string[]}|null} null for
+ *   another item; `extra` is the C2 path's obstruction (GEN-405), none on a run without a surface.
  */
 export function uasCard(item, header = null) {
   const props = item?.properties;
@@ -125,5 +128,8 @@ export function uasCard(item, header = null) {
         ? `ground speed ${values.groundSpeedMps.toFixed(1)} m/s`
         : null,
     ].filter(Boolean),
+    extra: obstructionLines(values.c2).map((line, i) =>
+      i ? line : `C2 path ${line}`,
+    ),
   };
 }
