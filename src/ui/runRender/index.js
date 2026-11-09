@@ -33,6 +33,7 @@ import { createRenderJobs } from './jobs.js';
 import { colourLabels } from './outputs.js';
 import {
   FULL_CLASS,
+  OPEN_CLASS,
   PANEL_CLASS,
   PIP_CLASS,
   STYLE,
@@ -129,7 +130,10 @@ export function mountRunRender({ renderSource, viewer, playerRoot, controls, see
   controls.after(line);
   const list = el('div', { class: 'rr-list', hidden: true, role: 'dialog', 'aria-label': 'Renders of this run' });
   const panel = el('div', { class: PANEL_CLASS, hidden: true, role: 'dialog', 'aria-label': 'Render this moment' });
-  playerRoot.append(panel, list);
+  // GEN-423: the form and the list open inside the player, in the chart's place, never as cards over the scene
+  // (FOLLOW keeps the drone at the view's centre, just above the player).
+  controls.before(panel, list);
+  const showOpen = () => playerRoot.classList.toggle(OPEN_CLASS, ui.panelOpen || ui.listOpen);
   const viewfinder = el('div', { class: VIEWFINDER_CLASS, hidden: true, 'aria-hidden': 'true' });
   const pip = el('section', { class: PIP_CLASS, hidden: true, 'aria-label': 'Render of this moment' });
   const full = el('div', { class: FULL_CLASS, hidden: true, role: 'dialog', 'aria-label': 'Render, full size' });
@@ -238,6 +242,7 @@ export function mountRunRender({ renderSource, viewer, playerRoot, controls, see
   function buildPanel() {
     panel.replaceChildren();
     panel.hidden = !ui.panelOpen;
+    showOpen();
     if (!ui.panelOpen) return;
     const name = `rr-${Math.random().toString(36).slice(2, 8)}`;
     const cameras = [
@@ -418,6 +423,7 @@ export function mountRunRender({ renderSource, viewer, playerRoot, controls, see
       renderChips(all, chips);
     }
     list.hidden = !ui.listOpen;
+    showOpen();
     const listed = ui.listOpen ? all.map((e) => [e.id, e.state, e.reason].join(':')).join('|') : null;
     if (ui.listOpen && listed !== listKey)
       list.replaceChildren(
@@ -631,6 +637,7 @@ export function mountRunRender({ renderSource, viewer, playerRoot, controls, see
       jobs.dispose();
       document.removeEventListener('keydown', onKey);
       for (const node of [button, line, list, panel, viewfinder, pip, full, style]) node.remove();
+      playerRoot.classList.remove(OPEN_CLASS);
     },
   };
 }

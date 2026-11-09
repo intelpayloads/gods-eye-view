@@ -7,13 +7,12 @@ export const PANEL_CLASS = 'gev-run-render';
 export const PIP_CLASS = 'gev-run-render-pip';
 export const VIEWFINDER_CLASS = 'gev-run-render-viewfinder';
 export const FULL_CLASS = 'gev-run-render-full';
+/** On the run player while the form or the list is open: they take the chart's place (GEN-423). */
+export const OPEN_CLASS = 'rr-open';
 
 export const STYLE = `
-.${PANEL_CLASS} {
-  position: absolute; left: 0; right: 0; bottom: calc(100% + 8px); box-sizing: border-box;
-  padding: 10px 12px; border-radius: 10px; background: rgba(10, 10, 15, 0.9);
-  border: 1px solid rgba(0, 212, 255, 0.3); backdrop-filter: blur(6px);
-}
+.gev-run-player.${OPEN_CLASS} :is(.rp-strip, .rp-axis, .rp-lanes, .rp-model) { display: none; }
+.${PANEL_CLASS} { box-sizing: border-box; padding: 6px 0 0; border-top: 1px solid rgba(0, 212, 255, 0.2); }
 .${PANEL_CLASS}[hidden], .${PIP_CLASS}[hidden], .${VIEWFINDER_CLASS}[hidden], .${FULL_CLASS}[hidden] { display: none; }
 .${PANEL_CLASS} .rr-head { display: flex; justify-content: space-between; font-weight: 600; letter-spacing: 0.06em; margin-bottom: 6px; }
 .${PANEL_CLASS} .rr-row { display: grid; grid-template-columns: 56px 1fr; gap: 6px; align-items: baseline; margin: 4px 0; }
@@ -30,8 +29,8 @@ export const STYLE = `
 .gev-run-player .rr-chip { border: 1px solid rgba(0, 212, 255, 0.3); border-radius: 10px; padding: 1px 8px; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .gev-run-player .rr-chip.rr-failed { border-color: rgba(255, 184, 77, 0.6); color: #ffb84d; }
 .gev-run-player .rr-chip.rr-done { border-color: rgba(120, 220, 140, 0.6); color: #9be8ad; }
-.gev-run-player .rr-list { position: absolute; right: 0; bottom: calc(100% + 8px); width: min(360px, 100%); max-height: 260px; overflow: auto;
-  box-sizing: border-box; padding: 6px; border-radius: 10px; background: rgba(10, 10, 15, 0.92); border: 1px solid rgba(0, 212, 255, 0.3); }
+.gev-run-player .rr-list { max-height: 132px; overflow: auto; box-sizing: border-box; padding: 4px 0 0;
+  border-top: 1px solid rgba(0, 212, 255, 0.2); }
 .gev-run-player .rr-list[hidden] { display: none; }
 .gev-run-player .rr-list button { display: block; width: 100%; text-align: left; margin: 2px 0; }
 .gev-run-player .rr-list .rr-reason { color: #ffb84d; font-size: 10px; }
