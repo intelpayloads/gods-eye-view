@@ -106,6 +106,7 @@ export const EMBEDDED_FEATURES = Object.freeze({
  *   origin. Default null: today's keyless Esri imagery with OSM fallback and
  *   Re:Earth terrain.
  * @param {object|null} [options.renderSource] Sends a run moment to the render node (GEN-369): `submit`, `status`, `outputs`, `download` (see `src/ui/runRender/jobs.js`). Absent, the run player has no RENDER.
+ * @param {HTMLElement|null} [options.worldSection] The host's own section of the World Model block (GEN-419): shown under its status lines while the application runs, and put back where it was on destroy. The block styles its labels, selects, inputs, links and `role="alert"`/`role="status"` notes; the host brings markup, not styles.
  */
 export function createEmbeddedApplication(options = {}) {
   refuseRemovedOptions(options);
@@ -121,10 +122,13 @@ export function createEmbeddedApplication(options = {}) {
     basemap = null,
     stylesheets = undefined,
     renderSource = null,
+    worldSection = null,
   } = options;
   const hostBasemap = normalizeBasemap(basemap);
   if (!root || typeof root.appendChild !== 'function')
     throw new TypeError('An embedding root element is required');
+  if (worldSection && typeof worldSection.appendChild !== 'function')
+    throw new TypeError('worldSection must be an element');
   if (!worldModelSource)
     throw new TypeError('A world-model ProjectionSource is required');
   let queryRoot = null;
@@ -192,6 +196,7 @@ export function createEmbeddedApplication(options = {}) {
         source: worldModelSource,
         head: worldModel.head,
         discovery: () => discovery,
+        section: worldSection,
       });
       defer(() => {
         worldConfig.remove();

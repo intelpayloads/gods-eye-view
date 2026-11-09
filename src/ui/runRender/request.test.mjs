@@ -102,6 +102,13 @@ test('This view: the camera as framed, the drone at its stored epoch, Unreal onl
   assert.equal(drone.validTime, '2026-11-05T16:02:30+00:00', 'the stored row, not a display pose');
 });
 
+test('photoreal takes its style photo from the scene imagery, or Mapillary without it', () => {
+  const args = { run: RUN, region: REGION, camera: view, drone, validAt, look: 'photoreal' };
+  const withImagery = buildRenderRequest({ ...args, layers: ['terrain', 'imagery', 'buildings'] });
+  assert.deepEqual(withImagery.neural.style_ref, { source: 'imagery' });
+  assert.deepEqual(buildRenderRequest({ ...args, layers: ['terrain'] }).neural.style_ref, { source: 'mapillary' });
+});
+
 test('photoreal adds Cosmos with a seed fixed by the moment and camera, and a Mapillary reference', () => {
   const args = { run: RUN, region: REGION, layers: ['terrain'], camera: view, drone, validAt, look: 'photoreal' };
   const request = buildRenderRequest(args);

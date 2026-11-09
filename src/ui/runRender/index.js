@@ -105,6 +105,9 @@ export function mountRunRender({ renderSource, viewer, playerRoot, controls, see
     pipView: 'photo',
     pickedId: null,
     fullOpen: false,
+    // The picture-in-picture's ×: closed until a render is opened from the
+    // chips or the list, or a new one is sent.
+    pipClosed: false,
   };
   let moment = null;
   let context = { key: null, status: 'idle', tracks: [], region: null, layers: [], sites: [] };
@@ -352,6 +355,7 @@ export function mountRunRender({ renderSource, viewer, playerRoot, controls, see
       look: ui.look,
     });
     togglePanel(false);
+    ui.pipClosed = false;
     await jobs.submit({
       runKey: moment.run.head,
       validAt: moment.validAt,
@@ -388,6 +392,7 @@ export function mountRunRender({ renderSource, viewer, playerRoot, controls, see
   function show(entry) {
     ui.pickedId = entry.id;
     ui.listOpen = false;
+    ui.pipClosed = false;
     seek(entry.validAt);
     dirty = true;
   }
@@ -507,13 +512,13 @@ export function mountRunRender({ renderSource, viewer, playerRoot, controls, see
     const entry = renderHere();
     if (entry?.state === 'completed' && !entry.images && !entry.imageError) void jobs.ensureImages(entry);
     const key = entry
-      ? [entry.id, entry.state, Boolean(entry.images), entry.imageError, ui.pipView, ui.fullOpen].join('|')
+      ? [entry.id, entry.state, Boolean(entry.images), entry.imageError, ui.pipView, ui.fullOpen, ui.pipClosed].join('|')
       : null;
     if (key === pipKey) return;
     pipKey = key;
-    pip.hidden = !entry;
-    full.hidden = !(entry && ui.fullOpen && entry.images);
-    if (!entry) return;
+    pip.hidden = !entry || ui.pipClosed;
+    full.hidden = !(entry && ui.fullOpen && entry.images && !ui.pipClosed);
+    if (!entry || ui.pipClosed) return;
     const view = viewOf(entry);
     const images = entry.images ?? {};
     const frame =
@@ -556,19 +561,44 @@ export function mountRunRender({ renderSource, viewer, playerRoot, controls, see
             ui.fullOpen = true;
             dirty = true;
           },
-        }, '⤢')),
+        }, '⤢'),
+        el('button', {
+          type: 'button',
+          'aria-label': 'Close',
+          title: 'Close; open it again from Renders',
+          onclick: () => {
+            ui.pipClosed = true;
+            ui.fullOpen = false;
+            dirty = true;
+          },
+        }, '×')),
     );
     if (ui.fullOpen && entry.images) {
       const src = view === 'photo' ? images.photo : view === 'unreal' ? images.unreal : images.labels;
       full.replaceChildren(
+        el('button', { type: 'button', class: 'rr-close', 'aria-label': 'Close', title: 'Close (Esc)', onclick: closeFull }, '×'),
         frameNode(entry, view),
         el('div', {}, `${entry.camera} · ${entry.fovDeg}° · ${clockText(Date.parse(entry.validAt))} · ${entry.captureId}`),
         el('div', { class: 'rr-actions' },
           src ? el('a', { href: src, download: `${entry.captureId}-${view}.${view === 'unreal' ? 'jpg' : 'png'}` }, 'Download') : null,
-          el('button', { type: 'button', onclick: () => ((ui.fullOpen = false), (dirty = true)) }, 'Close')),
+          el('button', { type: 'button', onclick: closeFull }, 'Close')),
       );
     }
   }
+
+  function closeFull() {
+    ui.fullOpen = false;
+    dirty = true;
+  }
+
+  /** Escape leaves full size, as a lightbox does. */
+  function onKey(event) {
+    if (event.key === 'Escape' && ui.fullOpen) {
+      event.preventDefault();
+      closeFull();
+    }
+  }
+  document.addEventListener('keydown', onKey);
 
   // ---- the player's tick ----------------------------------------------
 
@@ -599,6 +629,7 @@ export function mountRunRender({ renderSource, viewer, playerRoot, controls, see
     update,
     dispose() {
       jobs.dispose();
+      document.removeEventListener('keydown', onKey);
       for (const node of [button, line, list, panel, viewfinder, pip, full, style]) node.remove();
     },
   };

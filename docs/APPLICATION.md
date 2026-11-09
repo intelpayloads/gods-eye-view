@@ -137,6 +137,12 @@ await app.destroy();
   Aircraft models resolve under `assetBaseUrl`.
 - **Features.** Voice, provider key setup and the first-run tour are off unless
   `features` enables them.
+- **Host section** (GEN-419). `worldSection`, an element of the host's, is
+  shown in the World Model block under its status lines while the application
+  runs, and put back where it was on destroy. Dataforge's run picker, valid
+  time and published run live there, not over the map. The block styles the
+  labels, selects, inputs, links and `role="alert"`/`role="status"` notes
+  inside it; the host brings markup, not styles.
 - **Share links** keep the page path (`<base href>` safe) and `history.state`.
 - **Teardown.** Destroy restores `<body>` classes, endpoint and host settings
   and the context store; `npm run qa:embedded` checks that root, canvases,
