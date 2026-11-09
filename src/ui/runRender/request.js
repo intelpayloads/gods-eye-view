@@ -247,7 +247,12 @@ export function buildRenderRequest({ run, region, layers, camera, drone, validAt
     ],
     window: { start, frames: 1 },
   };
+  // GEN-417: Cosmos's style photo is the scene's own aerial imagery, cut to the ground in
+  // frame; a scene without imagery gets the nearest Mapillary street photo instead.
   if (look === 'photoreal')
-    request.neural = { seed: seedOf(captureId), style_ref: { source: 'mapillary' } };
+    request.neural = {
+      seed: seedOf(captureId),
+      style_ref: { source: layers.includes('imagery') ? 'imagery' : 'mapillary' },
+    };
   return request;
 }
