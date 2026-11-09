@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createWorldConfigRefresh, sceneRow } from './worldConfig.js';
+import {
+  borrowInto,
+  createWorldConfigRefresh,
+  mountWorldConfig,
+  sceneRow,
+} from './worldConfig.js';
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -177,5 +182,116 @@ test('the Scene row: a chip per scene, the unavailable one says why, Modelled li
       regions: [],
     }).lines.map((l) => l.text),
     ['regions not read: 502'],
+  );
+});
+
+/** Just enough DOM for the block: elements that hold, move and drop children. */
+class FakeElement {
+  constructor(tagName, ownerDocument) {
+    Object.assign(this, { tagName, ownerDocument, parentNode: null });
+    Object.assign(this, { children: [], dataset: {}, hidden: false });
+  }
+  get nextSibling() {
+    const siblings = this.parentNode?.children ?? [];
+    return siblings[siblings.indexOf(this) + 1] ?? null;
+  }
+  insertBefore(node, ref) {
+    node.remove();
+    node.parentNode = this;
+    const at = ref ? this.children.indexOf(ref) : -1;
+    if (at < 0) this.children.push(node);
+    else this.children.splice(at, 0, node);
+    return node;
+  }
+  append(...nodes) {
+    for (const node of nodes) this.insertBefore(node, null);
+  }
+  replaceChildren(...nodes) {
+    for (const child of [...this.children]) child.remove();
+    this.append(...nodes);
+  }
+  remove() {
+    const siblings = this.parentNode?.children;
+    if (siblings) siblings.splice(siblings.indexOf(this), 1);
+    this.parentNode = null;
+  }
+  setAttribute() {}
+  addEventListener() {}
+}
+
+function fakeDocument() {
+  const document = { createElement: (tag) => new FakeElement(tag, document) };
+  return document;
+}
+
+test('a host section shows under the status lines and goes back where it was on remove (GEN-419)', () => {
+  const document = fakeDocument();
+  const panel = document.createElement('div');
+  const list = document.createElement('div'); // #data-toggles
+  panel.append(list);
+  const page = document.createElement('div');
+  const section = document.createElement('section');
+  const after = document.createElement('span');
+  page.append(section, after);
+
+  const block = mountWorldConfig({
+    before: list,
+    source: slowSource(),
+    section,
+  });
+  const card = panel.children[0];
+  assert.equal(card.className, 'world-config');
+  assert.deepEqual(
+    card.children.map((child) => child.className ?? ''),
+    ['world-config-title', '', 'world-config-host', 'world-config-scene'],
+  );
+  const host = card.children[2];
+  assert.equal(host.hidden, false);
+  assert.equal(host.children.length, 1);
+  assert.equal(host.children[0], section);
+  assert.deepEqual(page.children, [after]);
+
+  block.remove();
+  assert.equal(
+    page.children[0],
+    section,
+    'back in its place, before its sibling',
+  );
+  assert.equal(page.children[1], after);
+  assert.deepEqual(panel.children, [list]);
+});
+
+test('with no host section the slot is hidden and empty', () => {
+  const document = fakeDocument();
+  const panel = document.createElement('div');
+  const list = document.createElement('div');
+  panel.append(list);
+  const block = mountWorldConfig({ before: list, source: slowSource() });
+  const host = panel.children[0].children[2];
+  assert.equal(host.className, 'world-config-host');
+  assert.equal(host.hidden, true);
+  assert.equal(host.children.length, 0);
+  block.remove();
+});
+
+test('a borrowed element the host has moved since is left where the host put it', () => {
+  const document = fakeDocument();
+  const [home, into, elsewhere] = ['a', 'b', 'c'].map(() =>
+    document.createElement('div'),
+  );
+  const element = document.createElement('p');
+  home.append(element);
+  const giveBack = borrowInto(element, into);
+  elsewhere.append(element);
+  giveBack();
+  assert.equal(element.parentNode, elsewhere);
+
+  const loose = document.createElement('p');
+  const undo = borrowInto(loose, into);
+  undo();
+  assert.equal(
+    loose.parentNode,
+    null,
+    'an element with no home is only taken out',
   );
 });

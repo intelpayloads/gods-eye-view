@@ -10,6 +10,11 @@
  * Its Scene row (GEN-403) is the one choice it offers: Photoreal (Google's
  * mesh) or Modelled (the world's own regions), and in Modelled what each
  * region draws or why it does not.
+ *
+ * A host may add its own section (GEN-419): what it is showing in this world
+ * -- Dataforge's run picker, valid time and the published run it came from.
+ * It sits under the status lines in the block's look, so nothing the host
+ * says floats over the map.
  */
 import { SIM_HEAD_PREFIX } from '../layers/worldModel/simulationRuns.js';
 import { HEAD } from '../layers/worldModel/view.js';
@@ -177,6 +182,22 @@ export function createWorldConfigRefresh({
 }
 
 /**
+ * Show `element` inside `into` and return the undo, which puts it back where
+ * it was (GEN-419). An element the host has moved since is left alone.
+ */
+export function borrowInto(element, into) {
+  const parent = element.parentNode;
+  const next = element.nextSibling;
+  into.append(element);
+  return () => {
+    if (element.parentNode !== into) return;
+    if (!parent) element.remove();
+    else
+      parent.insertBefore(element, next?.parentNode === parent ? next : null);
+  };
+}
+
+/**
  * Mount the block before `before` inside its parent. Returns `{ refresh,
  * remove }`: `refresh` re-reads now (the product count is known only once
  * discovery finishes), `remove` stops the timer and takes the block out.
@@ -185,6 +206,8 @@ export function createWorldConfigRefresh({
  * @param {object} options.source The host's ProjectionSource.
  * @param {() => {count: number, error: string|null}} options.discovery
  *   Product layers registered, or why discovery failed.
+ * @param {HTMLElement|null} [options.section] The host's own section, shown
+ *   under the status lines while the block is mounted and returned on remove.
  */
 export function mountWorldConfig({
   before,
@@ -192,6 +215,7 @@ export function mountWorldConfig({
   discovery = () => ({ count: 0, error: null }),
   head = HEAD,
   refreshMs = WORLD_CONFIG_REFRESH_MS,
+  section = null,
 }) {
   const document = before.ownerDocument;
   const block = document.createElement('div');
@@ -205,11 +229,15 @@ export function mountWorldConfig({
   name.textContent = 'World Model';
   title.append(dot, name);
   const body = document.createElement('div');
+  const host = document.createElement('div');
+  host.className = 'world-config-host';
+  host.hidden = !section;
   const scene = document.createElement('div');
   scene.className = 'world-config-scene';
   scene.hidden = true;
-  block.append(title, body, scene);
+  block.append(title, body, host, scene);
   before.parentNode.insertBefore(block, before);
+  const giveBack = section ? borrowInto(section, host) : null;
   let detachScene = null;
 
   const renderScene = (regionScene, state) => {
@@ -283,6 +311,7 @@ export function mountWorldConfig({
       controller.abort();
       clearInterval(timer);
       detachScene?.();
+      giveBack?.();
       block.remove();
     },
   };

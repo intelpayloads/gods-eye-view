@@ -240,6 +240,52 @@ const fixtureSource = {
   },
 };
 
+/**
+ * `?section=demo`: a host section shaped like Dataforge's (GEN-419) -- a run
+ * picker, the published run, a valid time, a way back and a note -- to see
+ * it in the World Model block. Markup only; the block styles it.
+ */
+function demoWorldSection(run) {
+  const make = (tag, attributes = {}, ...children) => {
+    const node = document.createElement(tag);
+    for (const [key, value] of Object.entries(attributes))
+      node.setAttribute(key, value);
+    node.append(...children);
+    return node;
+  };
+  const label = run
+    ? `Simulation · ${run.split('/').at(-1).slice(0, 12)}`
+    : 'Simulation';
+  return make(
+    'section',
+    { 'aria-label': 'World shown' },
+    make(
+      'label',
+      {},
+      'Showing',
+      make(
+        'select',
+        {},
+        make('option', {}, 'Configured world (world/main)'),
+        make('option', { selected: '' }, label),
+      ),
+    ),
+    make('p', {}, 'Published run 29b90a3c · contested · rev 0d964fe6'),
+    make(
+      'label',
+      {},
+      'Valid time (UTC)',
+      make('input', { type: 'text', value: params.get('validAt') || '' }),
+    ),
+    make('a', { href: '#' }, '← Back to scenario and RF results'),
+    make(
+      'p',
+      { role: 'status' },
+      'Also in this run: simulation.rf.example (no position)',
+    ),
+  );
+}
+
 let app = null;
 const params = new URLSearchParams(location.search);
 const live = params.has('live');
@@ -255,6 +301,10 @@ window.__embeddedQa = {
       renderSource:
         params.get('render') === 'demo' ? createDemoRenderSource() : null,
       cesiumToken: params.get('cesiumToken') || null,
+      worldSection:
+        params.get('section') === 'demo'
+          ? demoWorldSection(params.get('run'))
+          : null,
       initialCamera: {
         lon: -122.25,
         lat: 37.62,
