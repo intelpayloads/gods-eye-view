@@ -1,7 +1,8 @@
 # Bundled 3D Model Attribution
 
-The model files in this directory are third-party visual assets. They are not
-covered by the repository's MIT source-code license; each remains available
+The model files in this directory are third-party visual assets, but for
+`multirotor.glb`, which was made for this project. The third-party models are
+not covered by the repository's MIT source-code license; each remains available
 under the license listed below.
 
 | File | Original work and creator | Source | License | Project modifications |
@@ -15,8 +16,8 @@ under the license listed below.
 | `mq9.glb` | “MQ-9” by [IProZenoN](https://sketchfab.com/IProZenoN) | [Sketchfab model](https://sketchfab.com/3d-models/mq-9-fabe963feb354c5584b51f9c470c3f7e) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) | Optimized for God's Eye View: geometry/material simplification, textures resized to 256 px WebP, orientation/scale vertex-baked to real-world meters (Y-up, nose −X), origin centered. |
 | `b789.glb` | “Boeing 787-9” by [Nobilis 2](https://sketchfab.com/nobilishornet2) | [Sketchfab model](https://sketchfab.com/3d-models/boeing-787-9-b6711e2e698e4e469675c1154a50b7a3) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) | Optimized for God's Eye View: geometry/material simplification, textures resized to 256 px WebP, orientation/scale vertex-baked to real-world meters (Y-up, nose −X), origin centered. |
 | `atr72.glb` | “ATR 72 - 600” by [Oyan3D](https://sketchfab.com/oyan3D) | [Sketchfab model](https://sketchfab.com/3d-models/atr-72-600-1e1a7186f7444d288675262fcee44744) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) | Optimized for God's Eye View: geometry/material simplification, textures removed with dominant material colors baked into PBR factors (flat “abstracted” style), orientation/scale vertex-baked to real-world meters (Y-up, nose −X), origin centered. |
-| `multirotor.glb` | “Drone” by [Silly Fear](https://poly.pizza/u/Silly%20Fear) | [Poly Pizza model](https://poly.pizza/m/3Ae_y67lzvd) | [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/) | Prepared for God's Eye View's simulated C-UAS drone (GEN-395): its 65 parts joined into one mesh with every transform applied; turned so the red-striped front arms face local −X; scaled to 0.6 m across in real-world meters; the bounding-box centre is at the origin; glTF +Y-up. Flat material colours as published; geometry uncompressed. |
+| `multirotor.glb` | An original quadcopter made for God's Eye View's simulated C-UAS drone (GEN-415) | [`scripts/build-multirotor-glb.py`](../../scripts/build-multirotor-glb.py), a Blender 5 script | MIT, as the repository | Built from primitives, not adapted from any work: a bevelled fuselage with a GPS puck, four carbon arms at 0.26 m, motors with translucent spinning-prop discs, splayed skids, a gimbal camera under the nose, and red (port) and green (starboard) nav lights on the front arms. 0.6 m across in real-world meters, one mesh with every transform applied, nose toward local −X, the bounding-box centre at the origin, glTF +Y-up; PBR material factors, no textures; geometry uncompressed. |
 
-CC BY 4.0 and CC BY 3.0 permit sharing and adaptation, including commercial use, provided
+CC BY 4.0 permits sharing and adaptation, including commercial use, provided
 appropriate credit is retained, the license is linked, and modifications are
 identified. These credits do not imply endorsement by the original creators.

@@ -175,7 +175,8 @@ export function createDroneView({
         uri: assetUrl(model.url),
         minimumPixelSize: model.minimumPixelSize,
         silhouetteColor: new Cesium.CallbackProperty(colour, false),
-        silhouetteSize: 2,
+        // A hairline in the C2 colour: the label carries the state too.
+        silhouetteSize: 1,
       },
       label: {
         text: new Cesium.CallbackProperty(() => {
