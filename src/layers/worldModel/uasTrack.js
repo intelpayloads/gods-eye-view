@@ -25,6 +25,7 @@ import {
 } from './receiverPass.js';
 import { bearingBetweenCoordinates } from '../../cockpitMath.js';
 import { lerpAngleDeg } from '../../data/motionModel.js';
+import { obstructionOf } from './linkObstruction.js';
 
 export const UAS_TRACK_BINDING = 'simulation.uas.track';
 
@@ -108,6 +109,8 @@ function codeOrNull(value) {
 /**
  * A track row's values (a selected row's `value`, or a projected item's
  * `properties`) in the shape the words read. Absent or non-finite is null.
+ * `c2` is the GCS path's obstruction (GEN-405), `not-modelled` on a run
+ * without a surface.
  */
 export function uasValuesOf(value = {}) {
   return {
@@ -119,14 +122,16 @@ export function uasValuesOf(value = {}) {
     groundSpeedMps: finiteOrNull(value.ground_speed_mps),
     lostLinkElapsedS: finiteOrNull(value.lost_link_elapsed_s),
     lostLinkTimeoutS: finiteOrNull(value.lost_link_timeout_s),
+    c2: obstructionOf(value, 'c2_'),
   };
 }
 
 /**
  * `POST /select` answer -> one track per drone, rows in time order:
- * `{identity, header, rows: [{at, validTime, position, ...uasValuesOf}]}`.
+ * `{identity, header, gcs, rows: [{at, validTime, position, ...uasValuesOf}]}`.
  * The header (mode and C2 legends, `models.flight`) travels with the
- * selection, as the run's mission effects' do.
+ * selection, as the run's mission effects' do; `gcs` is the series key's GCS
+ * identity (`gcs:foundation:gcs-1`), the far end of the C2 path, or null.
  */
 export function uasTracksFromSelection(selection) {
   const tracks = new Map();
@@ -141,6 +146,8 @@ export function uasTracksFromSelection(selection) {
         tracks.set(identity, {
           identity,
           header: product.semantic_metadata ?? null,
+          gcs:
+            typeof row.series_key?.gcs === 'string' ? row.series_key.gcs : null,
           rows: [],
         });
       const value = row.value ?? {};

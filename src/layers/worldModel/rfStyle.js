@@ -14,6 +14,13 @@
  *  - a blocked path (`earth_occulted`, `below_horizon_mask`) is dashed grey;
  *  - a path with nothing on it (`inactive`, `zero_eirp`) is faint.
  *
+ * Over a pinned lidar surface (GEN-404, GEN-405) a path also says whether a
+ * building, tree or the terrain obstructs it (`linkObstruction.js`): an
+ * obstructed path that still reaches (`diffracted`) is a dashed beam, still
+ * coloured by the power it delivers, and a silent jammer's obstructed path is
+ * faint and dashed, so the shield shows before the jammer keys. Obstruction
+ * is read from `obstructed`, never from `reason`.
+ *
  * The link carries the received jammer power, not J/S (J/S is the coverage
  * field's variable, GEN-307), so the beam's colour is that power in dBW.
  *
@@ -21,6 +28,7 @@
  */
 
 import { EMITTER_BINDING } from './runTimeline.js';
+import { OBSTRUCTION_STATES, obstructionOf } from './linkObstruction.js';
 
 export { EMITTER_BINDING };
 export const LINK_BINDING = 'simulation.rf.links';
@@ -63,6 +71,15 @@ export const RF_DISPLAY = Object.freeze({
     arc: 'straight-line-of-sight',
     keyedBy: 'properties.reason',
   }),
+  'link-diffracted': Object.freeze({
+    kind: 'link',
+    widthPx: 3,
+    alpha: 0.9,
+    dashed: true,
+    colour: 'received-power-dbw-ramp',
+    arc: 'straight-line-of-sight',
+    keyedBy: 'properties.obstructed',
+  }),
   'link-power-unknown': Object.freeze({
     kind: 'link',
     widthPx: 2,
@@ -90,6 +107,15 @@ export const RF_DISPLAY = Object.freeze({
     arc: 'straight-line-of-sight',
     keyedBy: 'properties.reason',
   }),
+  'link-idle-obstructed': Object.freeze({
+    kind: 'link',
+    widthPx: 1,
+    alpha: 0.4,
+    dashed: true,
+    colour: 'grey',
+    arc: 'straight-line-of-sight',
+    keyedBy: 'properties.obstructed',
+  }),
 });
 
 const CLEAR = new Set(['free_space']);
@@ -116,11 +142,28 @@ export function linkPowerColor(dbw, ramp = LINK_POWER_RAMP_DBW) {
 
 /**
  * How one link row looks.
- * @param {object} props The link's projected properties (`reason`, `received_power_w`).
- * @returns {{display: object, colorRgb: number[], label: string}}
+ * @param {object} props The link's projected properties (`reason`,
+ *   `received_power_w`, and over a surface its obstruction columns).
+ * @returns {{display: object, colorRgb: number[], label: string, obstruction: object}}
  */
 export function linkStyle(props) {
+  const obstruction = obstructionOf(props);
+  return { ...pathStyle(props, obstruction), obstruction };
+}
+
+function pathStyle(props, obstruction) {
   const reason = String(props?.reason ?? '');
+  const obstructed = obstruction.state === OBSTRUCTION_STATES.obstructed;
+  const loss =
+    obstruction.lossDb === null ? '' : ` ${obstruction.lossDb.toFixed(0)} dB`;
+  if (obstructed && (reason === 'diffracted' || CLEAR.has(reason))) {
+    const dbw = receivedDbw(props?.received_power_w);
+    return {
+      display: RF_DISPLAY['link-diffracted'],
+      colorRgb: dbw === null ? [...AMBER] : linkPowerColor(dbw),
+      label: `obstructed${loss} · ${dbw === null ? 'power unknown' : `${dbw.toFixed(1)} dBW at receiver`}`,
+    };
+  }
   if (CLEAR.has(reason)) {
     const dbw = receivedDbw(props?.received_power_w);
     return dbw === null
@@ -147,12 +190,16 @@ export function linkStyle(props) {
       colorRgb: [...GREY],
       label: `blocked · ${reason.replaceAll('_', ' ')}`,
     };
-  if (IDLE.has(reason))
-    return {
-      display: RF_DISPLAY['link-idle'],
-      colorRgb: [...GREY],
-      label: reason === 'inactive' ? 'jammer silent' : 'no emitted power',
-    };
+  if (IDLE.has(reason)) {
+    const idle = reason === 'inactive' ? 'jammer silent' : 'no emitted power';
+    return obstructed
+      ? {
+          display: RF_DISPLAY['link-idle-obstructed'],
+          colorRgb: [...GREY],
+          label: `${idle} · path obstructed${loss}`,
+        }
+      : { display: RF_DISPLAY['link-idle'], colorRgb: [...GREY], label: idle };
+  }
   // An unnamed reason is shown, never hidden: it is a path we cannot classify.
   return {
     display: RF_DISPLAY['link-blocked'],

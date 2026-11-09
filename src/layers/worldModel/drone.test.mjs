@@ -75,8 +75,9 @@ function runSource({ selection = SELECTION } = {}) {
         ],
       };
     },
-    async select() {
-      calls.select++;
+    async select({ query } = {}) {
+      // The track's reads; the run's sites (GEN-405) are read beside it.
+      if (query?.requested_layers?.[0] === UAS_TRACK_BINDING) calls.select++;
       return selection;
     },
   };

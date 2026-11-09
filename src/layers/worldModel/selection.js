@@ -147,7 +147,10 @@ export function createSelection({
 
   function pickedOwnId(picked) {
     const pickedId = resolvePickId(picked);
-    return pickedId && state.byId.has(pickedId) ? pickedId : null;
+    if (!pickedId) return null;
+    if (state.byId.has(pickedId)) return pickedId;
+    // A drawn part of an item (an RF path's line or edge marker) selects the item.
+    return state.pickAlias?.(pickedId) ?? null;
   }
 
   function onKeyDown(event) {
