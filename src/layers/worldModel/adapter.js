@@ -18,6 +18,7 @@ import {
 } from './rfCard.js';
 import { UAS_WORDED, uasCard } from './uasCard.js';
 import { EMITTER_BINDING, emitterStyle, linkStyle } from './rfStyle.js';
+import { OBSTRUCTION_KEYS, obstructionLines } from './linkObstruction.js';
 
 /**
  * Every display-only choice this adapter or the layer makes, named so an
@@ -271,6 +272,7 @@ export function lineRecordsFromProjection(projection) {
       colorRgb: rf.colorRgb,
       display: rf.display,
       label: rf.label,
+      obstruction: rf.obstruction,
       record: line,
     });
   }
@@ -560,7 +562,15 @@ export function selectionCardLines(
   // A receiver or a drone states its own values in words; the generic list skips them.
   const receiver = receiverCard(item, header, name);
   const worded = receiver ?? uasCard(item, header);
-  const wordedKeys = receiver ? RECEIVER_WORDED : worded ? UAS_WORDED : [];
+  // A link over a surface states its obstruction in words too (GEN-405).
+  const link = renderRecord?.kind === 'line' ? renderRecord : null;
+  const wordedKeys = receiver
+    ? RECEIVER_WORDED
+    : worded
+      ? UAS_WORDED
+      : link?.obstruction?.modelled
+        ? OBSTRUCTION_KEYS
+        : [];
   // Opportunistic: a callsign-like property leads the title when present.
   // Then the item's own values, all of them up to a budget, ahead of where
   // and when: they are what a click asks about (DWM-209).
@@ -579,11 +589,16 @@ export function selectionCardLines(
       : identity;
   const lines = [
     title,
-    ...(worded ? [worded.lead, ...packCardLines(worded.measures)] : []),
-    // A link says what its path is doing, in words (GEN-311).
-    renderRecord?.kind === 'line' && renderRecord.label
-      ? renderRecord.label
-      : '',
+    ...(worded
+      ? [
+          worded.lead,
+          ...packCardLines(worded.measures),
+          ...(worded.extra ?? []),
+        ]
+      : []),
+    // A link says what its path is doing, in words (GEN-311), and what obstructs it (GEN-405).
+    link?.label ? link.label : '',
+    ...obstructionLines(link?.obstruction),
     ...packCardLines(values.slice(0, MAX_CARD_VALUES)),
     values.length > MAX_CARD_VALUES
       ? `… ${values.length - MAX_CARD_VALUES} more values`

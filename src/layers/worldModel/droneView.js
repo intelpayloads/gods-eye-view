@@ -11,7 +11,9 @@
  * height above the ellipsoid, never snapped to a tileset.
  *
  * The model entity takes the projected item's id, so clicking it selects
- * the stored epoch's item and opens its card.
+ * the stored epoch's item and opens its card. Its C2 path (GEN-405) is drawn
+ * beside it from the run's GCS, on the same display pose and stored row, and
+ * a click on the path opens the drone's card too.
  */
 import * as Cesium from 'cesium';
 import { assetUrl } from '../../sources/endpoints.js';
@@ -25,6 +27,7 @@ import {
   storedRowAt,
 } from './uasTrack.js';
 import { uasLabel, uasWords } from './uasCard.js';
+import { c2PathEntities, pathOwner } from './linkView.js';
 
 const OUTLINE_COLOR = Cesium.Color.BLACK.withAlpha(0.75);
 const keys = () => (typeof window !== 'undefined' ? window : null);
@@ -148,8 +151,7 @@ export function createDroneView({
     };
   }
 
-  function droneEntity(track, model, itemId) {
-    const sample = sampler(track);
+  function droneEntity(track, model, itemId, sample) {
     const colour = () => {
       const { row } = sample();
       return new Cesium.Color(...c2Colour(track.header, row?.c2StateCode), 1);
@@ -281,8 +283,11 @@ export function createDroneView({
       announce();
     },
 
-    /** Replace the drawn drones with `tracks` (one revision's). */
-    draw(tracks, { revisionId = null } = {}) {
+    /**
+     * Replace the drawn drones with `tracks` (one revision's); `sites` (the
+     * run's, `uasSites.js`) give each drone's C2 path its GCS end.
+     */
+    draw(tracks, { revisionId = null, sites = null } = {}) {
       const entities = state.source?.entities;
       if (!entities) return;
       state.revisionId = revisionId;
@@ -300,8 +305,13 @@ export function createDroneView({
           continue;
         }
         const itemId = droneItemId(track.identity);
-        const entity = droneEntity(track, model, itemId);
+        const sample = sampler(track);
+        const entity = droneEntity(track, model, itemId, sample);
         entities.add(entity);
+        const site = track.gcs ? sites?.get(track.gcs) : null;
+        if (site)
+          for (const path of c2PathEntities({ track, itemId, site, sample }))
+            entities.add(path);
         modeChanges(track.rows).forEach((row, index) =>
           entities.add(markerEntity(track, row, index)),
         );
@@ -325,6 +335,14 @@ export function createDroneView({
     /** Item ids of the projected points a drawn drone replaces. */
     drawnItemIds() {
       return new Set(state.drones.map((drone) => drone.itemId));
+    },
+
+    /** The drone item a click on one of its drawn C2 path entities means, or null. */
+    itemForPick(pickedId) {
+      const owner = pathOwner(pickedId);
+      return owner && state.drones.some((d) => d.itemId === owner)
+        ? owner
+        : null;
     },
 
     /** The drawn drone's current display position, for a card anchored to it. */
