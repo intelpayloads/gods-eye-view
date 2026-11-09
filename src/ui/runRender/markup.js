@@ -55,9 +55,13 @@ export const STYLE = `
 .${PIP_CLASS} .rr-status { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #6fa9b8; text-align: center; padding: 12px; }
 .${VIEWFINDER_CLASS} { position: absolute; z-index: 15; pointer-events: none; box-sizing: border-box;
   border: 1px dashed rgba(0, 212, 255, 0.9); box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.28); }
-.${FULL_CLASS} { position: absolute; inset: 0; z-index: 40; background: rgba(0, 0, 0, 0.88); display: flex; flex-direction: column;
+/* Full size covers the viewer and its HUD, as the attribution lightbox (200) does. Its frame is
+   sized from the viewer's own box (container units), not the window's: embedded in a host page
+   the viewer is shorter than the window, and the caption and Close fell off the bottom. */
+.${FULL_CLASS} { position: absolute; inset: 0; z-index: 200; container-type: size; background: rgba(0, 0, 0, 0.88); display: flex; flex-direction: column;
   align-items: center; justify-content: center; gap: 8px; color: #d8f6ff; font-family: var(--font-mono, 'JetBrains Mono', monospace); font-size: 11px; }
-.${FULL_CLASS} .rr-frame { position: relative; width: min(96%, calc(86vh * 16 / 9)); aspect-ratio: 16 / 9; }
+.${FULL_CLASS} .rr-frame { position: relative; width: min(96%, calc(86vh * 16 / 9)); width: min(96cqw, calc((100cqh - 96px) * 16 / 9)); aspect-ratio: 16 / 9; }
+.${FULL_CLASS} .rr-close { position: absolute; top: 10px; right: 10px; font-size: 18px; line-height: 1; padding: 4px 10px; }
 .${FULL_CLASS} .rr-frame img, .${FULL_CLASS} .rr-frame canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 .${FULL_CLASS} .rr-box { position: absolute; border: 2px solid #ff3c3c; min-width: 10px; min-height: 10px; transform: translate(-50%, -50%); }
 .${FULL_CLASS} .rr-actions { display: flex; gap: 8px; }
