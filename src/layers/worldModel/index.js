@@ -170,6 +170,8 @@ export function createWorldModelLayer({
     source,
     displayMs,
     onFollowChange: () => notifyRowControls(),
+    // GEN-476: a published airframe arrives after the draw; the row's facts follow it.
+    onModelChange: () => notifyRowControls(),
   });
   const controller = createWorldViewController({
     source,

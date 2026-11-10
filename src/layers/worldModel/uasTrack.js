@@ -74,23 +74,93 @@ export const FLIGHT_MODEL_AIRFRAMES = Object.freeze({
 });
 
 /**
- * A `simulation.drone.track` declares no flight model, so its drones are drawn
- * as multirotors: a display choice, said in the row's facts.
+ * A `simulation.drone.track` declares no flight model. Its drones are drawn
+ * with the airframe its header publishes (GEN-476), else as multirotors: a
+ * display choice, said in the row's facts.
  */
 export const DRONE_TRACK_AIRFRAME =
   FLIGHT_MODEL_AIRFRAMES['dataforge.multirotor-flight/1'];
 export const DRONE_TRACK_MODEL_FACT =
   'display: this product declares no airframe; its drones are drawn as multirotors';
+/** The mesh's file under its content id, unless the header names another. */
+export const AIRFRAME_ROOT = 'airframe.glb';
+
+/**
+ * The airframe a drone track's header publishes (`models.airframe`, GEN-475):
+ * `{contentId, root, extentM}`, or null. The mesh is already in the stock
+ * models' convention (metres, +Y up, nose toward -X, centred).
+ */
+export function airframeOf(header) {
+  const airframe = header?.models?.airframe;
+  const contentId = airframe?.content_id;
+  if (typeof contentId !== 'string' || !/^[A-Za-z0-9:._-]+$/.test(contentId))
+    return null;
+  const root =
+    typeof airframe.root === 'string' && /^[A-Za-z0-9._-]+$/.test(airframe.root)
+      ? airframe.root
+      : AIRFRAME_ROOT;
+  const extentM = Number(airframe.extent_m);
+  return {
+    contentId,
+    root,
+    extentM: Number.isFinite(extentM) && extentM > 0 ? extentM : null,
+  };
+}
+
+/** The backplane path an airframe is read at: by content id, as a region's tilesets are. */
+export function airframePath(airframe) {
+  return `/tilesets/${airframe.contentId}/${airframe.root}`;
+}
+
+/** `sha256:043d75f9…` -> `sha256:043d75f9`, for a fact line. */
+function shortId(contentId) {
+  const [scheme, digest] = String(contentId).split(':');
+  return digest ? `${scheme}:${digest.slice(0, 8)}` : String(contentId).slice(0, 15);
+}
+
+/** How a fallback's reason starts: `airframe sha256:043d75f9 drawn as a multirotor`. */
+export function airframeNote(airframe) {
+  return `airframe ${shortId(airframe.contentId)} drawn as a multirotor`;
+}
+
+/** What the row's facts say of a drone drawn with its published airframe. */
+export function airframeFact(airframe) {
+  return `display: drawn with the airframe this run published (${shortId(airframe.contentId)})`;
+}
 /** The colour of a drone with no C2 state to colour it by. */
 export const DRONE_TRACK_COLOUR = Object.freeze([0.35, 0.8, 1.0]);
 
 /**
  * `{model, reason}`: the drawn model for the product's flight model, or null
- * and why. A `simulation.drone.track` drone always has `DRONE_TRACK_AIRFRAME`.
+ * and why. A `simulation.drone.track` drone always has a model: the airframe
+ * its header publishes, read through the source's `resolveUrl` (the model
+ * then carries `published`, and its `url` is already resolved), else
+ * `DRONE_TRACK_AIRFRAME`, with `note` saying why when one was published.
  */
-export function droneModelFor(header, binding = UAS_TRACK_BINDING) {
-  if (binding === DRONE_TRACK_BINDING)
-    return { model: DRONE_TRACK_AIRFRAME, reason: null };
+export function droneModelFor(
+  header,
+  binding = UAS_TRACK_BINDING,
+  { resolveUrl = null } = {},
+) {
+  if (binding === DRONE_TRACK_BINDING) {
+    const airframe = airframeOf(header);
+    if (!airframe) return { model: DRONE_TRACK_AIRFRAME, reason: null };
+    if (typeof resolveUrl !== 'function')
+      return {
+        model: DRONE_TRACK_AIRFRAME,
+        reason: null,
+        note: `${airframeNote(airframe)}: this source serves no files`,
+      };
+    return {
+      model: Object.freeze({
+        ...DRONE_TRACK_AIRFRAME,
+        airframe: 'published',
+        url: resolveUrl(airframePath(airframe)),
+        published: airframe,
+      }),
+      reason: null,
+    };
+  }
   const flight = header?.models?.flight;
   if (typeof flight !== 'string' || !flight)
     return { model: null, reason: 'the product declares no flight model' };
