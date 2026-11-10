@@ -28,6 +28,17 @@ import { lerpAngleDeg } from '../../data/motionModel.js';
 import { obstructionOf } from './linkObstruction.js';
 
 export const UAS_TRACK_BINDING = 'simulation.uas.track';
+/**
+ * A DronePath run's drones (GEN-455, `dataforge.drone-track-delivery/1`): many
+ * drones in one head, each a position, speed and heading per epoch under its
+ * scenario object's identity, with a `callsign` series key. No mode, no C2.
+ */
+export const DRONE_TRACK_BINDING = 'simulation.drone.track';
+/** Every binding drawn as a flying drone; one `/select` reads them all. */
+export const DRONE_BINDINGS = Object.freeze([
+  UAS_TRACK_BINDING,
+  DRONE_TRACK_BINDING,
+]);
 
 /** Display-only choices the drone adds, named like PASS_DISPLAY. */
 export const DRONE_DISPLAY = Object.freeze({
@@ -62,8 +73,24 @@ export const FLIGHT_MODEL_AIRFRAMES = Object.freeze({
   }),
 });
 
-/** `{model, reason}`: the drawn model for the product's flight model, or null and why. */
-export function droneModelFor(header) {
+/**
+ * A `simulation.drone.track` declares no flight model, so its drones are drawn
+ * as multirotors: a display choice, said in the row's facts.
+ */
+export const DRONE_TRACK_AIRFRAME =
+  FLIGHT_MODEL_AIRFRAMES['dataforge.multirotor-flight/1'];
+export const DRONE_TRACK_MODEL_FACT =
+  'display: this product declares no airframe; its drones are drawn as multirotors';
+/** The colour of a drone with no C2 state to colour it by. */
+export const DRONE_TRACK_COLOUR = Object.freeze([0.35, 0.8, 1.0]);
+
+/**
+ * `{model, reason}`: the drawn model for the product's flight model, or null
+ * and why. A `simulation.drone.track` drone always has `DRONE_TRACK_AIRFRAME`.
+ */
+export function droneModelFor(header, binding = UAS_TRACK_BINDING) {
+  if (binding === DRONE_TRACK_BINDING)
+    return { model: DRONE_TRACK_AIRFRAME, reason: null };
   const flight = header?.models?.flight;
   if (typeof flight !== 'string' || !flight)
     return { model: null, reason: 'the product declares no flight model' };
@@ -73,11 +100,17 @@ export function droneModelFor(header) {
     : { model: null, reason: `no drone model for flight model ${flight}` };
 }
 
-/** Whether this demand shows the run's drone with heights it may place. */
+/** Whether this demand's layers include `binding` (no layers means all). */
+export function showsBinding(demand, binding) {
+  return !demand?.layers || demand.layers.includes(binding);
+}
+
+/** Whether this demand shows the run's drones with heights it may place. */
 export function showsUasTrack(demand) {
   if (!demand?.head?.startsWith(SIM_HEAD_PREFIX)) return false;
   if (!(demand.modalities ?? []).includes('simulated')) return false;
-  if (demand.layers && !demand.layers.includes(UAS_TRACK_BINDING)) return false;
+  if (!DRONE_BINDINGS.some((binding) => showsBinding(demand, binding)))
+    return false;
   return (
     demand.displayAssumptions?.[PASS_HEIGHT_GRANT.key] ===
     PASS_HEIGHT_GRANT.value
@@ -88,7 +121,7 @@ export function showsUasTrack(demand) {
 export function uasQuery() {
   return {
     modalities: ['simulated'],
-    requested_layers: [UAS_TRACK_BINDING],
+    requested_layers: [...DRONE_BINDINGS],
     predicates: {
       interval: { start: '1970-01-01T00:00:00Z', end: '2100-01-01T00:00:00Z' },
     },
@@ -128,7 +161,10 @@ export function uasValuesOf(value = {}) {
 
 /**
  * `POST /select` answer -> one track per drone, rows in time order:
- * `{identity, header, gcs, rows: [{at, validTime, position, ...uasValuesOf}]}`.
+ * `{identity, binding, callsign, header, gcs, rows: [{at, validTime, position, ...uasValuesOf}]}`.
+ * `binding` is which of `DRONE_BINDINGS` the product is; `callsign` is the
+ * series key's (a `simulation.drone.track` drone's name), else null; such a
+ * drone's rows also carry its stored `speedMps` and `headingDeg`.
  * The header (mode and C2 legends, `models.flight`) travels with the
  * selection, as the run's mission effects' do; `gcs` is the series key's GCS
  * identity (`gcs:foundation:gcs-1`), the far end of the C2 path, or null.
@@ -136,15 +172,24 @@ export function uasValuesOf(value = {}) {
 export function uasTracksFromSelection(selection) {
   const tracks = new Map();
   for (const product of selection?.products ?? []) {
-    if (!product?.product_ref?.type_id?.startsWith(UAS_TRACK_BINDING)) continue;
-    if (!Array.isArray(product.values)) continue;
+    const binding = DRONE_BINDINGS.find((name) =>
+      product?.product_ref?.type_id?.startsWith(name),
+    );
+    if (!binding || !Array.isArray(product.values)) continue;
     for (const row of product.values) {
       const at = Date.parse(row?.valid_time);
       if (!Number.isFinite(at)) continue;
       const identity = String(row.semantic_identity ?? '');
-      if (!tracks.has(identity))
-        tracks.set(identity, {
+      const key = `${binding}\0${identity}`;
+      if (!tracks.has(key))
+        tracks.set(key, {
           identity,
+          binding,
+          callsign:
+            typeof row.series_key?.callsign === 'string' &&
+            row.series_key.callsign
+              ? row.series_key.callsign
+              : null,
           header: product.semantic_metadata ?? null,
           gcs:
             typeof row.series_key?.gcs === 'string' ? row.series_key.gcs : null,
@@ -154,7 +199,7 @@ export function uasTracksFromSelection(selection) {
       const lon = finiteOrNull(value.lon_deg);
       const lat = finiteOrNull(value.lat_deg);
       const height = finiteOrNull(value.height_m);
-      tracks.get(identity).rows.push({
+      tracks.get(key).rows.push({
         at,
         validTime: row.valid_time,
         position:
@@ -162,6 +207,12 @@ export function uasTracksFromSelection(selection) {
             ? { lon, lat, height }
             : null,
         ...uasValuesOf(value),
+        ...(binding === DRONE_TRACK_BINDING
+          ? {
+              speedMps: finiteOrNull(value.speed_mps),
+              headingDeg: finiteOrNull(value.heading_deg),
+            }
+          : {}),
       });
     }
   }
@@ -279,8 +330,9 @@ export function c2Colour(header, code) {
   return state.colorRgb;
 }
 
-/** `platform:foundation:uas-1` -> `UAS-1`. */
-export function droneName(identity) {
+/** The drone's callsign when it has one; else `platform:foundation:uas-1` -> `UAS-1`. */
+export function droneName(identity, callsign = null) {
+  if (typeof callsign === 'string' && callsign) return callsign;
   const tail = String(identity || '')
     .split(':')
     .at(-1);

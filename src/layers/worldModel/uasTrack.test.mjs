@@ -65,7 +65,7 @@ test('the track reads one drone, every stored epoch in order, with its header', 
   assert.ok(TRACK.rows.every((row) => Number.isInteger(row.c2StateCode)));
   // Nothing but the track is read.
   assert.deepEqual(uasTracksFromSelection({ products: [] }), []);
-  assert.deepEqual(uasQuery().requested_layers, [UAS_TRACK_BINDING]);
+  assert.equal(uasQuery().requested_layers[0], UAS_TRACK_BINDING);
 });
 
 test('mode changes are where the stored mode changes: return altitude, transit, landing, landed', () => {

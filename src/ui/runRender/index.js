@@ -271,7 +271,7 @@ export function mountRunRender({ renderSource, viewer, playerRoot, controls, see
             'select',
             { 'aria-label': 'Drone', onchange: (event) => ((ui.droneIndex = Number(event.target.value)), (dirty = true)) },
             context.tracks.map((track, i) =>
-              el('option', { value: i, selected: i === ui.droneIndex }, droneName(track.identity)),
+              el('option', { value: i, selected: i === ui.droneIndex }, droneName(track.identity, track.callsign)),
             ),
           )
         : null;
@@ -323,7 +323,7 @@ export function mountRunRender({ renderSource, viewer, playerRoot, controls, see
     const words = shot.row ? uasWords(shot.row, shot.track.header) : null;
     live.drone.textContent = shot.row
       ? [
-          droneName(shot.track.identity),
+          droneName(shot.track.identity, shot.track.callsign),
           shot.where ? `${(groundDistanceM(shot.where, shot.row.position) / 1000).toFixed(2)} km away` : null,
           Number.isFinite(shot.row.aglM) ? `${Math.round(shot.row.aglM)} m AGL` : null,
           words?.mode,
