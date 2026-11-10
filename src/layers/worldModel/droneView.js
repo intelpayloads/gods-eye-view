@@ -19,6 +19,10 @@ import * as Cesium from 'cesium';
 import { assetUrl } from '../../sources/endpoints.js';
 import { applyTrackedCameraFrame } from '../../data/trackedCamera.js';
 import {
+  DRONE_DISPLAY_FACT,
+  DRONE_TRACK_BINDING,
+  DRONE_TRACK_COLOUR,
+  DRONE_TRACK_MODEL_FACT,
   UAS_TRACK_BINDING,
   c2Colour,
   displayPoseAt,
@@ -26,7 +30,7 @@ import {
   modeChanges,
   storedRowAt,
 } from './uasTrack.js';
-import { uasLabel, uasWords } from './uasCard.js';
+import { droneTrackLabel, uasLabel, uasWords } from './uasCard.js';
 import { c2PathEntities, pathOwner } from './linkView.js';
 
 const OUTLINE_COLOR = Cesium.Color.BLACK.withAlpha(0.75);
@@ -77,8 +81,8 @@ function recordDrawn(source, ownerId, revisionId, identities) {
 }
 
 /** The projected item id of a drone (`<binding>/<semantic identity>`, as `positioned_entities/v1` names it). */
-export function droneItemId(identity) {
-  return `${UAS_TRACK_BINDING}/${identity}`;
+export function droneItemId(identity, binding = UAS_TRACK_BINDING) {
+  return `${binding}/${identity}`;
 }
 
 /** The follow camera's offset in the drone's ENU frame: behind its heading. */
@@ -152,7 +156,10 @@ export function createDroneView({
   }
 
   function droneEntity(track, model, itemId, sample) {
+    // A drone track has no C2 state: one colour, and its callsign's label.
+    const plain = track.binding === DRONE_TRACK_BINDING;
     const colour = () => {
+      if (plain) return new Cesium.Color(...DRONE_TRACK_COLOUR, 1);
       const { row } = sample();
       return new Cesium.Color(...c2Colour(track.header, row?.c2StateCode), 1);
     };
@@ -185,7 +192,9 @@ export function createDroneView({
           const { row } = sample();
           if (row !== labelRow) {
             labelRow = row;
-            labelText = uasLabel(row, track.header, track.identity);
+            labelText = plain
+              ? droneTrackLabel(row, track)
+              : uasLabel(row, track.header, track.identity);
           }
           return labelText;
         }, false),
@@ -199,7 +208,7 @@ export function createDroneView({
         verticalOrigin: Cesium.VerticalOrigin.CENTER,
         disableDepthTestDistance: Number.POSITIVE_INFINITY,
       },
-      properties: { kind: 'uas-drone', binding: UAS_TRACK_BINDING },
+      properties: { kind: 'uas-drone', binding: track.binding },
     });
     entity.gevDisplayPosition = () => sample().cartesian ?? undefined;
     return entity;
@@ -213,7 +222,7 @@ export function createDroneView({
       0.95,
     );
     return new Cesium.Entity({
-      id: `${droneItemId(track.identity)}/mode/${index}`,
+      id: `${droneItemId(track.identity, track.binding)}/mode/${index}`,
       name: `${words.mode ?? `mode ${row.modeCode}`} at ${row.validTime}`,
       position: Cesium.Cartesian3.fromDegrees(
         row.position.lon,
@@ -237,7 +246,7 @@ export function createDroneView({
         pixelOffset: new Cesium.Cartesian2(0, -16),
         disableDepthTestDistance: Number.POSITIVE_INFINITY,
       },
-      properties: { kind: 'uas-mode-change', binding: UAS_TRACK_BINDING },
+      properties: { kind: 'uas-mode-change', binding: track.binding },
     });
   }
 
@@ -299,12 +308,16 @@ export function createDroneView({
       entities.suspendEvents();
       for (const track of tracks) {
         if (track.rows.length < 2) continue;
-        const { model, reason } = droneModelFor(track.header);
+        const binding = track.binding ?? UAS_TRACK_BINDING;
+        const { model, reason } = droneModelFor(track.header, binding);
         if (!model) {
-          state.reasons.push(`${track.identity}: ${reason}`);
+          state.reasons.push({
+            binding,
+            text: `${track.identity}: ${reason}`,
+          });
           continue;
         }
-        const itemId = droneItemId(track.identity);
+        const itemId = droneItemId(track.identity, binding);
         const sample = sampler(track);
         const entity = droneEntity(track, model, itemId, sample);
         entities.add(entity);
@@ -317,6 +330,7 @@ export function createDroneView({
         );
         state.drones.push({
           identity: track.identity,
+          binding,
           itemId,
           track,
           model,
@@ -357,7 +371,30 @@ export function createDroneView({
 
     /** Why a drone track on screen draws no model ("<identity>: no drone model for …"). */
     reasons() {
-      return [...state.reasons];
+      return state.reasons.map((reason) => reason.text);
+    },
+
+    /**
+     * What the row's facts say about the drawn drones, per binding: the motion
+     * is a display assumption, a drone track's airframe is too, and why a
+     * track draws no model.
+     */
+    facts() {
+      const groups = new Map(); // binding -> lines
+      const lines = (binding) => {
+        if (!groups.has(binding)) groups.set(binding, []);
+        return groups.get(binding);
+      };
+      for (const drone of state.drones) {
+        const group = lines(drone.binding);
+        if (group.length) continue;
+        group.push(DRONE_DISPLAY_FACT);
+        if (drone.binding === DRONE_TRACK_BINDING)
+          group.push(DRONE_TRACK_MODEL_FACT);
+      }
+      for (const reason of state.reasons)
+        lines(reason.binding).push(`no model drawn: ${reason.text}`);
+      return [...groups].map(([label, facts]) => ({ label, lines: facts }));
     },
 
     following() {

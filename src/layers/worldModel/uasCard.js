@@ -95,6 +95,24 @@ export function uasLabel(row, header, identity) {
 }
 
 /**
+ * The map label of a `simulation.drone.track` drone's stored row (GEN-455):
+ * its callsign, then the stored height and speed. e.g. `RAVEN-2` / `1942 M HAE · 14.0 M/S`.
+ */
+export function droneTrackLabel(row, track) {
+  if (!row) return '';
+  const second = [
+    row.position ? `${Math.round(row.position.height)} m HAE` : null,
+    Number.isFinite(row.speedMps) ? `${row.speedMps.toFixed(1)} m/s` : null,
+  ].filter(Boolean);
+  return [
+    droneName(track?.identity, track?.callsign),
+    second.join(' · ').toUpperCase(),
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+/**
  * What the card says about one drone-track item.
  * @param {object} item A projected item (`properties`, `binding`, `semantic_ref`).
  * @param {object|null} header The binding's descriptor `semantic.metadata`, if read.

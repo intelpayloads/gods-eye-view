@@ -379,7 +379,7 @@ export function mountRunRender({
               el(
                 'option',
                 { value: i, selected: i === ui.droneIndex },
-                droneName(track.identity),
+                droneName(track.identity, track.callsign),
               ),
             ),
           )
@@ -507,7 +507,7 @@ export function mountRunRender({
     const words = shot.row ? uasWords(shot.row, shot.track.header) : null;
     live.drone.textContent = shot.row
       ? [
-          droneName(shot.track.identity),
+          droneName(shot.track.identity, shot.track.callsign),
           shot.where
             ? `${(groundDistanceM(shot.where, shot.row.position) / 1000).toFixed(2)} km away`
             : null,

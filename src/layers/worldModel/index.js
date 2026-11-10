@@ -42,12 +42,7 @@ import {
 } from './receiverPass.js';
 import { LINK_BINDING, pulseRadiusM } from './rfStyle.js';
 import { displayMsAt, isDisplayClock, pausedAt } from './displayClock.js';
-import {
-  DRONE_DISPLAY_FACT,
-  UAS_TRACK_BINDING,
-  sharedUasTracks,
-  showsUasTrack,
-} from './uasTrack.js';
+import { sharedUasTracks, showsBinding, showsUasTrack } from './uasTrack.js';
 import { createDroneView, droneDrawn } from './droneView.js';
 import { followDrone, linkEdgeEntity, pathOwner } from './linkView.js';
 import { sharedUasSites } from './uasSites.js';
@@ -618,15 +613,20 @@ export function createWorldModelLayer({
     }
     state.droneRevisionId = revisionId;
     try {
-      const tracks = await uasTracks.read({ revisionId });
-      // The C2 path's GCS end (GEN-405); a run without sites draws no path.
+      // One read holds every drone binding; this row draws its own (GEN-455).
+      const demand = controller.getDemand();
+      const tracks = (await uasTracks.read({ revisionId })).filter((t) =>
+        showsBinding(demand, t.binding),
+      );
+      // The C2 path's GCS end (GEN-405); a run without sites draws no path,
+      // and a drone with no GCS (a drone track's) asks for none.
       const first = tracks.find((t) => t.rows.length)?.rows[0]?.validTime;
-      const sites = await uasSites
-        .read({ revisionId, validAt: first })
-        .catch((error) => {
-          console.warn('[Data:WorldModel] run sites unreadable:', error);
-          return new Map();
-        });
+      const sites = tracks.some((t) => t.gcs)
+        ? await uasSites.read({ revisionId, validAt: first }).catch((error) => {
+            console.warn('[Data:WorldModel] run sites unreadable:', error);
+            return new Map();
+          })
+        : new Map();
       if (state.droneRevisionId !== revisionId || !state.enabled) return;
       drones.draw(tracks, { revisionId, sites });
       yieldDroneDots();
@@ -886,14 +886,10 @@ export function createWorldModelLayer({
       else groups.push({ label: o.binding, lines });
     }
     // GEN-395: the drawn drone's motion is a display assumption, said where the row's facts are.
-    if (drones.hasDrone() || drones.reasons().length) {
-      const lines = [
-        ...(drones.hasDrone() ? [DRONE_DISPLAY_FACT] : []),
-        ...drones.reasons().map((reason) => `no model drawn: ${reason}`),
-      ];
-      const group = groups.find((g) => g.label === UAS_TRACK_BINDING);
+    for (const { label, lines } of drones.facts()) {
+      const group = groups.find((g) => g.label === label);
       if (group) group.lines.push(...lines);
-      else groups.push({ label: UAS_TRACK_BINDING, lines });
+      else groups.push({ label, lines });
     }
     for (const legend of state.legends) {
       if (layers && !layers.includes(legend.label)) continue;
