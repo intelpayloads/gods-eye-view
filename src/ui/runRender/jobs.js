@@ -6,6 +6,11 @@
  *   status(id, {signal})               -> {state: queued|rendering|transferring|completed|failed, reason?}
  *   outputs(id, {signal})              -> [{id, name}]
  *   download(id, outputId, {signal})   -> Blob
+ *   cancel(id, {signal})               -> anything; optional, and only a queued render (GEN-465)
+ *
+ * A call the server refuses throws an Error with the HTTP `status` and a
+ * `message` a person can read. A 404 means the server no longer keeps the
+ * render (the render gateway deletes one 14 days after it ended).
  *
  * The host's job is the transport (its login, its server); what a render
  * means and which of its files to show is God's Eye's. Status is polled
@@ -25,6 +30,10 @@ const IMAGES_KEPT = 8;
 const STATUS_ATTEMPTS = 5;
 
 const TERMINAL = new Set(['completed', 'failed']);
+
+/** What a render reads as once the server answers 404 for it. */
+export const GONE_REASON = 'The server no longer keeps this render';
+const isGone = (error) => (error?.status ?? null) === 404;
 
 function safeStorage() {
   try {
@@ -56,7 +65,9 @@ export function submitReason(error) {
     return 'No render node is running: the server has no agent for RenderRequest';
   if (error?.code === 'unauthorized' || status === 401 || status === 403)
     return 'Not signed in to the Dataforge server, or not allowed to render';
-  return error?.message ? String(error.message) : 'The server refused the request';
+  return error?.message
+    ? String(error.message)
+    : 'The server refused the request';
 }
 
 /**
@@ -64,8 +75,33 @@ export function submitReason(error) {
  * `finishedAt` is this session's only: when it watched the render finish.
  */
 function stored(entry) {
-  const { id, runKey, validAt, camera, look, fovDeg, captureId, submittedAt, state, reason } = entry;
-  return { id, runKey, validAt, camera, look, fovDeg, captureId, submittedAt, state, reason };
+  const {
+    id,
+    runKey,
+    validAt,
+    camera,
+    look,
+    fovDeg,
+    captureId,
+    submittedAt,
+    state,
+    reason,
+  } = entry;
+  const kept = {
+    id,
+    runKey,
+    validAt,
+    camera,
+    look,
+    fovDeg,
+    captureId,
+    submittedAt,
+    state,
+    reason,
+  };
+  // Remembered, so a reload does not ask a server for files it has said are gone.
+  if (entry.gone) kept.gone = true;
+  return kept;
 }
 
 /**
@@ -123,10 +159,13 @@ export function createRenderJobs({
     if (!runs.has(runKey)) {
       const kept = readStore()[runKey];
       const entries = Array.isArray(kept)
-        ? kept.filter((e) => e && typeof e.id === 'string').map((e) => ({ ...e, images: null, frame: null }))
+        ? kept
+            .filter((e) => e && typeof e.id === 'string')
+            .map((e) => ({ ...e, images: null, frame: null }))
         : [];
       runs.set(runKey, entries);
-      for (const entry of entries) if (!TERMINAL.has(entry.state)) void follow(entry);
+      for (const entry of entries)
+        if (!TERMINAL.has(entry.state)) void follow(entry);
     }
     return runs.get(runKey);
   }
@@ -134,7 +173,10 @@ export function createRenderJobs({
   function track() {
     const controller = new AbortController();
     controllers.add(controller);
-    return { signal: controller.signal, done: () => controllers.delete(controller) };
+    return {
+      signal: controller.signal,
+      done: () => controllers.delete(controller),
+    };
   }
 
   async function follow(entry) {
@@ -150,6 +192,17 @@ export function createRenderJobs({
           misses = 0;
         } catch (error) {
           if (signal.aborted) return;
+          if (isGone(error)) {
+            // Not a miss to try again: the server answered, and it has no such render.
+            Object.assign(entry, {
+              state: 'failed',
+              reason: GONE_REASON,
+              gone: true,
+              finishedAt: now(),
+            });
+            changed(entry);
+            return;
+          }
           if (++misses >= STATUS_ATTEMPTS) {
             Object.assign(entry, {
               state: 'failed',
@@ -162,8 +215,13 @@ export function createRenderJobs({
           await sleep(POLL_MS, signal);
           continue;
         }
+        // Finished here while the answer was on its way (a cancel): that stands.
+        if (TERMINAL.has(entry.state)) return;
         const state = status?.state ?? 'queued';
-        if (state !== entry.state || (status?.reason ?? null) !== (entry.reason ?? null)) {
+        if (
+          state !== entry.state ||
+          (status?.reason ?? null) !== (entry.reason ?? null)
+        ) {
           Object.assign(entry, { state, reason: status?.reason ?? null });
           if (TERMINAL.has(state)) entry.finishedAt = now();
           changed(entry);
@@ -172,7 +230,8 @@ export function createRenderJobs({
         await sleep(POLL_MS, signal);
       }
     } catch (error) {
-      if (!signal.aborted) console.warn('[RunRender] following a render failed:', error);
+      if (!signal.aborted)
+        console.warn('[RunRender] following a render failed:', error);
     } finally {
       following.delete(entry.id);
       done();
@@ -180,29 +239,44 @@ export function createRenderJobs({
   }
 
   function forget(entry) {
-    for (const url of Object.values(entry.images ?? {})) if (url) objectUrls.revoke(url);
+    for (const url of Object.values(entry.images ?? {}))
+      if (url) objectUrls.revoke(url);
     entry.images = null;
   }
 
   /** Fetch a completed render's images and frame record, once; the oldest shown are let go. */
   async function ensureImages(entry) {
-    if (entry.state !== 'completed' || entry.images || entry.loading) return entry;
+    if (entry.state !== 'completed' || entry.images || entry.loading)
+      return entry;
+    if (entry.gone) {
+      entry.imageError = GONE_REASON;
+      if (!disposed) onChange();
+      return entry;
+    }
     entry.loading = true;
     const { signal, done } = track();
     try {
-      const picked = pickOutputs(await renderSource.outputs(entry.id, { signal }));
+      const picked = pickOutputs(
+        await renderSource.outputs(entry.id, { signal }),
+      );
       if (!picked.unreal && !picked.photo)
         throw new Error('the render finished without a frame');
       const fetchFile = async (output) => {
         if (!output) return null;
-        const blob = await renderSource.download(entry.id, output.id, { signal });
+        const blob = await renderSource.download(entry.id, output.id, {
+          signal,
+        });
         return new Blob([blob], { type: mediaTypeOf(output.name) });
       };
       const [photo, unreal, labels, record] = await Promise.all(
-        ['photo', 'unreal', 'labels', 'record'].map((key) => fetchFile(picked[key])),
+        ['photo', 'unreal', 'labels', 'record'].map((key) =>
+          fetchFile(picked[key]),
+        ),
       );
       if (disposed) return entry;
-      entry.frame = record ? frameOf(JSON.parse(await record.text())) : frameOf(null);
+      entry.frame = record
+        ? frameOf(JSON.parse(await record.text()))
+        : frameOf(null);
       entry.images = {
         photo: photo ? objectUrls.create(photo) : null,
         unreal: unreal ? objectUrls.create(unreal) : null,
@@ -213,10 +287,17 @@ export function createRenderJobs({
       while (shown.length > IMAGES_KEPT) {
         const oldest = shown.shift();
         for (const list of runs.values())
-          for (const other of list) if (other.id === oldest && other !== entry) forget(other);
+          for (const other of list)
+            if (other.id === oldest && other !== entry) forget(other);
       }
     } catch (error) {
-      if (!signal.aborted) entry.imageError = error?.message ?? String(error);
+      if (signal.aborted) {
+        // Left mid-fetch: nothing to say about the render.
+      } else if (isGone(error)) {
+        entry.gone = true;
+        entry.imageError = GONE_REASON;
+        save(entry.runKey);
+      } else entry.imageError = error?.message ?? String(error);
     } finally {
       entry.loading = false;
       done();
@@ -258,7 +339,11 @@ export function createRenderJobs({
         void follow(entry);
       } catch (error) {
         if (signal.aborted) return entry;
-        Object.assign(entry, { state: 'failed', reason: submitReason(error), finishedAt: now() });
+        Object.assign(entry, {
+          state: 'failed',
+          reason: submitReason(error),
+          finishedAt: now(),
+        });
         if (!entry.id) {
           // Never sent: shown failed this session, not kept.
           onChange();
@@ -270,6 +355,52 @@ export function createRenderJobs({
     },
 
     ensureImages,
+
+    /** Whether this render can be cancelled: the host can, and it has not started. */
+    canCancel(entry) {
+      return (
+        typeof renderSource.cancel === 'function' &&
+        Boolean(entry?.id) &&
+        entry.state === 'queued'
+      );
+    },
+
+    /**
+     * Cancel a queued render. A refusal (it started meanwhile) leaves the
+     * entry as it is, to keep following; its words are returned.
+     * @returns {Promise<{cancelled: boolean, reason?: string}>}
+     */
+    async cancel(entry) {
+      if (!this.canCancel(entry))
+        return {
+          cancelled: false,
+          reason: 'This render can no longer be cancelled',
+        };
+      const { signal, done } = track();
+      try {
+        await renderSource.cancel(entry.id, { signal });
+        Object.assign(entry, {
+          state: 'failed',
+          reason: 'Cancelled',
+          finishedAt: now(),
+        });
+        changed(entry);
+        return { cancelled: true };
+      } catch (error) {
+        if (!signal.aborted && isGone(error)) {
+          Object.assign(entry, {
+            state: 'failed',
+            reason: GONE_REASON,
+            gone: true,
+            finishedAt: now(),
+          });
+          changed(entry);
+        }
+        return { cancelled: false, reason: error?.message ?? String(error) };
+      } finally {
+        done();
+      }
+    },
 
     dispose() {
       disposed = true;

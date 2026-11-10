@@ -105,7 +105,7 @@ export const EMBEDDED_FEATURES = Object.freeze({
  *   unavailable and terrain is the flat ellipsoid, so the map fetches no external
  *   origin. Default null: today's keyless Esri imagery with OSM fallback and
  *   Re:Earth terrain.
- * @param {object|null} [options.renderSource] Sends a run moment to the render node (GEN-369): `submit`, `status`, `outputs`, `download` (see `src/ui/runRender/jobs.js`). Absent, the run player has no RENDER.
+ * @param {object|null} [options.renderSource] Sends a run moment to the render node (GEN-369): `submit`, `status`, `outputs`, `download`, and optionally `cancel` (see `src/ui/runRender/jobs.js`). Absent, the run player has no RENDER.
  * @param {HTMLElement|null} [options.worldSection] The host's own section of the World Model block (GEN-419): shown under its status lines while the application runs, and put back where it was on destroy. The block styles its labels, selects, inputs, links and `role="alert"`/`role="status"` notes; the host brings markup, not styles.
  */
 export function createEmbeddedApplication(options = {}) {
