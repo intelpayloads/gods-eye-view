@@ -69,6 +69,8 @@ export function frameOf(output) {
     if (![box.x_min, box.y_min, box.x_max, box.y_max].every(Number.isFinite)) continue;
     boxes.push({
       objectId: String(object.object_id ?? 'drone'),
+      // GEN-466: the callsign the request sent; an older renderer writes none.
+      label: typeof object.label === 'string' && object.label ? object.label : null,
       xMin: box.x_min,
       yMin: box.y_min,
       xMax: box.x_max,
@@ -81,4 +83,25 @@ export function frameOf(output) {
     height: Number.isFinite(intrinsics.height) ? intrinsics.height : null,
     boxes,
   };
+}
+
+/** What a box is called: its callsign, else the renderer's object id. */
+export function boxName(box) {
+  return box?.label || box?.objectId || 'drone';
+}
+
+/**
+ * How many drones a render was sent and how many its frame shows (GEN-468):
+ * `3 drones sent, 2 visible · hidden: RAVEN-2`. `sent` is the request's
+ * targets as `[{id, label}]`. A drone is visible when a box carries its id; a
+ * renderer older than GEN-466 names boxes `drone_{i}`, so then only the
+ * counts are said. Null when the entry does not know what it sent.
+ */
+export function dronesLine(sent, boxes = []) {
+  if (!Array.isArray(sent) || !sent.length) return null;
+  const count = `${sent.length} drone${sent.length === 1 ? '' : 's'} sent, ${boxes.length} visible`;
+  const ids = new Set(boxes.map((box) => box.objectId));
+  if (boxes.length && !sent.some((drone) => ids.has(drone.id))) return count;
+  const hidden = sent.filter((drone) => !ids.has(drone.id)).map((drone) => drone.label || drone.id);
+  return hidden.length ? `${count} · hidden: ${hidden.join(', ')}` : count;
 }

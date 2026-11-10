@@ -7,7 +7,7 @@ import {
   createRenderJobs,
   submitReason,
 } from './jobs.js';
-import { colourLabels, frameOf, mediaTypeOf, pickOutputs } from './outputs.js';
+import { boxName, colourLabels, dronesLine, frameOf, mediaTypeOf, pickOutputs } from './outputs.js';
 
 const RUN = 'sim/sha256:043d75f9';
 const JOB = 'ae1b0f2c-0000-4000-8000-000000000001';
@@ -168,6 +168,7 @@ test('a render goes queued, rendering, completed, then shows its frame with the 
   assert.deepEqual(entry.frame.boxes, [
     {
       objectId: 'drone_0',
+      label: null,
       xMin: 940,
       yMin: 520,
       xMax: 972,
@@ -449,4 +450,30 @@ test('outputs are picked by the renderer names, typed, and the labels coloured b
     [],
     'a hidden drone has no box',
   );
+});
+
+test('a box is shown under its callsign, and the result says who was sent and who is hidden', () => {
+  const box = (object_id, label) => ({
+    kind: 'bounding_box_2d',
+    class_label: 'drone',
+    object_id,
+    ...(label ? { label } : {}),
+    box_2d: { x_min: 1, y_min: 2, x_max: 3, y_max: 4 },
+  });
+  const frame = (...objects) => frameOf({ frame_records: [{ annotations: { objects } }] });
+  const named = frame(box('laydown:x:uas-1', 'RAVEN-1'), box('drone_1'));
+  assert.deepEqual(named.boxes.map(boxName), ['RAVEN-1', 'drone_1']);
+  const sent = [
+    { id: 'laydown:x:uas-1', label: 'RAVEN-1' },
+    { id: 'laydown:x:uas-2', label: 'RAVEN-2' },
+    { id: 'laydown:x:uas-3', label: null },
+  ];
+  assert.equal(
+    dronesLine(sent, frame(box('laydown:x:uas-1', 'RAVEN-1')).boxes),
+    '3 drones sent, 1 visible · hidden: RAVEN-2, laydown:x:uas-3',
+  );
+  assert.equal(dronesLine(sent.slice(0, 1), frame(box('laydown:x:uas-1', 'RAVEN-1')).boxes), '1 drone sent, 1 visible');
+  // A renderer older than GEN-466 names its boxes drone_{i}: only the counts are known.
+  assert.equal(dronesLine(sent, frame(box('drone_0'), box('drone_2')).boxes), '3 drones sent, 2 visible');
+  assert.equal(dronesLine(undefined, []), null, 'an entry kept from before GEN-468');
 });

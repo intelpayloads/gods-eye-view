@@ -45,6 +45,8 @@ export const STYLE = `
 .${PIP_CLASS} .rr-frame { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #05070a; border-radius: 6px; overflow: hidden; }
 .${PIP_CLASS} .rr-frame img, .${PIP_CLASS} .rr-frame canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 .${PIP_CLASS} .rr-box { position: absolute; border: 1.5px solid #ff3c3c; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6); min-width: 8px; min-height: 8px; transform: translate(-50%, -50%); }
+.rr-box-name { position: absolute; left: -1.5px; bottom: 100%; padding: 0 3px; background: #ff3c3c; color: #0a0a0f; font-size: 10px; line-height: 13px; white-space: nowrap; }
+.${PIP_CLASS} .rr-drones { margin-top: 4px; opacity: 0.85; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .${PIP_CLASS} .rr-caption { display: flex; justify-content: space-between; gap: 6px; margin-top: 4px; white-space: nowrap; }
 .${PIP_CLASS} .rr-caption span { overflow: hidden; text-overflow: ellipsis; }
 .${PIP_CLASS} .rr-views { display: flex; gap: 4px; margin-top: 4px; }

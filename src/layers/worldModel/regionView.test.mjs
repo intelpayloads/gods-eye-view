@@ -171,6 +171,19 @@ function harness({
   };
 }
 
+test('the scene hands a render its head and its regions, read once, whatever scene is shown (GEN-468)', async () => {
+  const h = harness();
+  assert.equal(h.scene.head, 'world/main');
+  const regions = await h.scene.regions();
+  assert.deepEqual(
+    regions.map((region) => [region.name, region.drawn, Object.keys(region.layers).sort()]),
+    [['cs-downtown', true, ['buildings', 'imagery', 'terrain', 'trees']]],
+  );
+  assert.ok(regions[0].box.west < regions[0].box.east);
+  assert.equal(await h.scene.regions(), regions, 'the same read, not a second one');
+  assert.equal(h.stack.calls.length, 0, 'reading regions draws nothing');
+});
+
 test('Modelled over cs-downtown draws its NAIP, buildings, trees and terrain', async () => {
   const h = harness();
   await h.scene.setScene(SCENES.modelled);

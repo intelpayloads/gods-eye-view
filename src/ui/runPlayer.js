@@ -288,7 +288,8 @@ function pinnedRevision(layer) {
  * With `regions` (GEN-403's region scene), opening a run whose products name
  * a region flies there, once per run.
  * @param {{dataManager: object, container: HTMLElement, viewer?: object,
- *   renderSource?: object|null, regions?: {flyTo: (name: string) => Promise<boolean>}|null}} options
+ *   renderSource?: object|null, regions?: {flyTo: (name: string) => Promise<boolean>,
+ *   head?: string, regions?: () => Promise<object[]>}|null}} options
  */
 export function mountRunPlayer({
   dataManager,
@@ -791,6 +792,7 @@ export function mountRunPlayer({
   const runRender = mountRunRender({
     renderSource,
     viewer,
+    regions,
     playerRoot: root,
     controls: $('.rp-controls'),
     seek: seekTo,

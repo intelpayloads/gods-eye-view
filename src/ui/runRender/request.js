@@ -1,7 +1,8 @@
 /**
  * One moment of a run as a `RenderRequest/v1` (GEN-369): the camera the
- * render panel names, the run's drone at its stored epoch, and the world the
- * run's revision pins. The Spark's renderer (droneimages `RENDER.md`) runs it;
+ * render panel names, every drone of the run at its stored epoch (GEN-468),
+ * and the region whose terrain is under them, read at the world head the
+ * Modelled scene draws. The Spark's renderer (droneimages `RENDER.md`) runs it;
  * this module only writes the request and says, before anything is sent, why
  * the renderer would refuse it.
  *
@@ -11,15 +12,23 @@
  *  - `view`: exactly what God's Eye shows inside the 16:9 viewfinder, the
  *    Cesium camera's position (ellipsoid), heading and pitch.
  *
- * The drone is its STORED row at or before the moment (`storedRowAt`), never
- * the interpolated display pose GEN-395 draws. Pure and Cesium-free.
+ * A drone is its STORED row at or before the moment (`storedRowAt`), never
+ * the interpolated display pose GEN-395 draws; only its heading is the drawn
+ * model's. Pure and Cesium-free.
  */
 import { REGION_LAYERS } from '../../layers/worldModel/regionScene.js';
+import { droneName, headingAt, storedRowAt } from '../../layers/worldModel/uasTrack.js';
 
 export const RENDER_COMMAND = 'RenderRequest/v1';
 
 /** The renderer's `MAX_OBSERVER_TARGET_DISTANCE_M` (render_request.rs). */
 export const MAX_TARGET_DISTANCE_M = 5000;
+
+/** The renderer's `MAX_TARGETS`: the most drones one shot holds. */
+export const MAX_TARGETS = 128;
+
+/** The renderer's cap on a target's `label`. */
+const MAX_LABEL_CHARS = 64;
 
 /** Region tilesets the renderer draws, in the order it takes them. */
 export const RENDER_LAYERS = REGION_LAYERS;
@@ -60,13 +69,130 @@ export function slantDistanceM(a, b) {
   return Math.hypot(groundDistanceM(a, b), (b.height ?? 0) - (a.height ?? 0));
 }
 
-/** The region tilesets a revision binds (`world.tilesets.<layer>.<region>`), in RENDER_LAYERS order. */
-export function regionLayers(revision, region) {
-  if (!region) return [];
-  const names = new Set(
-    (revision?.bindings ?? []).map((binding) => binding?.name).filter(Boolean),
+/** The tilesets a region lists at the head (a `regionSceneOf` region), in RENDER_LAYERS order. */
+export function layersOf(region) {
+  return RENDER_LAYERS.filter((layer) => Boolean(region?.layers?.[layer]));
+}
+
+/**
+ * The region whose terrain is under `position`: of the regions that list a
+ * terrain tileset (`drawn`), those whose box holds the point; the smallest
+ * box wins. Null when none does.
+ */
+export function regionAt(regions, position) {
+  if (!position) return null;
+  const area = ({ box }) => (box.east - box.west) * (box.north - box.south);
+  return (
+    (regions ?? [])
+      .filter(
+        (region) =>
+          region?.drawn &&
+          region.box &&
+          position.lon >= region.box.west &&
+          position.lon <= region.box.east &&
+          position.lat >= region.box.south &&
+          position.lat <= region.box.north,
+      )
+      .sort((a, b) => area(a) - area(b))[0] ?? null
   );
-  return RENDER_LAYERS.filter((layer) => names.has(`world.tilesets.${layer}.${region}`));
+}
+
+/**
+ * Every drone of the run at `ms`, as the request's targets (GEN-468), in
+ * track order: `{drones: [{track, row, name, distanceM, target}], left:
+ * [{track, name, reason, distanceM}], follow, followIndex}`. A drone is left out when it has
+ * no stored row yet (`no-row`), is beyond the renderer's 5 km (`too-far`), or
+ * repeats an identity already sent (`duplicate`); past MAX_TARGETS the
+ * farthest are left out (`too-many`). `followIndex` is where `follow`'s drone
+ * sits among the kept ones, -1 when it was left out.
+ */
+export function renderTargets({ tracks, ms, observer = null, follow = null }) {
+  let drones = [];
+  const left = [];
+  const taken = new Set();
+  for (const track of tracks ?? []) {
+    const name = droneName(track.identity, track.callsign);
+    const row = storedRowAt(track.rows, ms);
+    if (!row?.position) {
+      left.push({ track, name, reason: 'no-row', distanceM: null });
+      continue;
+    }
+    const distanceM = observer ? groundDistanceM(observer, row.position) : null;
+    if (taken.has(track.identity)) {
+      left.push({ track, name, reason: 'duplicate', distanceM });
+      continue;
+    }
+    if (distanceM !== null && distanceM > MAX_TARGET_DISTANCE_M) {
+      left.push({ track, name, reason: 'too-far', distanceM });
+      continue;
+    }
+    taken.add(track.identity);
+    const heading = headingAt(track.rows, ms);
+    drones.push({
+      track,
+      row,
+      name,
+      distanceM,
+      target: {
+        lon: row.position.lon,
+        lat: row.position.lat,
+        height_m: row.position.height,
+        height_ref: 'ellipsoid',
+        id: track.identity,
+        label: [...name].slice(0, MAX_LABEL_CHARS).join(''),
+        ...(Number.isFinite(heading)
+          ? { heading_deg: Number((((heading % 360) + 360) % 360).toFixed(2)) % 360 }
+          : {}),
+      },
+    });
+  }
+  if (drones.length > MAX_TARGETS) {
+    const nearest = new Set(
+      [...drones]
+        .sort((a, b) => (a.distanceM ?? 0) - (b.distanceM ?? 0))
+        .slice(0, MAX_TARGETS),
+    );
+    for (const drone of drones)
+      if (!nearest.has(drone))
+        left.push({ track: drone.track, name: drone.name, reason: 'too-many', distanceM: drone.distanceM });
+    drones = drones.filter((drone) => nearest.has(drone));
+  }
+  return {
+    drones,
+    left,
+    follow,
+    followIndex: follow ? drones.findIndex((drone) => drone.track === follow) : -1,
+  };
+}
+
+/** Degrees between a view camera's axis and the line from it to `position`. */
+export function offAxisDeg(camera, position) {
+  const east =
+    (position.lon - camera.lon) * D2R * Math.cos(camera.lat * D2R) * R_M;
+  const north = (position.lat - camera.lat) * D2R * R_M;
+  const up = (position.height ?? 0) - (camera.height ?? 0);
+  const length = Math.hypot(east, north, up);
+  if (!(length > 0)) return 0;
+  const h = camera.headingDeg * D2R;
+  const p = camera.pitchDeg * D2R;
+  const dot =
+    (east * Math.sin(h) * Math.cos(p) + north * Math.cos(h) * Math.cos(p) + up * Math.sin(p)) /
+    length;
+  return Math.acos(Math.max(-1, Math.min(1, dot))) / D2R;
+}
+
+/**
+ * The drone the shot is about, whose ground chooses the terrain region: the
+ * one a site camera follows, or for This view the one nearest the frame's
+ * centre. Null when no drone is sent.
+ */
+export function subjectOf(camera, { drones, followIndex }) {
+  if (!drones?.length) return null;
+  if (camera?.kind === 'site') return drones[followIndex] ?? null;
+  if (!camera) return drones[0];
+  return [...drones].sort(
+    (a, b) => offAxisDeg(camera, a.row.position) - offAxisDeg(camera, b.row.position),
+  )[0];
 }
 
 /** Whether the run's revision binds its sites at all (GEN-379 publishes them). */
@@ -161,21 +287,37 @@ function observerPoint(camera) {
  * that this misses (dusk, a tile that will not load) comes back as a failed
  * job with its reason.
  */
-export function renderBlockers({ layers, camera, drone, sunAltitudeDeg }) {
+export function renderBlockers({ region, regionsOffered = true, camera, sent, subject, sunAltitudeDeg }) {
   const reasons = [];
-  if (!layers?.length || !layers.includes('terrain'))
-    reasons.push("This run's world holds no terrain tiles for its region");
+  const drones = sent?.drones ?? [];
+  const left = sent?.left ?? [];
+  const km = (m) => `${(m / 1000).toFixed(1)} km`;
   if (!camera) reasons.push('No camera: this run has no site with a camera');
-  if (!drone?.position) reasons.push('No drone row at this time');
   if (camera && Number.isFinite(sunAltitudeDeg) && sunAltitudeDeg <= 0)
     reasons.push('Night here at this time: the renderer draws daylight only');
-  if (camera && drone?.position) {
-    const distance = groundDistanceM(observerPoint(camera), drone.position);
-    if (distance > MAX_TARGET_DISTANCE_M)
+  const far = left.filter((drone) => drone.reason === 'too-far');
+  if (!drones.length) {
+    if (far.length && camera)
       reasons.push(
-        `The drone is ${(distance / 1000).toFixed(1)} km from the camera; the renderer takes 5 km at most`,
+        far.length === 1
+          ? `The drone is ${km(far[0].distanceM)} from the camera; the renderer takes 5 km at most`
+          : `Every drone is more than 5 km from the camera (the nearest is ${km(Math.min(...far.map((d) => d.distanceM)))})`,
       );
+    else reasons.push('No drone row at this time');
+    return reasons;
   }
+  if (camera?.kind === 'site' && sent.followIndex < 0) {
+    const followed = far.find((drone) => drone.track === sent.follow);
+    reasons.push(
+      followed
+        ? `${followed.name} is ${km(followed.distanceM)} from the camera; the renderer takes 5 km at most`
+        : 'The drone this camera follows has no row at this time',
+    );
+  }
+  if (!regionsOffered || (region && !layersOf(region).includes('terrain')))
+    reasons.push("This run's world holds no terrain tiles for its region");
+  else if (!region && subject)
+    reasons.push(`No terrain tiles cover ${subject.name} at this time`);
   return reasons;
 }
 
@@ -207,18 +349,22 @@ export function seedOf(text) {
 }
 
 /**
- * The request for one moment. `run` is `{head, revisionId}`; `validAt` the
- * player's epoch; `look` `fast` (Unreal) or `photoreal` (Unreal, then Cosmos).
+ * The request for one moment. `run` is `{head, revisionId}`; `sceneHead` the
+ * world head the region's tilesets are read at (the renderer pins and records
+ * its revision); `region` a `regionSceneOf` region; `sent` is `renderTargets`'
+ * answer; `validAt` the player's epoch; `look` `fast` (Unreal) or `photoreal`
+ * (Unreal, then Cosmos).
  */
-export function buildRenderRequest({ run, region, layers, camera, drone, validAt, look }) {
+export function buildRenderRequest({ run, sceneHead, region, camera, sent, validAt, look }) {
   const start = new Date(Date.parse(validAt)).toISOString().replace(/\.\d+Z$/, 'Z');
   const captureId = `run-${runShortId(run.head)}-${compactTime(start)}-${cameraKey(camera)}`;
   const point = observerPoint(camera);
   const frame = camera.kind === 'site' ? siteFrame(camera.site) : VIEW_FRAME;
+  const layers = layersOf(region);
   const request = {
     command: RENDER_COMMAND,
     capture_id: captureId,
-    scene: { revision: run.revisionId, region, layers: [...layers] },
+    scene: { head: sceneHead, region: region.name, layers },
     observer: {
       lon: point.lon,
       lat: point.lat,
@@ -231,20 +377,13 @@ export function buildRenderRequest({ run, region, layers, camera, drone, validAt
       },
       aim:
         camera.kind === 'site'
-          ? { follow: 0 }
+          ? { follow: sent.followIndex }
           : {
               heading_deg: Number(camera.headingDeg.toFixed(3)),
               pitch_deg: Number(Math.max(-90, Math.min(90, camera.pitchDeg)).toFixed(3)),
             },
     },
-    targets: [
-      {
-        lon: drone.position.lon,
-        lat: drone.position.lat,
-        height_m: drone.position.height,
-        height_ref: 'ellipsoid',
-      },
-    ],
+    targets: sent.drones.map((drone) => drone.target),
     window: { start, frames: 1 },
   };
   // GEN-417: Cosmos's style photo is the scene's own aerial imagery, cut to the ground in
