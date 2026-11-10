@@ -17,6 +17,21 @@
   "engines": {
     "node": ">=24.14.0 <25 || >=26 <27"
   },
+  "files": [
+    "src",
+    "public",
+    "server",
+    "build",
+    "LICENSE",
+    "README.md",
+    "DATA_SOURCES.md",
+    "scripts/google-server-key.mjs",
+    "scripts/pinokio-environment.mjs",
+    "style.css",
+    "!**/*.test.mjs",
+    "!**/*.test.js",
+    "!src/**/fixtures/**"
+  ],
   "keywords": [
     "cesium",
     "3d-globe",

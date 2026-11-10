@@ -34,6 +34,7 @@ import { resetContextStore } from '../data/contextStore.js';
 export function composeApplication({
   googleApiKey,
   cesiumToken,
+  basemap = null,
   allowQaRegistration = false,
   loadingScreen,
   createWorldModelLayer,
@@ -67,6 +68,7 @@ export function composeApplication({
         ...context,
         googleApiKey,
         cesiumToken,
+        basemap,
         loaderStatus,
       });
     },

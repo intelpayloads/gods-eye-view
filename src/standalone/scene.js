@@ -3,7 +3,7 @@ import { createApplicationViewer } from '../app/viewer.js';
 import { registerDataCredits } from '../data/dataCredits.js';
 import { configureCreditKeyboardAccess } from '../creditKeyboard.js';
 import { MapStackController } from '../mapStackController.js';
-import { loadPhotorealisticTileset } from '../mapStartup.js';
+import { loadStartupTileset } from '../mapStartup.js';
 import { initLogoGaze } from '../logoGaze.js';
 import { uninstallRenderGovernor } from '../renderGovernor.js';
 import { describeError } from './errors.js';
@@ -13,6 +13,7 @@ import { hostElement } from '../app/host.js';
 export async function createStandaloneScene({
   googleApiKey,
   cesiumToken,
+  basemap = null,
   loaderStatus,
   signal,
   defer,
@@ -43,13 +44,15 @@ export async function createStandaloneScene({
   });
   registerDataCredits(viewer);
   configureCreditKeyboardAccess(document);
+  // A host basemap (GEN-367) loads no photorealistic tileset, keys or not.
   loaderStatus.textContent =
-    googleApiKey || cesiumToken
+    (googleApiKey || cesiumToken) && !basemap
       ? 'Loading Google 3D Tiles...'
       : 'Loading the keyless globe...';
-  const photoreal = await loadPhotorealisticTileset(Cesium, {
+  const photoreal = await loadStartupTileset(Cesium, {
     googleApiKey,
     cesiumToken,
+    basemap,
   });
   const tileset = photoreal.tileset;
   // A provider can finish after cancellation; retain ownership of its result.
@@ -80,11 +83,13 @@ export async function createStandaloneScene({
 
   loaderStatus.textContent = 'Initializing systems...';
 
-  // The globe stack a scene without Google tiles shows (GEN-403's Modelled base).
-  const globeStack = 'esri-imagery';
+  // The globe stack a scene without Google tiles shows (GEN-403's Modelled base); osm draws the
+  // host basemap when one is set (GEN-367).
+  const globeStack = basemap ? 'osm' : 'esri-imagery';
   const mapStackController = new MapStackController(viewer, {
     googleTileset: tileset,
     cesiumToken,
+    basemap,
     initialStack: tileset ? 'photoreal' : globeStack,
     // Task 5 (height-datum fix): rebroadcast stack changes as a window
     // CustomEvent so data layers (CCTV per-regime ground resolution) can

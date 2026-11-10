@@ -49,3 +49,21 @@ export async function loadPhotorealisticTileset(
   Cesium.GoogleMaps.defaultApiKey = undefined;
   return { tileset: null, route: 'osm', errors };
 }
+
+/**
+ * The scene's startup tileset (GEN-367). A host basemap is the offline posture: no
+ * photorealistic request at all, whatever keys are configured, so nothing is fetched
+ * from tile.googleapis.com or Cesium ion and Cesium.Ion.defaultAccessToken /
+ * Cesium.GoogleMaps.defaultApiKey are left untouched. Otherwise, loadPhotorealisticTileset.
+ *
+ * @param {object} Cesium
+ * @param {{googleApiKey?: string, cesiumToken?: string, basemap?: object|null}} options
+ * @returns {Promise<{tileset: object|null, route: 'google-direct'|'google-ion'|'osm', errors: Error[]}>}
+ */
+export async function loadStartupTileset(
+  Cesium,
+  { googleApiKey = '', cesiumToken = '', basemap = null } = {},
+) {
+  if (basemap) return { tileset: null, route: 'osm', errors: [] };
+  return loadPhotorealisticTileset(Cesium, { googleApiKey, cesiumToken });
+}
