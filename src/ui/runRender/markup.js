@@ -33,6 +33,9 @@ export const STYLE = `
   border-top: 1px solid rgba(0, 212, 255, 0.2); }
 .gev-run-player .rr-list[hidden] { display: none; }
 .gev-run-player .rr-list button { display: block; width: 100%; text-align: left; margin: 2px 0; }
+.gev-run-player .rr-list .rr-entry { display: flex; gap: 4px; align-items: flex-start; }
+.gev-run-player .rr-list .rr-entry > button:first-child { flex: 1 1 auto; min-width: 0; }
+.gev-run-player .rr-list .rr-cancel { flex: none; width: auto; }
 .gev-run-player .rr-list .rr-reason { color: #ffb84d; font-size: 10px; }
 .${PIP_CLASS} {
   position: absolute; top: 16px; right: 16px; width: min(400px, 40%); z-index: 20; box-sizing: border-box;
@@ -78,7 +81,11 @@ export function el(tag, attributes = {}, ...children) {
   }
   for (const child of children.flat()) {
     if (child === null || child === undefined || child === false) continue;
-    node.append(typeof child === 'string' || typeof child === 'number' ? String(child) : child);
+    node.append(
+      typeof child === 'string' || typeof child === 'number'
+        ? String(child)
+        : child,
+    );
   }
   return node;
 }
