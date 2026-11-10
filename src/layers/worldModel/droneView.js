@@ -22,8 +22,11 @@ import {
   DRONE_DISPLAY_FACT,
   DRONE_TRACK_BINDING,
   DRONE_TRACK_COLOUR,
+  DRONE_TRACK_AIRFRAME,
   DRONE_TRACK_MODEL_FACT,
   UAS_TRACK_BINDING,
+  airframeFact,
+  airframeNote,
   c2Colour,
   displayPoseAt,
   droneModelFor,
@@ -117,12 +120,25 @@ export function droneOrientation(position, headingDeg, offsetDeg) {
  * @param {{id: string, source?: object, displayMs: (range?: {start?: number, end?: number}) => number|null,
  *   onFollowChange?: (following: boolean) => void}} options
  */
+/** Read a model once before it is drawn: it must answer, and be a binary glTF. */
+async function probeModel(url) {
+  const answer = await fetch(url);
+  if (!answer.ok) throw new Error(`HTTP ${answer.status}`);
+  const magic = new Uint8Array(await answer.arrayBuffer()).subarray(0, 4);
+  if (String.fromCharCode(...magic) !== 'glTF')
+    throw new Error('not a binary glTF');
+}
+
 export function createDroneView({
   id,
   source: projectionSource = null,
   displayMs,
   onFollowChange = () => {},
+  onModelChange = () => {},
+  loaders = {},
 }) {
+  const probe = loaders.probe ?? probeModel;
+  const probes = new Map(); // model url -> Promise<void>, one read per airframe
   const state = {
     viewer: null,
     source: null,
@@ -130,6 +146,7 @@ export function createDroneView({
     shown: false,
     drones: [], // { identity, itemId, track, model, entity }
     reasons: [], // why a drone track draws no model
+    notes: [], // why a published airframe is drawn as a multirotor
     follow: null, // { drone, stop, onKey, onTracked }
   };
 
@@ -181,7 +198,9 @@ export function createDroneView({
       // The follow camera and the card both read the frame's display position.
       trackingReferenceFrame: Cesium.TrackingReferenceFrame.ENU,
       model: {
-        uri: assetUrl(model.url),
+        // A published airframe (GEN-476) is drawn once it has been read; until
+        // then, and if it cannot be, the drone is the stock multirotor.
+        uri: assetUrl(model.published ? DRONE_TRACK_AIRFRAME.url : model.url),
         minimumPixelSize: model.minimumPixelSize,
         silhouetteColor: new Cesium.CallbackProperty(colour, false),
         // A hairline in the C2 colour: the label carries the state too.
@@ -250,6 +269,32 @@ export function createDroneView({
     });
   }
 
+  /**
+   * Swap a drawn drone to its published airframe once the mesh has been read;
+   * a mesh that does not load leaves the multirotor and says why.
+   */
+  function loadAirframe(drone) {
+    const { model, entity, binding, identity } = drone;
+    if (!probes.has(model.url)) probes.set(model.url, probe(model.url));
+    probes.get(model.url).then(
+      () => {
+        if (!state.drones.includes(drone)) return;
+        entity.model.uri = model.url;
+        drone.airframe = model.published;
+        onModelChange();
+      },
+      (error) => {
+        probes.delete(model.url);
+        if (!state.drones.includes(drone)) return;
+        state.notes.push({
+          binding,
+          text: `${identity}: ${airframeNote(model.published)}: it did not load (${error?.message || error})`,
+        });
+        onModelChange();
+      },
+    );
+  }
+
   /** Tell other layers which drones this one draws (none while hidden). */
   function announce() {
     recordDrawn(
@@ -305,11 +350,20 @@ export function createDroneView({
       entities.removeAll();
       state.drones = [];
       state.reasons = [];
+      state.notes = [];
+      const resolveUrl =
+        typeof projectionSource?.resolveUrl === 'function'
+          ? (path) => projectionSource.resolveUrl(path)
+          : null;
       entities.suspendEvents();
       for (const track of tracks) {
         if (track.rows.length < 2) continue;
         const binding = track.binding ?? UAS_TRACK_BINDING;
-        const { model, reason } = droneModelFor(track.header, binding);
+        const { model, reason, note } = droneModelFor(track.header, binding, {
+          resolveUrl,
+        });
+        if (note)
+          state.notes.push({ binding, text: `${track.identity}: ${note}` });
         if (!model) {
           state.reasons.push({
             binding,
@@ -328,14 +382,17 @@ export function createDroneView({
         modeChanges(track.rows).forEach((row, index) =>
           entities.add(markerEntity(track, row, index)),
         );
-        state.drones.push({
+        const drone = {
           identity: track.identity,
           binding,
           itemId,
           track,
           model,
           entity,
-        });
+          airframe: null, // the published airframe, once it is the one drawn
+        };
+        state.drones.push(drone);
+        if (model.published) loadAirframe(drone);
       }
       entities.resumeEvents();
       announce();
@@ -385,13 +442,18 @@ export function createDroneView({
         if (!groups.has(binding)) groups.set(binding, []);
         return groups.get(binding);
       };
+      const say = (binding, line) => {
+        const group = lines(binding);
+        if (!group.includes(line)) group.push(line);
+      };
       for (const drone of state.drones) {
-        const group = lines(drone.binding);
-        if (group.length) continue;
-        group.push(DRONE_DISPLAY_FACT);
-        if (drone.binding === DRONE_TRACK_BINDING)
-          group.push(DRONE_TRACK_MODEL_FACT);
+        say(drone.binding, DRONE_DISPLAY_FACT);
+        if (drone.binding !== DRONE_TRACK_BINDING) continue;
+        if (drone.airframe) say(drone.binding, airframeFact(drone.airframe));
+        else if (!drone.model.published)
+          say(drone.binding, DRONE_TRACK_MODEL_FACT);
       }
+      for (const note of state.notes) say(note.binding, `display: ${note.text}`);
       for (const reason of state.reasons)
         lines(reason.binding).push(`no model drawn: ${reason.text}`);
       return [...groups].map(([label, facts]) => ({ label, lines: facts }));

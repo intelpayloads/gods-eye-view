@@ -9,6 +9,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createDroneView, droneItemId } from './droneView.js';
 import {
+  AIRFRAME_ROOT,
   DRONE_BINDINGS,
   DRONE_DISPLAY_FACT,
   DRONE_TRACK_AIRFRAME,
@@ -16,6 +17,9 @@ import {
   DRONE_TRACK_COLOUR,
   DRONE_TRACK_MODEL_FACT,
   UAS_TRACK_BINDING,
+  airframeFact,
+  airframeOf,
+  airframePath,
   displayPoseAt,
   droneModelFor,
   droneName,
@@ -130,7 +134,7 @@ test('a C-UAS track and a drone track with one identity stay two tracks', () => 
   assert.equal(tracks[0].callsign, null);
 });
 
-test('a drone track is drawn as a multirotor whatever its header says; the C-UAS rule is unchanged', () => {
+test('a drone track with no airframe in its header is drawn as a multirotor; the C-UAS rule is unchanged', () => {
   assert.deepEqual(droneModelFor(TRACKS[0].header, DRONE_TRACK_BINDING), {
     model: DRONE_TRACK_AIRFRAME,
     reason: null,
@@ -138,6 +142,106 @@ test('a drone track is drawn as a multirotor whatever its header says; the C-UAS
   assert.equal(DRONE_TRACK_AIRFRAME.url, '/models/multirotor.glb');
   assert.equal(droneModelFor(TRACKS[0].header).model, null);
   assert.equal(droneModelFor(null, UAS_TRACK_BINDING).model, null);
+});
+
+const AIRFRAME_ID = `sha256:${'5e'.repeat(32)}`;
+const WITH_AIRFRAME = {
+  schema: 'dataforge.drone-track-delivery/1',
+  models: { airframe: { content_id: AIRFRAME_ID, extent_m: 1.4 } },
+};
+const resolveUrl = (path) => `/world${path}`;
+
+test('a header\'s airframe is read by content id through the source, in the stock model\'s convention (GEN-476)', () => {
+  const airframe = airframeOf(WITH_AIRFRAME);
+  assert.deepEqual(airframe, { contentId: AIRFRAME_ID, root: AIRFRAME_ROOT, extentM: 1.4 });
+  assert.equal(airframePath(airframe), `/tilesets/${AIRFRAME_ID}/airframe.glb`);
+  const { model, reason, note } = droneModelFor(WITH_AIRFRAME, DRONE_TRACK_BINDING, { resolveUrl });
+  assert.equal(model.url, `/world/tilesets/${AIRFRAME_ID}/airframe.glb`);
+  assert.deepEqual(model.published, airframe);
+  assert.deepEqual(
+    [model.headingOffsetDeg, model.minimumPixelSize],
+    [DRONE_TRACK_AIRFRAME.headingOffsetDeg, DRONE_TRACK_AIRFRAME.minimumPixelSize],
+    'nose toward -X, and a small airframe stays visible',
+  );
+  assert.equal(reason, null);
+  assert.equal(note, undefined);
+  // The header may name the file; a name that is a path is not taken.
+  const named = (root) => airframeOf({ models: { airframe: { content_id: AIRFRAME_ID, root } } }).root;
+  assert.equal(named('raven.glb'), 'raven.glb');
+  assert.equal(named('../secrets'), AIRFRAME_ROOT);
+  // Nothing published, or an id that is not one: the multirotor, with today's fact.
+  for (const header of [null, {}, { models: {} }, { models: { airframe: { content_id: '' } } }, { models: { airframe: { content_id: 'a/b' } } }])
+    assert.equal(airframeOf(header), null);
+  // A source that serves no files cannot show it, and says so.
+  const without = droneModelFor(WITH_AIRFRAME, DRONE_TRACK_BINDING);
+  assert.equal(without.model, DRONE_TRACK_AIRFRAME);
+  assert.match(without.note, /^airframe sha256:5e5e5e5e drawn as a multirotor: this source serves no files$/);
+  // The C-UAS track never reads it.
+  assert.equal(droneModelFor(WITH_AIRFRAME, UAS_TRACK_BINDING).model, null);
+});
+
+function drawn(source, loaders) {
+  const added = [];
+  const viewer = { dataSources: { add: (s) => added.push(s), remove() {} }, isDestroyed: () => false };
+  let changes = 0;
+  const view = createDroneView({
+    id: `world-product:${DRONE_TRACK_BINDING}`,
+    source,
+    displayMs: () => ms(5),
+    onModelChange: () => changes++,
+    loaders,
+  });
+  view.init(viewer);
+  view.show(true);
+  const tracks = TRACKS.map((track, i) => (i === 0 ? { ...track, header: WITH_AIRFRAME } : track));
+  view.draw(tracks, { revisionId: REVISION, sites: new Map() });
+  const uri = (i) =>
+    added[0].entities.values.find((e) => e.id === droneItemId(tracks[i].identity, DRONE_TRACK_BINDING)).model.uri.getValue();
+  return { view, uri, tracks, changes: () => changes };
+}
+const settled = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+test('a drone is drawn with its published airframe once the mesh has been read; the others stay multirotors', async () => {
+  const probed = [];
+  const { view, uri, changes } = drawn({ resolveUrl }, { probe: async (url) => void probed.push(url) });
+  assert.ok(uri(0).endsWith('/models/multirotor.glb'), 'the multirotor until the mesh is read');
+  await settled();
+  assert.deepEqual(probed, [`/world/tilesets/${AIRFRAME_ID}/airframe.glb`]);
+  assert.equal(uri(0), `/world/tilesets/${AIRFRAME_ID}/airframe.glb`);
+  assert.ok(uri(1).endsWith('/models/multirotor.glb'));
+  assert.equal(changes(), 1);
+  assert.deepEqual(view.facts(), [
+    {
+      label: DRONE_TRACK_BINDING,
+      lines: [DRONE_DISPLAY_FACT, airframeFact(airframeOf(WITH_AIRFRAME)), DRONE_TRACK_MODEL_FACT],
+    },
+  ]);
+  assert.match(airframeFact(airframeOf(WITH_AIRFRAME)), /published \(sha256:5e5e5e5e\)$/);
+  view.destroy();
+});
+
+test('an airframe that does not load, or a source with no files, leaves the multirotor and says why', async () => {
+  const failed = drawn({ resolveUrl }, { probe: async () => Promise.reject(new Error('HTTP 404')) });
+  await settled();
+  assert.ok(failed.uri(0).endsWith('/models/multirotor.glb'));
+  assert.deepEqual(failed.view.facts()[0].lines, [
+    DRONE_DISPLAY_FACT,
+    DRONE_TRACK_MODEL_FACT,
+    `display: ${failed.tracks[0].identity}: airframe sha256:5e5e5e5e drawn as a multirotor: it did not load (HTTP 404)`,
+  ]);
+  assert.equal(failed.changes(), 1);
+  failed.view.destroy();
+
+  let probes = 0;
+  const bare = drawn({}, { probe: async () => void probes++ });
+  await settled();
+  assert.equal(probes, 0, 'nothing to read it through');
+  assert.ok(bare.uri(0).endsWith('/models/multirotor.glb'));
+  assert.equal(
+    bare.view.facts()[0].lines.at(-1),
+    `display: ${bare.tracks[0].identity}: airframe sha256:5e5e5e5e drawn as a multirotor: this source serves no files`,
+  );
+  bare.view.destroy();
 });
 
 test('the label is the callsign, then the stored height and speed', () => {
