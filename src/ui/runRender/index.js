@@ -25,16 +25,18 @@ import {
   buildRenderRequest,
   cameraSites,
   groundDistanceM,
-  regionLayers,
+  regionAt,
   renderBlockers,
+  renderTargets,
   siteFrame,
   sitesQuery,
   slantDistanceM,
+  subjectOf,
   viewfinderBox,
 } from './request.js';
 import { sunAltitudeDeg } from './sun.js';
 import { createRenderJobs } from './jobs.js';
-import { colourLabels } from './outputs.js';
+import { boxName, colourLabels, dronesLine } from './outputs.js';
 import {
   FULL_CLASS,
   OPEN_CLASS,
@@ -73,12 +75,15 @@ function siteLabel(site) {
   return `${SITE_WORDS[site.kind] ?? site.kind} ${String(site.identity).split(':').at(-1)}`;
 }
 
-/** Read the run's drone, region tiles and camera sites, once per run revision. */
-async function readRunContext({ source, revisionId, head }) {
+/**
+ * Read the run's drones and camera sites, and the world's regions as the
+ * Modelled scene holds them (GEN-468), once per run revision.
+ */
+async function readRunContext({ source, revisionId, head }, regions) {
   const tracks = await sharedUasTracks(source).read({ revisionId });
-  if (!tracks.length)
-    return { tracks: [], region: null, layers: [], sites: [] };
-  const region = tracks[0].header?.terrain?.region ?? null;
+  if (!tracks.length) return { tracks: [], regions: [], sites: [] };
+  const scenes =
+    typeof regions?.regions === 'function' ? await regions.regions() : [];
   let revision = null;
   if (typeof source.getRevision === 'function')
     revision = await source.getRevision({ revisionId });
@@ -92,13 +97,15 @@ async function readRunContext({ source, revisionId, head }) {
     });
     sites = cameraSites(projection);
   }
-  return { tracks, region, layers: regionLayers(revision, region), sites };
+  return { tracks, regions: scenes, sites };
 }
 
 /**
  * @param {{renderSource: object, viewer: object, playerRoot: HTMLElement,
  *   controls: HTMLElement, seek: (validAt: string) => void, pause: () => void,
- *   storage?: Storage|null}} options
+ *   regions?: {head?: string, regions?: () => Promise<object[]>}|null,
+ *   storage?: Storage|null}} options `regions` is the region scene: the world
+ *   head a render names and the regions it reads its terrain from.
  */
 export function mountRunRender({
   renderSource,
@@ -107,6 +114,7 @@ export function mountRunRender({
   controls,
   seek,
   pause,
+  regions = null,
   storage,
 }) {
   const container = viewer?.container;
@@ -133,8 +141,7 @@ export function mountRunRender({
     key: null,
     status: 'idle',
     tracks: [],
-    region: null,
-    layers: [],
+    regions: [],
     sites: [],
   };
   let dirty = true;
@@ -209,8 +216,7 @@ export function mountRunRender({
       key,
       status: key ? 'loading' : 'idle',
       tracks: [],
-      region: null,
-      layers: [],
+      regions: [],
       sites: [],
     };
     ui.panelOpen = false;
@@ -220,7 +226,7 @@ export function mountRunRender({
     ui.cameraId = 'view';
     dirty = true;
     if (!key) return;
-    readRunContext(run).then(
+    readRunContext(run, regions).then(
       (read) => {
         if (context.key !== key) return;
         context = { key, status: 'ready', ...read };
@@ -238,7 +244,8 @@ export function mountRunRender({
     );
   }
 
-  function droneAt() {
+  /** The drone a site camera follows: the dropdown's, at its stored row. */
+  function followed() {
     const track = context.tracks[ui.droneIndex] ?? context.tracks[0];
     if (!track || !moment) return { track: null, row: null };
     return { track, row: storedRowAt(track.rows, moment.ms) };
@@ -364,12 +371,14 @@ export function mountRunRender({
               ),
             ),
           );
+    // Every drone is sent; a site camera is only told which one to follow.
     const droneSelect =
-      context.tracks.length > 1
+      ui.cameraId !== 'view' && context.tracks.length > 1
         ? el(
             'select',
             {
-              'aria-label': 'Drone',
+              'aria-label': 'Drone the camera follows',
+              title: 'The drone this camera follows',
               onchange: (event) => (
                 (ui.droneIndex = Number(event.target.value)),
                 (dirty = true)
@@ -477,23 +486,39 @@ export function mountRunRender({
 
   /** What the panel would send now, and why not. */
   function currentShot() {
-    const { track, row } = droneAt();
-    const { camera, box } = chosenCamera(row);
+    const follow = followed();
+    const { camera, box } = chosenCamera(follow.row);
     const where = camera
       ? camera.kind === 'site'
         ? camera.site
         : camera
       : null;
     const sun = where && moment ? sunAltitudeDeg(where, moment.validAt) : null;
+    const sent = renderTargets({
+      tracks: context.tracks,
+      ms: moment?.ms,
+      observer: where,
+      follow: camera?.kind === 'site' ? follow.track : null,
+    });
+    const subject = subjectOf(camera, sent);
+    // A track that names its region keeps it; else the region under the subject.
+    const named = subject?.track.header?.terrain?.region ?? null;
+    const region = !subject
+      ? null
+      : named
+        ? (context.regions.find((r) => r.name === named) ?? null)
+        : regionAt(context.regions, subject.row.position);
     const blockers = renderBlockers({
-      layers: context.layers,
+      region,
+      regionsOffered: Boolean(regions?.head),
       camera,
-      drone: row,
+      sent,
+      subject,
       sunAltitudeDeg: sun,
     });
     if (ui.cameraId === 'view' && !camera)
       blockers.unshift('This view needs the 3D perspective camera');
-    return { track, row, camera, box, where, blockers };
+    return { sent, subject, region, camera, box, where, blockers };
   }
 
   function renderPanel(shot) {
@@ -504,21 +529,28 @@ export function mountRunRender({
     live.zoom.textContent = shot.camera
       ? `${shot.camera.fovDeg.toFixed(1)}°${shot.camera.kind === 'site' ? ` (lens ${shot.camera.site.hfovDeg}°)` : ' as framed'} · ${frame.width}×${frame.height}`
       : '';
-    const words = shot.row ? uasWords(shot.row, shot.track.header) : null;
-    live.drone.textContent = shot.row
+    const { subject, sent } = shot;
+    const words = subject ? uasWords(subject.row, subject.track.header) : null;
+    const count = (reason) =>
+      sent.left.filter((drone) => drone.reason === reason).length;
+    live.drone.textContent = subject
       ? [
-          droneName(shot.track.identity, shot.track.callsign),
+          sent.drones.length > 1 ? `${sent.drones.length} drones` : null,
+          count('too-far') ? `${count('too-far')} beyond 5 km` : null,
+          count('no-row') ? `${count('no-row')} not flying yet` : null,
+          count('too-many') ? `${count('too-many')} over the limit` : null,
+          subject.name,
           shot.where
-            ? `${(groundDistanceM(shot.where, shot.row.position) / 1000).toFixed(2)} km away`
+            ? `${(groundDistanceM(shot.where, subject.row.position) / 1000).toFixed(2)} km away`
             : null,
-          Number.isFinite(shot.row.aglM)
-            ? `${Math.round(shot.row.aglM)} m AGL`
+          Number.isFinite(subject.row.aglM)
+            ? `${Math.round(subject.row.aglM)} m AGL`
             : null,
           words?.mode,
         ]
           .filter(Boolean)
           .join(' · ')
-      : 'no stored row at this time';
+      : 'no drone to send at this time';
     live.blockers.replaceChildren(
       ...shot.blockers.map((reason) => el('div', {}, reason)),
     );
@@ -539,13 +571,13 @@ export function mountRunRender({
 
   async function submit() {
     const shot = currentShot();
-    if (shot.blockers.length || !shot.camera || !shot.row) return;
+    if (shot.blockers.length || !shot.camera || !shot.region) return;
     const request = buildRenderRequest({
       run: moment.run,
-      region: context.region,
-      layers: context.layers,
+      sceneHead: regions.head,
+      region: shot.region,
       camera: shot.camera,
-      drone: shot.row,
+      sent: shot.sent,
       validAt: moment.validAt,
       look: ui.look,
     });
@@ -748,11 +780,16 @@ export function mountRunRender({
     if (width && height)
       for (const box of boxes)
         frame.append(
-          el('div', {
-            class: boxClass,
-            title: `${box.objectId}${box.visiblePx ? ` · ${box.visiblePx} px visible` : ''}`,
-            style: `left:${((box.xMin + box.xMax) / 2 / width) * 100}%;top:${((box.yMin + box.yMax) / 2 / height) * 100}%;width:${((box.xMax - box.xMin) / width) * 100}%;height:${((box.yMax - box.yMin) / height) * 100}%`,
-          }),
+          el(
+            'div',
+            {
+              class: boxClass,
+              title: `${boxName(box)}${box.visiblePx ? ` · ${box.visiblePx} px visible` : ''}`,
+              style: `left:${((box.xMin + box.xMax) / 2 / width) * 100}%;top:${((box.yMin + box.yMax) / 2 / height) * 100}%;width:${((box.xMax - box.xMin) / width) * 100}%;height:${((box.yMax - box.yMin) / height) * 100}%`,
+            },
+            // GEN-468: each box under its callsign.
+            el('span', { class: 'rr-box-name' }, boxName(box)),
+          ),
         );
     return frame;
   }
@@ -829,6 +866,13 @@ export function mountRunRender({
         ),
         el('span', {}, clockText(Date.parse(entry.validAt))),
       ),
+      entry.frame && dronesLine(entry.sent, entry.frame.boxes)
+        ? el(
+            'div',
+            { class: 'rr-drones' },
+            dronesLine(entry.sent, entry.frame.boxes),
+          )
+        : null,
       el(
         'div',
         { class: 'rr-views' },

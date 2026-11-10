@@ -314,6 +314,10 @@ export function createRenderJobs({
 
     /** Send one request; the entry is listed at once and follows the job. */
     async submit({ runKey, validAt, camera, look, fovDeg, request }) {
+      // GEN-468: who was sent, so the result can say which drones its frame hides.
+      const sent = (request.targets ?? [])
+        .filter((target) => typeof target?.id === 'string')
+        .map((target) => ({ id: target.id, label: target.label ?? null }));
       const entry = {
         id: null,
         runKey,
@@ -322,6 +326,7 @@ export function createRenderJobs({
         look,
         fovDeg,
         captureId: request.capture_id,
+        sent,
         submittedAt: new Date(now()).toISOString(),
         state: 'submitting',
         reason: null,

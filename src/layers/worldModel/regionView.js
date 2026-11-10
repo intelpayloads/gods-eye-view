@@ -488,6 +488,10 @@ export function createRegionScene({
       );
     },
     scene: () => scene,
+    /** The world head regions are read on; a render names its scene by it (GEN-468). */
+    head,
+    /** Every region with its listed tilesets (`regionSceneOf`), read once, whatever scene is shown. */
+    regions: () => readRegions(),
     state,
     setScene,
     flyTo,
